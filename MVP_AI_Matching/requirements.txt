@@ -1,0 +1,36 @@
+# ============================================================
+# AI Service — Python Dependencies
+# ============================================================
+
+# --- Web Framework ---
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+# python-multipart>=0.0.9        # (removed: /parse-cv now accepts URLs, not file upload)
+
+# --- Config & Validation ---
+pydantic>=2.5.0
+pydantic-settings>=2.1.0          # load .env
+
+# --- Document Processing (Stage 1) ---
+pymupdf>=1.24.0                   # PDF extraction (fitz) — smart layout
+pytesseract>=0.3.10               # OCR fallback (requires Tesseract binary)
+pillow>=10.0.0                    # image processing for OCR
+python-docx>=1.1.0                # DOCX text extraction
+
+# --- LLM Providers (Stage 2 + 5 + 10) ---
+# Option A: Paid providers (production)
+anthropic>=0.40.0                 # Claude Sonnet 4.6
+openai>=1.30.0                    # text-embedding-3-small (1536-dim) + Groq compat
+
+# Option B: Free providers (dev / fallback)
+sentence-transformers>=2.7.0      # local embedding (all-MiniLM-L6-v2, 384-dim)
+
+# --- Numerical Computing (Stage 4) ---
+numpy>=1.26.0                     # cosine similarity, vector ops
+
+# --- HTTP Client (for R2 file download) ---
+httpx>=0.27.0                     # async HTTP client (Cloudflare R2 fetch)
+
+# --- Dev Tools ---
+pytest>=8.0.0
+pytest-asyncio>=0.23.0

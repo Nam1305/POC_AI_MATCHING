@@ -1,0 +1,153 @@
+# ─── Secrets & API Keys ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pub
+*.p12
+*.pfx
+*.cer
+*.crt
+secrets/
+credentials/
+
+# ─── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+.Python
+
+# Build / dist
+build/
+dist/
+develop-eggs/
+eggs/
+.eggs/
+lib/
+lib64/
+sdist/
+wheels/
+*.egg-info/
+*.egg
+.installed.cfg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.conda/
+conda-env/
+
+# ─── Caches ────────────────────────────────────────────────────────────────
+.cache/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.dmypy.json
+dmypy.json
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.cover
+
+# Sentence Transformers / HuggingFace model cache
+sentence_transformers/
+transformers_cache/
+huggingface/
+~/.cache/huggingface/
+hub/
+
+# ─── Jupyter Notebooks ────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# ─── IDE & Editor ──────────────────────────────────────────────────────────
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains (PyCharm, Rider, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Settings files
+*.settings
+.settings/
+
+# ─── OS Files ──────────────────────────────────────────────────────────────
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon
+
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ─── Logs & Databases ──────────────────────────────────────────────────────
+*.log
+*.log.*
+logs/
+*.sqlite
+*.sqlite3
+*.db
+
+# ─── Docker ────────────────────────────────────────────────────────────────
+# (docker-compose.override.yml có thể chứa secrets local)
+docker-compose.override.yml
+
+# ─── Temporary Files ───────────────────────────────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+.temp/
+tmp/
+temp/
+
+# ─── Node (nếu sau này thêm frontend tools) ────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

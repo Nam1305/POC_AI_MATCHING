@@ -1,0 +1,53 @@
+# ─── Secrets & API Keys ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pub
+*.p12
+*.pfx
+
+# ─── Python Cache ──────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# ─── Virtual Environments ──────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ─── Test & Coverage Cache ─────────────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# ─── ML Model Cache ────────────────────────────────────────────────────────
+sentence_transformers/
+huggingface/
+hub/
+
+# ─── Build ─────────────────────────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+
+# ─── Logs ──────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── OS ────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── IDE ───────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.settings

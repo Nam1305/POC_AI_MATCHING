@@ -1,0 +1,34 @@
+Job Title: Junior .NET Backend Developer
+
+Company: TechViet Solutions
+Location: Ho Chi Minh City (Hybrid)
+
+About the role:
+We are looking for a Junior .NET Backend Developer to join our product team.
+You will build and maintain RESTful APIs powering our web and mobile applications.
+
+Requirements:
+- Minimum 6 months of hands-on experience in .NET development
+- Proficiency in C# and ASP.NET Core Web API
+- Experience building RESTful APIs
+- Basic knowledge of SQL Server or PostgreSQL
+- Familiarity with Entity Framework Core
+- Version control with Git
+
+Nice to have:
+- Experience with Docker or containerization
+- Knowledge of Clean Architecture or SOLID principles
+- Basic React or any frontend framework
+- Experience with Redis or caching strategies
+
+Responsibilities:
+- Design and implement RESTful APIs using ASP.NET Core
+- Write clean, maintainable C# code following best practices
+- Work with SQL Server databases using Entity Framework Core
+- Collaborate with frontend developers and mobile team
+- Participate in code reviews and technical discussions
+- Write unit tests for backend services
+
+Education: Bachelor's degree in Computer Science, Software Engineering, or related field preferred.
+
+Keywords: C#, .NET, ASP.NET Core, REST API, SQL Server, Entity Framework, Git, backend
