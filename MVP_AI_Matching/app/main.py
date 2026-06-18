@@ -5,7 +5,6 @@ Endpoints (all under /ai prefix, see app/api/*.py):
   POST /ai/parse-jd     — JD text → parsed JSON + embedding
   POST /ai/parse-cv     — CV file(s) → parsed JSON + embedding
   POST /ai/score        — CV ↔ JD → 5-dimension score (pure Python, no LLM)
-  POST /ai/search       — natural language candidate search
 
 Plus:
   GET /health           — health check
@@ -17,12 +16,12 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import parse, score, search
+from app.api import parse, score
 
 app = FastAPI(
     title="AI Service — CV/JD Matching",
-    version="0.2.0",
-    description="Stateless microservice for CV parsing, JD parsing, scoring, and NL search.",
+    version="0.3.0",
+    description="Stateless microservice for CV parsing, JD parsing, and scoring.",
 )
 
 # Internal Docker network only — wide-open CORS is safe.
@@ -35,9 +34,8 @@ app.add_middleware(
 )
 
 # Mount feature routers
-app.include_router(parse.router,  prefix="/ai", tags=["parse"])
-app.include_router(score.router,  prefix="/ai", tags=["score"])
-app.include_router(search.router, prefix="/ai", tags=["search"])
+app.include_router(parse.router, prefix="/ai", tags=["parse"])
+app.include_router(score.router, prefix="/ai", tags=["score"])
 
 
 @app.get("/health")
