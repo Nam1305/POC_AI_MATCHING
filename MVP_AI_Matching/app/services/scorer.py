@@ -20,23 +20,14 @@ from typing import Optional
 
 import numpy as np
 
+from app.config import settings
 from app.schemas import ParsedCV, ParsedJD
 
 
 # ---------------------------------------------------------------------------
-# Default weights
+# 6D weights including role_fit — used when use_role_fit=True
 # ---------------------------------------------------------------------------
 
-# Legacy 5D weights — used when use_role_fit=False (default)
-DEFAULT_WEIGHTS: dict[str, float] = {
-    "semantic":   0.30,
-    "skills":     0.35,
-    "experience": 0.20,
-    "education":  0.10,
-    "keywords":   0.05,
-}
-
-# 6D weights including role_fit — used when use_role_fit=True
 DEFAULT_WEIGHTS_WITH_ROLE: dict[str, float] = {
     "semantic":   0.25,
     "skills":     0.30,
@@ -57,7 +48,6 @@ class SkillMatcher:
     grant partial credit for skills in the same broad category.
     """
 
-    # Maps raw token (lowercased) → canonical name
     ALIASES: dict[str, str] = {
         # JavaScript ecosystem
         "js": "javascript", "javascript": "javascript", "es6": "javascript",
@@ -112,7 +102,6 @@ class SkillMatcher:
         "go": "go", "golang": "go",
     }
 
-    # High-level groupings used for category-level partial credit
     CATEGORIES: dict[str, set[str]] = {
         "frontend": {"react", "angular", "vue", "javascript", "typescript",
                      "html", "css", "nextjs", "tailwind"},
@@ -130,14 +119,12 @@ class SkillMatcher:
     }
 
     def normalize_skill(self, skill: str) -> str:
-        """Return canonical name if known, otherwise lowered/trimmed input."""
         if not skill:
             return ""
         key = skill.lower().strip()
         return self.ALIASES.get(key, key)
 
     def fuzzy_match(self, skill1: str, skill2: str, threshold: float = 0.85) -> bool:
-        """SequenceMatcher ratio over the two normalized skills."""
         if not skill1 or not skill2:
             return False
         ratio = difflib.SequenceMatcher(None, skill1, skill2).ratio()
@@ -152,7 +139,7 @@ class SkillMatcher:
     def category_match(self, cv_skills: set[str], jd_skill: str) -> float:
         """
         Partial credit when JD skill belongs to a category that the CV
-        already covers via *other* skills. Score scales with how many
+        already covers via other skills. Score scales with how many
         same-category skills the CV has.
         """
         cat = self._category_of(jd_skill)
@@ -165,7 +152,6 @@ class SkillMatcher:
         return min(0.3 + 0.1 * (overlap - 1), 0.5)
 
 
-# Singleton — cheap to create but reused for clarity
 _skill_matcher = SkillMatcher()
 
 
@@ -180,16 +166,16 @@ def cosine_sim(v1: list[float], v2: list[float]) -> float:
     return float(np.dot(a, b) / denom) if denom > 0 else 0.0
 
 
-def normalize_cosine(raw: float, min_val: float = 0.20, max_val: float = 0.80) -> float:
+def normalize_cosine(raw: float, min_val: float = 0.55, max_val: float = 0.90) -> float:
     """
-    all-MiniLM gives cosine ~0.2–0.8 for typical CV/JD pairs (never near 1.0).
     Stretch [min_val, max_val] → [0, 1] so D1 scoring uses the full range.
+    Calibrated for gemini-embedding-001: floor ~0.55 (unrelated fields), ceiling ~0.90 (same-stack).
     """
     return max(0.0, min((raw - min_val) / (max_val - min_val), 1.0))
 
 
 # ---------------------------------------------------------------------------
-# D2: Skills — enhanced (alias + fuzzy + category)
+# D2: Skills — alias + fuzzy + category
 # ---------------------------------------------------------------------------
 
 def _collect_cv_skills(cv: ParsedCV) -> set[str]:
@@ -202,7 +188,7 @@ def _collect_cv_skills(cv: ParsedCV) -> set[str]:
     return skills
 
 
-def score_skills_enhanced(
+def score_skills(
     cv: ParsedCV,
     jd: ParsedJD,
     matcher: Optional[SkillMatcher] = None,
@@ -242,17 +228,11 @@ def score_skills_enhanced(
     return matched_w / total_w if total_w > 0 else 0.0
 
 
-# Legacy alias — keeps existing call sites working
-def score_skills(cv: ParsedCV, jd: ParsedJD) -> float:
-    return score_skills_enhanced(cv, jd)
-
-
 # ---------------------------------------------------------------------------
-# D3: Experience — enhanced (relevance + recency + over-qualification)
+# D3: Experience — relevance + recency + over-qualification
 # ---------------------------------------------------------------------------
 
 def _parse_yyyy_mm(date_str: Optional[str]) -> Optional[datetime]:
-    """Parse 'YYYY-MM' / 'YYYY' / 'present' loosely."""
     if not date_str:
         return None
     s = date_str.strip().lower()
@@ -273,8 +253,8 @@ def _months_since(dt: datetime) -> int:
 
 def _jd_domain_tokens(jd: ParsedJD) -> list[str]:
     """
-    ParsedJD has no explicit `required_domain` field — derive domain hints
-    from title + keywords. Filter to longer tokens to avoid generic noise.
+    Derive domain hints from JD title + keywords.
+    Filter to longer tokens to avoid generic noise.
     """
     tokens: set[str] = set()
     if jd.title:
@@ -288,7 +268,7 @@ def _jd_domain_tokens(jd: ParsedJD) -> list[str]:
     return list(tokens)
 
 
-def score_experience_enhanced(cv: ParsedCV, jd: ParsedJD) -> float:
+def score_experience(cv: ParsedCV, jd: ParsedJD) -> float:
     """
     Base: min(cv_years / jd_min_years, 1.0).
 
@@ -305,7 +285,6 @@ def score_experience_enhanced(cv: ParsedCV, jd: ParsedJD) -> float:
     base = min(cv_years / jd.min_experience_years, 1.0)
     modifiers = 0.0
 
-    # 1) Relevance bonus
     domain_tokens = _jd_domain_tokens(jd)
     if domain_tokens and cv.work_experience:
         relevant_months = 0
@@ -318,7 +297,6 @@ def score_experience_enhanced(cv: ParsedCV, jd: ParsedJD) -> float:
             relevance_ratio = min(relevant_years / jd.min_experience_years, 1.0)
             modifiers += 0.20 * relevance_ratio
 
-    # 2) Recency bonus/penalty — assume work_experience[0] is the latest
     if cv.work_experience:
         latest = cv.work_experience[0]
         if latest.is_current:
@@ -332,19 +310,14 @@ def score_experience_enhanced(cv: ParsedCV, jd: ParsedJD) -> float:
                 elif months_ago > 12:
                     modifiers -= 0.10
 
-    # 3) Over-qualification penalty
     if cv_years > 2 * jd.min_experience_years:
         modifiers -= 0.05
 
     return max(0.0, min(base + modifiers, 1.0))
 
 
-def score_experience(cv: ParsedCV, jd: ParsedJD) -> float:
-    return score_experience_enhanced(cv, jd)
-
-
 # ---------------------------------------------------------------------------
-# D4: Education — unchanged
+# D4: Education
 # ---------------------------------------------------------------------------
 
 def score_education(cv: ParsedCV, jd: ParsedJD) -> float:
@@ -354,20 +327,19 @@ def score_education(cv: ParsedCV, jd: ParsedJD) -> float:
         return 1.0
     cv_level = cv.highest_degree_level
     if not cv_level:
-        return 0.5    # CV missing degree info but JD requires one — partial credit
+        return 0.5
     return min(cv_level / jd_level, 1.0)
 
 
 # ---------------------------------------------------------------------------
-# D5: Keywords — enhanced (exact / word-boundary / multi-word)
+# D5: Keywords — exact / word-boundary / multi-word
 # ---------------------------------------------------------------------------
 
 def _clean_text_for_match(text: str) -> str:
-    """Lowercase + replace punctuation with spaces (keeps word boundaries clean)."""
     return re.sub(r"[^\w\s]", " ", text.lower())
 
 
-def score_keywords_enhanced(cv_raw_text: str, jd: ParsedJD) -> float:
+def score_keywords(cv_raw_text: str, jd: ParsedJD) -> float:
     """
     Per-keyword score:
       - exact substring or word-boundary match → 1.0
@@ -388,12 +360,10 @@ def score_keywords_enhanced(cv_raw_text: str, jd: ParsedJD) -> float:
         if not kw_clean:
             continue
 
-        # Exact substring on cleaned text
         if kw_clean in text_cleaned:
             keyword_scores.append(1.0)
             continue
 
-        # Word-boundary match (handles cases where substring fails on suffixes)
         try:
             if re.search(rf"\b{re.escape(kw_clean)}\b", text_cleaned):
                 keyword_scores.append(1.0)
@@ -401,7 +371,6 @@ def score_keywords_enhanced(cv_raw_text: str, jd: ParsedJD) -> float:
         except re.error:
             pass
 
-        # Multi-word phrase: all subwords present anywhere → partial
         words = kw_clean.split()
         if len(words) > 1 and all(
             re.search(rf"\b{re.escape(w)}\b", text_cleaned) for w in words
@@ -416,16 +385,10 @@ def score_keywords_enhanced(cv_raw_text: str, jd: ParsedJD) -> float:
     return sum(keyword_scores) / len(keyword_scores)
 
 
-def score_keywords(cv_raw_text: str, jd: ParsedJD) -> float:
-    return score_keywords_enhanced(cv_raw_text, jd)
-
-
 # ---------------------------------------------------------------------------
 # D6: Role Fit (optional)
 # ---------------------------------------------------------------------------
 
-# Title keyword → seniority level. Order doesn't matter; we keep the MAX
-# level matched so "Senior Software Engineer" scores as senior, not engineer.
 _LEVEL_KEYWORDS: list[tuple[str, int]] = [
     ("intern",     0),
     ("fresher",    1),
@@ -447,7 +410,6 @@ _LEVEL_KEYWORDS: list[tuple[str, int]] = [
 
 
 def _detect_level(title: str) -> int:
-    """Return highest level keyword that appears in the title (default 2)."""
     if not title:
         return 2
     t = title.lower()
@@ -500,25 +462,21 @@ class AdaptiveWeights:
     def calculate_weights(self, jd: ParsedJD) -> dict[str, float]:
         w = dict(self.BASE)
 
-        # Many required skills → skills more important
         if jd.required_skills and len(jd.required_skills) > 5:
             w["skills"]   += 0.10
             w["semantic"] = max(0.0, w["semantic"] - 0.05)
             w["keywords"] = max(0.0, w["keywords"] - 0.05)
 
-        # Senior role (≥5 yrs) → experience more important
         if jd.min_experience_years and jd.min_experience_years >= 5:
             w["experience"] += 0.10
             w["education"]  = max(0.0, w["education"] - 0.05)
             w["keywords"]   = max(0.0, w["keywords"] - 0.05)
 
-        # Master+ required → education more important
         if jd.required_degree_level >= 4:
             w["education"] += 0.10
             w["skills"]    = max(0.0, w["skills"] - 0.05)
             w["keywords"]  = max(0.0, w["keywords"] - 0.05)
 
-        # Normalize to sum=1.0
         total = sum(w.values())
         if total > 0:
             for k in w:
@@ -527,7 +485,7 @@ class AdaptiveWeights:
 
 
 # ---------------------------------------------------------------------------
-# Aggregate — calculate_score (backward-compatible signature)
+# Aggregate — calculate_score
 # ---------------------------------------------------------------------------
 
 def calculate_score(
@@ -543,18 +501,17 @@ def calculate_score(
 ) -> dict:
     """
     Compute all dimensions + final weighted score (0-100).
-    Returns the same shape as before; if use_role_fit=True, the `scores`
-    dict additionally includes `role_fit`.
+    If use_role_fit=True, the `scores` dict additionally includes `role_fit`.
     """
-    w = weights or (DEFAULT_WEIGHTS_WITH_ROLE if use_role_fit else DEFAULT_WEIGHTS)
+    w = weights or (DEFAULT_WEIGHTS_WITH_ROLE if use_role_fit else settings.default_weights)
     if not cv_raw_text:
         cv_raw_text = parsed_cv.build_embed_text()
 
     d1 = normalize_cosine(cosine_sim(cv_embedding, jd_embedding), cosine_min, cosine_max)
-    d2 = score_skills_enhanced(parsed_cv, parsed_jd)
-    d3 = score_experience_enhanced(parsed_cv, parsed_jd)
+    d2 = score_skills(parsed_cv, parsed_jd)
+    d3 = score_experience(parsed_cv, parsed_jd)
     d4 = score_education(parsed_cv, parsed_jd)
-    d5 = score_keywords_enhanced(cv_raw_text, parsed_jd)
+    d5 = score_keywords(cv_raw_text, parsed_jd)
     d6 = score_role_fit(parsed_cv, parsed_jd) if use_role_fit else None
 
     final = (
@@ -646,22 +603,7 @@ def calculate_score_with_rules(
                 )
 
     penalty = min(penalty, 0.95)
-    result["final_score"]    = round(result["final_score"] * (1 - penalty), 1)
-    result["penalty_applied"] = round(penalty, 3)
-    result["penalty_reasons"] = reasons
+    result["final_score"]      = round(result["final_score"] * (1 - penalty), 1)
+    result["penalty_applied"]  = round(penalty, 3)
+    result["penalty_reasons"]  = reasons
     return result
-
-
-# ---------------------------------------------------------------------------
-# Recalculate — pure math, no parsed_cv/jd needed
-# ---------------------------------------------------------------------------
-
-def recalculate_final(scores: dict[str, float], weights: dict[str, float]) -> float:
-    """
-    Apply new weights to already-computed per-dimension scores.
-    `scores` values are 0-100; weights sum to 1.0; result is 0-100.
-    Only weight keys present in both dicts are used (so extra dims like
-    role_fit are handled cleanly).
-    """
-    final = sum(scores[k] * weights[k] for k in weights if k in scores)
-    return round(final, 1)

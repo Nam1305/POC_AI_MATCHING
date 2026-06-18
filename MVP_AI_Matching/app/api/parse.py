@@ -6,6 +6,7 @@ POST /ai/parse-cv  — S3/R2 URL(s) → cv_raw_text + ParsedCV + embedding (per 
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 
 import httpx
@@ -34,6 +35,7 @@ class ParseJDRequest(BaseModel):
 class ParseJDResponse(BaseModel):
     parsed_jd:    ParsedJD
     jd_embedding: list[float]
+    error:        str | None = None
 
 
 @router.post(
@@ -82,16 +84,13 @@ async def parse_jd_endpoint(request: Request) -> ParseJDResponse:
     # Try JSON first — if it's an object with "jd_text", use that
     jd_text: str = ""
     if text.startswith("{"):
-        import json as _json
         try:
-            payload = _json.loads(text)
+            payload = json.loads(text)
             if isinstance(payload, dict) and "jd_text" in payload:
                 jd_text = str(payload["jd_text"] or "")
             else:
-                # JSON object but no jd_text — fall through to raw
                 jd_text = text
-        except _json.JSONDecodeError:
-            # Looked like JSON but isn't valid — treat as raw text
+        except json.JSONDecodeError:
             jd_text = text
     else:
         jd_text = text
@@ -101,8 +100,17 @@ async def parse_jd_endpoint(request: Request) -> ParseJDResponse:
         raise HTTPException(status_code=400, detail="jd_text is empty")
 
     parsed = await parse_jd_text(jd_text)
-    jd_embedding = await embed(jd_text)
-    return ParseJDResponse(parsed_jd=parsed, jd_embedding=jd_embedding)
+    jd_embedding = None
+    error_message = None
+    try:
+        jd_embedding = await embed(jd_text)
+    except Exception as e:
+        error_message = f"Embed failed: {e}"
+        # Log the error for debugging purposes
+        import logging
+        logging.error(f"Error embedding JD: {e}")
+
+    return ParseJDResponse(parsed_jd=parsed, jd_embedding=jd_embedding, error=error_message)
 
 
 # ---------------------------------------------------------------------------

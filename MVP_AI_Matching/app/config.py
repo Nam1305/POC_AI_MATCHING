@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     log_level: str = "info"
 
     # ---- LLM provider ----
-    llm_provider: Literal["anthropic", "groq"] = "groq"
+    llm_provider: Literal["anthropic", "groq", "gemini"] = "gemini"
 
     anthropic_api_key: str = ""
     anthropic_model:   str = "claude-sonnet-4-6"
@@ -27,17 +27,22 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model:   str = "llama-3.1-8b-instant"
 
+    gemini_api_key: str = ""
+    gemini_model:   str = "gemini-2.5-flash"
+
     # ---- Embedding provider ----
-    embed_provider: Literal["openai", "sentence_transformer"] = "sentence_transformer"
+    embed_provider: Literal["openai", "sentence_transformer", "gemini"] = "gemini"
 
     openai_api_key:     str = ""
     openai_embed_model: str = "text-embedding-3-small"     # 1536-dim
 
     st_embed_model: str = "all-MiniLM-L6-v2"               # 384-dim, local
 
+    gemini_embed_model: str = "gemini-embedding-001"          # 3072-dim
+
     # ---- Scoring ----
-    cosine_min: float = 0.20    # all-MiniLM real-world floor
-    cosine_max: float = 0.80    # all-MiniLM real-world ceiling
+    cosine_min: float = 0.55    # gemini-embedding-001 real-world floor (unrelated fields)
+    cosine_max: float = 0.90    # gemini-embedding-001 real-world ceiling (same-stack match)
 
     default_weight_semantic:   float = 0.30
     default_weight_skills:     float = 0.35

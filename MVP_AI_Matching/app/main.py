@@ -3,9 +3,8 @@ FastAPI entry point for AI Service.
 
 Endpoints (all under /ai prefix, see app/api/*.py):
   POST /ai/parse-jd     — JD text → parsed JSON + embedding
-  POST /ai/parse-cv     — CV file → parsed JSON + embedding
-  POST /ai/score        — CV ↔ JD → 5-dimension score
-  POST /ai/recalculate  — apply new weights to existing scores (no LLM)
+  POST /ai/parse-cv     — CV file(s) → parsed JSON + embedding
+  POST /ai/score        — CV ↔ JD → 5-dimension score (pure Python, no LLM)
   POST /ai/search       — natural language candidate search
 
 Plus:
@@ -18,11 +17,11 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import parse, score, recalculate, search
+from app.api import parse, score, search
 
 app = FastAPI(
     title="AI Service — CV/JD Matching",
-    version="0.1.0",
+    version="0.2.0",
     description="Stateless microservice for CV parsing, JD parsing, scoring, and NL search.",
 )
 
@@ -36,10 +35,9 @@ app.add_middleware(
 )
 
 # Mount feature routers
-app.include_router(parse.router,       prefix="/ai", tags=["parse"])
-app.include_router(score.router,       prefix="/ai", tags=["score"])
-app.include_router(recalculate.router, prefix="/ai", tags=["recalculate"])
-app.include_router(search.router,      prefix="/ai", tags=["search"])
+app.include_router(parse.router,  prefix="/ai", tags=["parse"])
+app.include_router(score.router,  prefix="/ai", tags=["score"])
+app.include_router(search.router, prefix="/ai", tags=["search"])
 
 
 @app.get("/health")

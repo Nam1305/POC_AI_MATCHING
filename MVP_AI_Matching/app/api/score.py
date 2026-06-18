@@ -1,16 +1,21 @@
 """
-POST /ai/score  — Compute 5-dimension score for one CV against one JD.
+POST /ai/score  — Compute 5-dimension score (pure Python, no LLM).
 
-All required inputs come from .NET (no DB lookup here):
-  - parsed_cv, parsed_jd  : already-extracted Pydantic models
-  - cv_embedding, jd_embedding  : pre-computed vectors
-  - cv_raw_text  : for D5 keyword overlap
-  - weights      : optional, defaults to config
+Required inputs (from .NET, pre-fetched from DB):
+  - parsed_cv, parsed_jd  : structured extraction stored as JSONB
+  - cv_embedding, jd_embedding  : pre-computed vectors stored as vector(N)
+
+Returns:
+  - final_score + scores breakdown  (~1ms, no LLM call)
+
+.NET saves the response to applications table:
+  final_score      FLOAT
+  scores           JSONB
 """
 
 from __future__ import annotations
 
-from typing import Optional
+import asyncio
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -27,7 +32,6 @@ class ScoreRequest(BaseModel):
     parsed_jd:    ParsedJD
     cv_embedding: list[float]
     jd_embedding: list[float]
-    weights:      Optional[dict[str, float]] = None
 
 
 class ScoresBreakdown(BaseModel):
@@ -45,16 +49,18 @@ class ScoreResponse(BaseModel):
 
 @router.post("/score", response_model=ScoreResponse)
 async def score_endpoint(req: ScoreRequest) -> ScoreResponse:
-    result = calculate_score(
-        parsed_cv    = req.parsed_cv,
-        parsed_jd    = req.parsed_jd,
-        cv_embedding = req.cv_embedding,
-        jd_embedding = req.jd_embedding,
-        weights      = req.weights or settings.default_weights,
-        cosine_min   = settings.cosine_min,
-        cosine_max   = settings.cosine_max,
+    score_result = await asyncio.to_thread(
+        calculate_score,
+        req.parsed_cv,
+        req.parsed_jd,
+        req.cv_embedding,
+        req.jd_embedding,
+        weights    = settings.default_weights,
+        cosine_min = settings.cosine_min,
+        cosine_max = settings.cosine_max,
     )
+
     return ScoreResponse(
-        final_score=result["final_score"],
-        scores=ScoresBreakdown(**result["scores"]),
+        final_score = score_result["final_score"],
+        scores      = ScoresBreakdown(**score_result["scores"]),
     )

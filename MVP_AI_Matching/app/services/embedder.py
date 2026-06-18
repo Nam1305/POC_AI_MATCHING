@@ -6,6 +6,7 @@ Provider selected via .env EMBED_PROVIDER:
 
   - openai                : text-embedding-3-small   (1536-dim, paid)
   - sentence_transformer  : all-MiniLM-L6-v2         (384-dim,  local, free)
+  - gemini                : gemini-embedding-001       (3072-dim, paid)
 
 Both providers run in a thread executor so FastAPI's event loop stays responsive.
 The vector dim is consistent across CV/JD as long as the provider doesn't change.
@@ -26,6 +27,7 @@ from app.config import settings
 
 _openai_client = None
 _st_model = None
+_gemini_embed_client = None
 
 
 def _get_openai() -> OpenAI:
@@ -47,6 +49,18 @@ def _get_sentence_transformer():
     return _st_model
 
 
+def _get_gemini_embed() -> OpenAI:
+    global _gemini_embed_client
+    if _gemini_embed_client is None:
+        if not settings.gemini_api_key:
+            raise RuntimeError("GEMINI_API_KEY not set in .env")
+        _gemini_embed_client = OpenAI(
+            api_key=settings.gemini_api_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
+    return _gemini_embed_client
+
+
 # ---------------------------------------------------------------------------
 # Provider-specific embed (sync)
 # ---------------------------------------------------------------------------
@@ -65,9 +79,20 @@ def _embed_st(text: str) -> list[float]:
     return model.encode(text, normalize_embeddings=True).tolist()
 
 
+def _embed_gemini(text: str) -> list[float]:
+    client = _get_gemini_embed()
+    response = client.embeddings.create(
+        model=settings.gemini_embed_model,
+        input=text,
+    )
+    return response.data[0].embedding
+
+
 def _embed_sync(text: str) -> list[float]:
     if settings.embed_provider == "openai":
         return _embed_openai(text)
+    if settings.embed_provider == "gemini":
+        return _embed_gemini(text)
     return _embed_st(text)
 
 
@@ -80,12 +105,17 @@ async def embed(text: str) -> list[float]:
     Compute embedding for a single text. Returns:
       - 1536-dim list[float] if EMBED_PROVIDER=openai
       - 384-dim  list[float] if EMBED_PROVIDER=sentence_transformer
+      - 3072-dim list[float] if EMBED_PROVIDER=gemini
     """
     if not text or not text.strip():
         raise ValueError("Cannot embed empty text")
-    return await asyncio.get_event_loop().run_in_executor(None, _embed_sync, text)
+    return await asyncio.get_running_loop().run_in_executor(None, _embed_sync, text)
 
 
 def embedding_dim() -> int:
     """Return the dimension produced by the active provider."""
-    return 1536 if settings.embed_provider == "openai" else 384
+    if settings.embed_provider == "openai":
+        return 1536
+    if settings.embed_provider == "gemini":
+        return 3072
+    return 384

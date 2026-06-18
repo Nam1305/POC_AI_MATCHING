@@ -48,9 +48,15 @@ async def search_endpoint(req: SearchRequest) -> SearchResponse:
     if not req.applications:
         raise HTTPException(status_code=400, detail="applications list is empty")
 
-    apps = [a.model_dump() for a in req.applications]
-    for a in apps:
-        a["parsed_cv"] = ParsedCV.model_validate(a["parsed_cv"])
+    apps = [
+        {
+            "id":           a.id,
+            "cv_embedding": a.cv_embedding,
+            "final_score":  a.final_score,
+            "parsed_cv":    a.parsed_cv,
+        }
+        for a in req.applications
+    ]
 
     result = await run_search(req.query, apps, top_n_reasons=req.top_n_reasons)
     return SearchResponse(results=[SearchResultItem(**r) for r in result["results"]])

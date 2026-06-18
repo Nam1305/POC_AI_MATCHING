@@ -6,11 +6,44 @@ Computed helpers are plain @property (not serialized to JSON).
 
 from __future__ import annotations
 
+import datetime
 import math
 from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _diff_months(start: str, end: str) -> int:
+    """Calculate calendar months between two 'YYYY-MM' strings.
+    'present' / 'now' / 'nay' resolve to the current month.
+    """
+    _PRESENT = {"present", "nay", "now", "current", ""}
+
+    def _parse(s: str) -> datetime.date:
+        s = (s or "").strip().lower()
+        if s in _PRESENT:
+            return datetime.date.today().replace(day=1)
+        parts = s.split("-")
+        try:
+            year  = int(parts[0])
+            month = int(parts[1]) if len(parts) > 1 else 1
+            return datetime.date(year, max(1, min(12, month)), 1)
+        except (ValueError, IndexError):
+            return datetime.date.today().replace(day=1)
+
+    try:
+        s = _parse(start)
+        e = _parse(end)
+        if e < s:
+            e = s
+        return (e.year - s.year) * 12 + (e.month - s.month)
+    except Exception:
+        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -38,6 +71,7 @@ class DegreeLevel(str, Enum):
 class WorkExperience(BaseModel):
     company:     str       = ""
     role:        str       = ""
+    start:       str       = ""   # "YYYY-MM"
     end:         str       = ""   # "YYYY-MM" or "present"
     months:      int       = 0
     is_current:  bool      = False
@@ -50,9 +84,12 @@ class WorkExperience(BaseModel):
         return v if isinstance(v, str) else ""
 
     @model_validator(mode="after")
-    def _set_current(self) -> "WorkExperience":
+    def _set_current_and_months(self) -> "WorkExperience":
         if self.end and self.end.lower() in ("present", "nay", "now", "current"):
             self.is_current = True
+        # Prefer Python calculation over LLM-provided value for accuracy
+        if self.start:
+            self.months = _diff_months(self.start, self.end)
         return self
 
 
@@ -103,6 +140,36 @@ class Project(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# CV Evaluation schemas
+# ---------------------------------------------------------------------------
+
+class SkillMatchDetail(BaseModel):
+    skill:  str
+    status: str   # "matched" | "missing_must_have" | "missing_preferred"
+    weight: int = 1
+
+
+class CVJobEvaluation(BaseModel):
+    # Structured — dùng cho UI (badges, charts)
+    skill_details:      list[SkillMatchDetail] = Field(default_factory=list)
+    missing_must_have:  list[str]              = Field(default_factory=list)
+    missing_preferred:  list[str]              = Field(default_factory=list)
+    bonus_skills:       list[str]              = Field(default_factory=list)
+    skill_match_rate:   float = 0.0
+
+    experience_verdict: str = ""   # sufficient | insufficient | over_qualified | not_required
+    experience_detail:  str = ""
+    education_verdict:  str = ""   # exceeds | meets | below | not_required
+    seniority_match:    str = ""   # match | over_qualified | under_qualified | unknown
+    seniority_detail:   str = ""
+
+    recommendation:     str = ""   # strong_fit | possible_fit | weak_fit | poor_fit
+
+    # Narrative — HR đọc như người viết
+    narrative:          str = ""
+
+
+# ---------------------------------------------------------------------------
 # JD sub-models
 # ---------------------------------------------------------------------------
 
@@ -129,6 +196,33 @@ class ParsedCV(BaseModel):
     @classmethod
     def _coerce_str(cls, v: object) -> str:
         return v if isinstance(v, str) else ""
+
+    @field_validator("skills", "work_experience", "education", "projects", "languages", mode="before")
+    @classmethod
+    def _coerce_list(cls, v: object) -> list:
+        return v if isinstance(v, list) else []
+
+    @model_validator(mode="after")
+    def _filter_empty_entries(self) -> "ParsedCV":
+        # Remove hallucinated placeholder entries that have no real content
+        # A real work entry needs a company, OR a role paired with at least
+        # one concrete detail (description or a start date). This removes
+        # LLM-hallucinated placeholders like {role:"Internship/Fresher",
+        # company:"", description:"", start:""}.
+        self.work_experience = [
+            e for e in self.work_experience
+            if e.company or (e.role and (e.description or e.start))
+        ]
+        self.education = [
+            e for e in self.education
+            if e.institution or e.degree_raw
+        ]
+        self.projects = [
+            p for p in self.projects
+            if p.name or p.description
+        ]
+        self.skills = [s for s in self.skills if s and s.strip()]
+        return self
 
     @field_validator("certifications", mode="before")
     @classmethod

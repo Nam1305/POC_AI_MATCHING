@@ -7,47 +7,20 @@ Parses raw CV/JD text into Pydantic models (ParsedCV / ParsedJD) using either:
 
 Provider is selected via .env LLM_PROVIDER. The functions are async so FastAPI
 endpoints don't block; sync SDK calls are wrapped in a thread executor.
+
+Robustness improvements:
+  - WorkExperience.start extracted → Python calculates months (not LLM)
+  - Completeness check after first parse: auto-retry null work_experience / skills
+  - Retry prompts are focused (shorter context → higher accuracy)
+  - Retries run in parallel via asyncio.gather
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 
-from openai import OpenAI               # used as Groq-compatible client
-import anthropic
-
-from app.config import settings
-from app.schemas import ParsedCV, ParsedJD
-
-
-# ---------------------------------------------------------------------------
-# Lazy singleton clients
-# ---------------------------------------------------------------------------
-
-_anthropic_client: anthropic.Anthropic | None = None
-_groq_client:      OpenAI | None             = None
-
-
-def _get_anthropic() -> anthropic.Anthropic:
-    global _anthropic_client
-    if _anthropic_client is None:
-        if not settings.anthropic_api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY not set in .env")
-        _anthropic_client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-    return _anthropic_client
-
-
-def _get_groq() -> OpenAI:
-    global _groq_client
-    if _groq_client is None:
-        if not settings.groq_api_key:
-            raise RuntimeError("GROQ_API_KEY not set in .env")
-        _groq_client = OpenAI(
-            api_key=settings.groq_api_key,
-            base_url="https://api.groq.com/openai/v1",
-        )
-    return _groq_client
+from app.schemas import ParsedCV, ParsedJD, WorkExperience
+from app.services.llm_client import call_llm_json
 
 
 # ---------------------------------------------------------------------------
@@ -55,28 +28,28 @@ def _get_groq() -> OpenAI:
 # ---------------------------------------------------------------------------
 
 CV_EXTRACT_PROMPT = """Extract information from the CV text below.
-Return ONLY valid JSON. No explanation, no markdown.
+Return ONLY valid JSON. No explanation, no markdown fences.
 
 JSON structure:
 {
   "name": "candidate full name or empty string",
-  "summary": "professional summary/objective or empty string",
-  "skills": ["flat list of technical skill names"],
+  "summary": "professional summary / objective or empty string",
+  "skills": ["flat list of all technical skill names found anywhere in the CV"],
   "work_experience": [
     {
       "company": "company name",
-      "role": "job title",
+      "role": "job title / position",
+      "start": "YYYY-MM (month started, e.g. 2021-06)",
       "end": "YYYY-MM or present",
-      "months": integer (calculate from start to end; use 2026-05 for present),
       "is_current": true or false,
-      "tech_stack": ["technologies used"],
-      "description": "responsibilities and achievements"
+      "tech_stack": ["all technologies / tools used in this role"],
+      "description": "key responsibilities and achievements (2-4 sentences)"
     }
   ],
   "education": [
     {
-      "institution": "school name",
-      "degree": "(MUST be one of: high_school, associate, bachelor, master, phd, other)",
+      "institution": "school or university name",
+      "degree": "MUST be exactly one of: high_school, associate, bachelor, master, phd, other",
       "degree_raw": "exact degree text from CV (e.g. 'Bachelor of Software Engineering')",
       "major": "field of study or empty string"
     }
@@ -92,8 +65,52 @@ JSON structure:
   "languages": ["English - TOEIC 835", "Vietnamese - Native"]
 }
 
-Important: For degree field, extract the highest degree level ONLY (e.g. 'bachelor', 'master', 'phd').
-Put the full degree name (including major) in degree_raw field.
+Rules:
+- Extract ALL work experiences, even internships and part-time roles.
+- For skills: scan the entire CV — skills section, work experience, projects, summary.
+- Do NOT calculate months — only provide start and end date strings.
+- If a date is missing, use empty string "".
+- If a field has no data, use [] for arrays or "" for strings.
+
+CV text:
+"""
+
+
+WORK_EXP_RETRY_PROMPT = """The CV below contains work experience that needs to be extracted.
+Focus ONLY on the employment / work history section.
+Return ONLY valid JSON — no explanation, no markdown.
+
+{
+  "work_experience": [
+    {
+      "company": "company name",
+      "role": "job title",
+      "start": "YYYY-MM or empty string",
+      "end": "YYYY-MM or present or empty string",
+      "is_current": true or false,
+      "tech_stack": ["technologies used"],
+      "description": "responsibilities and achievements"
+    }
+  ]
+}
+
+Include ALL jobs — full-time, part-time, internships, freelance.
+If dates are unclear, extract what is available (year only is fine as YYYY-01).
+
+CV text:
+"""
+
+
+SKILLS_RETRY_PROMPT = """Extract ALL technical skills from the CV below.
+Scan every section: skills/technologies section, work experience, projects, summary.
+Return ONLY valid JSON — no explanation, no markdown.
+
+{
+  "skills": ["skill1", "skill2", "skill3", ...]
+}
+
+Include: programming languages, frameworks, libraries, databases, tools, cloud platforms, DevOps tools.
+Each skill should be a single clean string (e.g. "Python", "React", "PostgreSQL").
 
 CV text:
 """
@@ -121,48 +138,33 @@ JD text:
 
 
 # ---------------------------------------------------------------------------
-# Provider-agnostic completion call (sync, runs in executor)
+# Retry helpers
 # ---------------------------------------------------------------------------
 
-def _call_llm_sync(prompt: str, text: str) -> dict:
-    """Run completion via the configured provider, return parsed JSON dict."""
-    full_prompt = prompt + text
-
-    if settings.llm_provider == "anthropic":
-        client = _get_anthropic()
-        response = client.messages.create(
-            model=settings.anthropic_model,
-            max_tokens=4096,
-            temperature=0,
-            messages=[{"role": "user", "content": full_prompt}],
-        )
-        # Anthropic returns content as a list of blocks; first block is text.
-        content = response.content[0].text
-        # Claude sometimes wraps JSON in ```json fences — strip them.
-        content = content.strip()
-        if content.startswith("```"):
-            content = content.split("```", 2)[1]
-            if content.startswith("json"):
-                content = content[4:]
-            content = content.strip()
-        return json.loads(content)
-
-    # Default: Groq (OpenAI-compatible)
-    client = _get_groq()
-    response = client.chat.completions.create(
-        model=settings.groq_model,
-        messages=[{"role": "user", "content": full_prompt}],
-        response_format={"type": "json_object"},
-        temperature=0,
-    )
-    return json.loads(response.choices[0].message.content)
+async def _retry_work_experience(cv_text: str) -> list[WorkExperience]:
+    """Focused re-extraction of work experience when the full parse missed it."""
+    try:
+        raw   = await call_llm_json(WORK_EXP_RETRY_PROMPT, cv_text)
+        items = raw.get("work_experience", []) if isinstance(raw, dict) else []
+        result: list[WorkExperience] = []
+        for item in items:
+            try:
+                result.append(WorkExperience.model_validate(item))
+            except Exception:
+                pass
+        return result
+    except Exception:
+        return []
 
 
-async def _call_llm(prompt: str, text: str) -> dict:
-    """Async wrapper: SDKs are sync, so push to executor to avoid blocking."""
-    return await asyncio.get_event_loop().run_in_executor(
-        None, _call_llm_sync, prompt, text
-    )
+async def _retry_skills(cv_text: str) -> list[str]:
+    """Focused re-extraction of skills when the full parse missed them."""
+    try:
+        raw   = await call_llm_json(SKILLS_RETRY_PROMPT, cv_text)
+        items = raw.get("skills", []) if isinstance(raw, dict) else []
+        return [s for s in items if isinstance(s, str)]
+    except Exception:
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -170,12 +172,46 @@ async def _call_llm(prompt: str, text: str) -> dict:
 # ---------------------------------------------------------------------------
 
 async def parse_cv(cv_text: str) -> ParsedCV:
-    """Extract structured CV from raw text. Validates against ParsedCV schema."""
-    raw = await _call_llm(CV_EXTRACT_PROMPT, cv_text)
-    return ParsedCV.model_validate(raw)
+    """
+    Extract structured CV from raw text.
+
+    Flow:
+      1. Full extraction via LLM
+      2. Completeness check — work_experience and skills are critical
+      3. If either is empty, run focused retry prompts in parallel
+      4. Merge retry results into the CV object
+    """
+    raw = await call_llm_json(CV_EXTRACT_PROMPT, cv_text)
+    cv  = ParsedCV.model_validate(raw)
+
+    needs_exp    = not cv.work_experience
+    needs_skills = not cv.skills
+
+    if not needs_exp and not needs_skills:
+        return cv
+
+    # Build only the tasks we actually need
+    retry_coros = []
+    if needs_exp:
+        retry_coros.append(_retry_work_experience(cv_text))
+    if needs_skills:
+        retry_coros.append(_retry_skills(cv_text))
+
+    results = await asyncio.gather(*retry_coros, return_exceptions=True)
+
+    idx = 0
+    if needs_exp:
+        if isinstance(results[idx], list) and results[idx]:
+            cv.work_experience = results[idx]
+        idx += 1
+    if needs_skills:
+        if isinstance(results[idx], list) and results[idx]:
+            cv.skills = results[idx]
+
+    return cv
 
 
 async def parse_jd(jd_text: str) -> ParsedJD:
     """Extract structured JD from raw text. Validates against ParsedJD schema."""
-    raw = await _call_llm(JD_EXTRACT_PROMPT, jd_text)
+    raw = await call_llm_json(JD_EXTRACT_PROMPT, jd_text)
     return ParsedJD.model_validate(raw)
