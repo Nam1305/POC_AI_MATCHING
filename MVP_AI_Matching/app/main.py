@@ -16,7 +16,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import parse, score
+from app.api import evaluate, parse, score
 
 app = FastAPI(
     title="AI Service — CV/JD Matching",
@@ -34,8 +34,9 @@ app.add_middleware(
 )
 
 # Mount feature routers
-app.include_router(parse.router, prefix="/ai", tags=["parse"])
-app.include_router(score.router, prefix="/ai", tags=["score"])
+app.include_router(parse.router,    prefix="/ai", tags=["parse"])
+app.include_router(score.router,    prefix="/ai", tags=["score"])
+app.include_router(evaluate.router, prefix="/ai", tags=["evaluate"])
 
 
 @app.get("/health")

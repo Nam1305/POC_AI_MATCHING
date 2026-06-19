@@ -176,12 +176,16 @@ Học vấn           : {edu_verdict}
 Cấp bậc           : {seniority_detail}
 
 === YÊU CẦU OUTPUT ===
-Viết 1 đoạn văn khoảng 5-8 câu. Đoạn văn phải:
-- Mở đầu bằng tổng quan ngắn gọn về ứng viên
-- Đánh giá điểm phù hợp với vị trí (kỹ năng, kinh nghiệm, cấp bậc)
-- Nêu rõ điểm còn thiếu hoặc chưa phù hợp (nếu có)
-- Kết luận bằng khuyến nghị hành động cho HR (phỏng vấn ngay / cân nhắc thêm / không phù hợp)
-- Giọng văn tự nhiên, khách quan, không sáo rỗng
+Viết 1 đoạn văn khoảng 10 câu. Đoạn văn phải:
+- Mở đầu bằng tổng quan về ứng viên (background, định hướng nghề nghiệp)
+- Đánh giá chi tiết mức độ phù hợp về kỹ năng kỹ thuật (nêu cụ thể từng nhóm skill matched/missing)
+- Nhận xét về kinh nghiệm thực tế (project, work experience) so với yêu cầu JD
+- Đánh giá học vấn và cấp bậc seniority
+- Nêu rõ điểm mạnh nổi bật của ứng viên so với JD
+- Nêu rõ những điểm còn thiếu hoặc cần cải thiện
+- Đánh giá tiềm năng phát triển và khả năng onboard nhanh
+- Kết luận bằng khuyến nghị hành động cụ thể cho HR (phỏng vấn ngay / cân nhắc thêm / không phù hợp, kèm lý do)
+- Giọng văn tự nhiên, chuyên nghiệp, khách quan như nhận xét thực của chuyên viên tuyển dụng cấp cao
 
 Sau đoạn văn, thêm 1 dòng riêng biệt:
 RECOMMENDATION: strong_fit | possible_fit | weak_fit | poor_fit
@@ -219,7 +223,7 @@ async def _llm_narrative(cv: ParsedCV, jd: ParsedJD, analysis: dict) -> dict:
         seniority_detail = analysis["seniority_detail"],
     )
 
-    raw_text = await call_llm_text(prompt, temperature=0.4, max_tokens=600)
+    raw_text = await call_llm_text(prompt, temperature=0.4, max_tokens=1200)
 
     # Tách narrative và recommendation từ raw text
     narrative   = raw_text

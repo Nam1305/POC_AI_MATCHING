@@ -95,10 +95,12 @@ class SkillMatcher:
         "keras": "keras", "pandas": "pandas", "numpy": "numpy",
         # APIs
         "rest": "rest_api", "restful": "rest_api", "rest api": "rest_api",
+        "restful api": "rest_api", "restful apis": "rest_api",
         "graphql": "graphql", "grpc": "grpc",
         # Misc
         "git": "git", "github": "github", "gitlab": "gitlab",
-        "html": "html", "css": "css", "tailwind": "tailwind",
+        "html": "html", "html5": "html", "css": "css", "css3": "css",
+        "tailwind": "tailwind", "tailwind css": "tailwind",
         "go": "go", "golang": "go",
     }
 

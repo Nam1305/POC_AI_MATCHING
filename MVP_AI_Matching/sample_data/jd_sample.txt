@@ -1,34 +1,42 @@
-Job Title: Junior .NET Backend Developer
+Job Title: Junior React Frontend Developer
 
 Company: TechViet Solutions
 Location: Ho Chi Minh City (Hybrid)
 
 About the role:
-We are looking for a Junior .NET Backend Developer to join our product team.
-You will build and maintain RESTful APIs powering our web and mobile applications.
+We are looking for a Junior React Frontend Developer to join our product team.
+You will build and maintain modern, responsive web applications that deliver an excellent user experience across desktop and mobile platforms.
 
 Requirements:
-- Minimum 6 months of hands-on experience in .NET development
-- Proficiency in C# and ASP.NET Core Web API
-- Experience building RESTful APIs
-- Basic knowledge of SQL Server or PostgreSQL
-- Familiarity with Entity Framework Core
-- Version control with Git
+
+* Minimum 6 months of hands-on experience in React development
+* Proficiency in JavaScript, TypeScript, and React
+* Experience building responsive web applications
+* Good understanding of HTML5, CSS3, and modern UI development
+* Familiarity with state management solutions (Context API, Redux, Zustand, etc.)
+* Experience consuming RESTful APIs
+* Version control with Git
 
 Nice to have:
-- Experience with Docker or containerization
-- Knowledge of Clean Architecture or SOLID principles
-- Basic React or any frontend framework
-- Experience with Redis or caching strategies
+
+* Experience with Next.js
+* Knowledge of UI libraries such as Material UI, Ant Design, or Tailwind CSS
+* Basic understanding of frontend testing (Jest, React Testing Library)
+* Familiarity with CI/CD pipelines
+* Understanding of web performance optimization techniques
 
 Responsibilities:
-- Design and implement RESTful APIs using ASP.NET Core
-- Write clean, maintainable C# code following best practices
-- Work with SQL Server databases using Entity Framework Core
-- Collaborate with frontend developers and mobile team
-- Participate in code reviews and technical discussions
-- Write unit tests for backend services
 
-Education: Bachelor's degree in Computer Science, Software Engineering, or related field preferred.
+* Develop and maintain user interfaces using React and TypeScript
+* Build reusable components and frontend modules
+* Integrate frontend applications with RESTful APIs
+* Collaborate with backend developers, designers, and product managers
+* Participate in code reviews and technical discussions
+* Optimize application performance and responsiveness
+* Write unit tests for frontend components and features
 
-Keywords: C#, .NET, ASP.NET Core, REST API, SQL Server, Entity Framework, Git, backend
+Education:
+Bachelor's degree in Computer Science, Software Engineering, or related field preferred.
+
+Keywords:
+React, TypeScript, JavaScript, HTML, CSS, Redux, REST API, Git, Frontend, Responsive Design

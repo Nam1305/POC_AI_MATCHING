@@ -106,7 +106,7 @@ def call_llm_json_sync(prompt: str, text: str) -> dict:
 def call_llm_text_sync(
     prompt: str,
     temperature: float = 0.2,
-    max_tokens: int = 120,
+    max_tokens: int = 1200,
 ) -> str:
     """Call configured LLM provider with a complete prompt, return raw text."""
     if settings.llm_provider == "anthropic":
@@ -120,12 +120,14 @@ def call_llm_text_sync(
         return resp.content[0].text.strip()
 
     if settings.llm_provider == "gemini":
+        # Gemini 2.5 Flash uses internal thinking tokens that count toward
+        # the max_tokens budget, leaving almost no room for visible output.
+        # Omitting max_tokens lets the model auto-allocate its thinking budget.
         client = get_gemini()
         resp = client.chat.completions.create(
             model=settings.gemini_model,
             messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
-            max_tokens=max_tokens,
         )
         return resp.choices[0].message.content.strip()
 
@@ -151,7 +153,7 @@ async def call_llm_json(prompt: str, text: str) -> dict:
 async def call_llm_text(
     prompt: str,
     temperature: float = 0.2,
-    max_tokens: int = 120,
+    max_tokens: int = 1200,
 ) -> str:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
