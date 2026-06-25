@@ -609,3 +609,15 @@ def calculate_score_with_rules(
     result["penalty_applied"]  = round(penalty, 3)
     result["penalty_reasons"]  = reasons
     return result
+
+
+def recalculate_final(scores: dict[str, float], weights: dict[str, float]) -> float:
+    """
+    Recalculate final score from dimension scores and new weights.
+    Both input scores and final output score are in [0, 100].
+    """
+    total = 0.0
+    for k, w in weights.items():
+        total += scores.get(k, 0.0) * w
+    return round(total, 1)
+

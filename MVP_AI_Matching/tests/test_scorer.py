@@ -29,9 +29,9 @@ def test_cosine_sim_orthogonal():
 
 
 def test_normalize_cosine_clamps_range():
-    assert normalize_cosine(0.10) == 0.0
-    assert normalize_cosine(0.90) == 1.0
-    assert normalize_cosine(0.50) == pytest.approx(0.5)
+    assert normalize_cosine(0.10, 0.10, 0.90) == 0.0
+    assert normalize_cosine(0.90, 0.10, 0.90) == 1.0
+    assert normalize_cosine(0.50, 0.10, 0.90) == pytest.approx(0.5)
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +53,7 @@ def test_score_skills_full_match():
 def test_score_skills_partial_with_tech_stack():
     cv = ParsedCV(
         skills=["python"],
-        work_experience=[WorkExperience(tech_stack=["FastAPI", "Redis"])],
+        work_experience=[WorkExperience(company="Company A", tech_stack=["FastAPI", "Redis"])],
     )
     jd = ParsedJD(
         title="Backend",
@@ -99,7 +99,7 @@ def test_score_skills_category_partial_credit():
 # ---------------------------------------------------------------------------
 
 def test_score_experience_ratio_and_cap():
-    cv = ParsedCV(work_experience=[WorkExperience(months=24)])
+    cv = ParsedCV(work_experience=[WorkExperience(company="Company A", months=24)])
     jd2 = ParsedJD(title="x", min_experience_years=2)
     jd4 = ParsedJD(title="x", min_experience_years=4)
     assert score_experience(cv, jd2) == 1.0
@@ -108,7 +108,7 @@ def test_score_experience_ratio_and_cap():
 
 def test_score_experience_relevance_bonus():
     cv = ParsedCV(
-        work_experience=[WorkExperience(role=".NET Developer", months=24, tech_stack=[".NET"])]
+        work_experience=[WorkExperience(company="Company A", role=".NET Developer", months=24, tech_stack=[".NET"])]
     )
     jd = ParsedJD(title=".NET Developer", min_experience_years=2)
     # base=1.0 + relevance bonus → capped at 1.0
@@ -116,14 +116,14 @@ def test_score_experience_relevance_bonus():
 
 
 def test_score_experience_recency_bonus():
-    cv = ParsedCV(work_experience=[WorkExperience(role="Dev", months=12, is_current=True)])
+    cv = ParsedCV(work_experience=[WorkExperience(company="Company A", role="Dev", months=12, is_current=True)])
     jd = ParsedJD(title="Dev", min_experience_years=2)
     # base=0.5, recency bonus=+0.1 → 0.6
     assert score_experience(cv, jd) == pytest.approx(0.6)
 
 
 def test_score_experience_over_qualification_penalty():
-    cv = ParsedCV(work_experience=[WorkExperience(months=120)])
+    cv = ParsedCV(work_experience=[WorkExperience(company="Company A", months=120)])
     jd = ParsedJD(title="Dev", min_experience_years=2)
     # base=1.0, over-qual penalty=-0.05 → 0.95
     assert score_experience(cv, jd) == pytest.approx(0.95)
@@ -173,7 +173,7 @@ def test_score_keywords_multiword_partial():
 # ---------------------------------------------------------------------------
 
 def test_calculate_score_returns_full_breakdown():
-    cv = ParsedCV(skills=["python"], work_experience=[WorkExperience(months=24)])
+    cv = ParsedCV(skills=["python"], work_experience=[WorkExperience(company="Company A", months=24)])
     jd = ParsedJD(
         title="Backend",
         required_skills=[RequiredSkill(skill="Python", weight=1)],
