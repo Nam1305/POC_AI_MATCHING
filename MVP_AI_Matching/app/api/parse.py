@@ -103,7 +103,7 @@ async def parse_jd_endpoint(request: Request) -> ParseJDResponse:
     jd_embedding = None
     error_message = None
     try:
-        jd_embedding = await embed(jd_text)
+        jd_embedding = await embed(parsed.build_embed_text())
     except Exception as e:
         error_message = f"Embed failed: {e}"
         # Log the error for debugging purposes

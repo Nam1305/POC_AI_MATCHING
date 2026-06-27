@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     log_level: str = "info"
 
     # ---- LLM provider ----
-    llm_provider: Literal["anthropic", "groq", "gemini"] = "gemini"
+    llm_provider: Literal["anthropic", "groq", "gemini", "ollama"] = "gemini"
 
     anthropic_api_key: str = ""
     anthropic_model:   str = "claude-sonnet-4-6"
@@ -30,8 +30,12 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model:   str = "gemini-2.5-flash"
 
+    ollama_base_url:   str = "http://100.127.48.25:11434"
+    ollama_model:      str = "llama3.2"
+    ollama_embed_model: str = "nomic-embed-text:latest"
+
     # ---- Embedding provider ----
-    embed_provider: Literal["openai", "sentence_transformer", "gemini"] = "gemini"
+    embed_provider: Literal["openai", "sentence_transformer", "gemini", "ollama"] = "gemini"
 
     openai_api_key:     str = ""
     openai_embed_model: str = "text-embedding-3-small"     # 1536-dim

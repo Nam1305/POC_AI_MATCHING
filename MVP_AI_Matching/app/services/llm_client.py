@@ -12,6 +12,7 @@ import asyncio
 import json
 
 import anthropic
+import httpx
 from openai import OpenAI
 
 from app.config import settings
@@ -60,12 +61,47 @@ def get_gemini() -> OpenAI:
 
 
 # ---------------------------------------------------------------------------
+# Ollama helper (native /api/generate endpoint)
+# ---------------------------------------------------------------------------
+
+def _ollama_generate(prompt: str, as_json: bool = True, temperature: float = 0.0, max_tokens: int = 4096) -> str:
+    """POST to Ollama /api/generate, return raw response string."""
+    url = settings.ollama_base_url.rstrip("/") + "/api/generate"
+    payload: dict = {
+        "model": settings.ollama_model,
+        "prompt": prompt,
+        "stream": False,
+        "options": {"temperature": temperature, "num_predict": max_tokens},
+    }
+    if as_json:
+        payload["format"] = "json"
+    with httpx.Client(timeout=600) as client:
+        resp = client.post(url, json=payload)
+        resp.raise_for_status()
+    return resp.json()["response"]
+
+
+def _strip_fences(text: str) -> str:
+    if text.startswith("```"):
+        parts = text.split("```", 2)
+        inner = parts[1]
+        if inner.startswith("json"):
+            inner = inner[4:]
+        return inner.strip()
+    return text
+
+
+# ---------------------------------------------------------------------------
 # Sync helpers
 # ---------------------------------------------------------------------------
 
 def call_llm_json_sync(prompt: str, text: str) -> dict:
     """Call configured LLM provider with prompt+text, return parsed JSON dict."""
     full_prompt = prompt + text
+
+    if settings.llm_provider == "ollama":
+        content = _ollama_generate(full_prompt, as_json=True)
+        return json.loads(_strip_fences(content))
 
     if settings.llm_provider == "anthropic":
         client = get_anthropic()
@@ -76,12 +112,7 @@ def call_llm_json_sync(prompt: str, text: str) -> dict:
             messages=[{"role": "user", "content": full_prompt}],
         )
         content = response.content[0].text.strip()
-        if content.startswith("```"):
-            content = content.split("```", 2)[1]
-            if content.startswith("json"):
-                content = content[4:]
-            content = content.strip()
-        return json.loads(content)
+        return json.loads(_strip_fences(content))
 
     if settings.llm_provider == "gemini":
         client = get_gemini()
@@ -109,6 +140,9 @@ def call_llm_text_sync(
     max_tokens: int = 1200,
 ) -> str:
     """Call configured LLM provider with a complete prompt, return raw text."""
+    if settings.llm_provider == "ollama":
+        return _ollama_generate(prompt, as_json=False, temperature=temperature, max_tokens=max_tokens)
+
     if settings.llm_provider == "anthropic":
         client = get_anthropic()
         resp = client.messages.create(

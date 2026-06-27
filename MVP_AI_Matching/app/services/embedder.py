@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 
+import httpx
 from openai import OpenAI
 
 from app.config import settings
@@ -88,7 +89,17 @@ def _embed_gemini(text: str) -> list[float]:
     return response.data[0].embedding
 
 
+def _embed_ollama(text: str) -> list[float]:
+    url = settings.ollama_base_url.rstrip("/") + "/api/embed"
+    with httpx.Client(timeout=120) as client:
+        resp = client.post(url, json={"model": settings.ollama_embed_model, "input": text})
+        resp.raise_for_status()
+    return resp.json()["embeddings"][0]
+
+
 def _embed_sync(text: str) -> list[float]:
+    if settings.embed_provider == "ollama":
+        return _embed_ollama(text)
     if settings.embed_provider == "openai":
         return _embed_openai(text)
     if settings.embed_provider == "gemini":
@@ -114,6 +125,12 @@ async def embed(text: str) -> list[float]:
 
 def embedding_dim() -> int:
     """Return the dimension produced by the active provider."""
+    if settings.embed_provider == "ollama":
+        _DIM_MAP = {"nomic-embed-text": 768, "qwen3-embedding": 1024}
+        for prefix, dim in _DIM_MAP.items():
+            if settings.ollama_embed_model.startswith(prefix):
+                return dim
+        return 768
     if settings.embed_provider == "openai":
         return 1536
     if settings.embed_provider == "gemini":
