@@ -201,9 +201,9 @@ def test_calculate_score_with_rules_must_have_and_exp():
     )
     cv_vec = [1.0, 0.0]
     jd_vec = [1.0, 0.0]
-    # 1 missing must-have → 0.20 penalty; 0 yrs < 0.8*1 → 0.30 penalty; total=0.50
+    # 1 hard missing must-have → 0.15 penalty; 0 yrs < 0.8*1 → 0.20 penalty; total=0.35
     res = calculate_score_with_rules(cv, jd, cv_vec, jd_vec, "python")
-    assert res["penalty_applied"] == 0.5
+    assert res["penalty_applied"] == pytest.approx(0.35)
     assert "missing must-have skills" in res["penalty_reasons"][0]
     assert "insufficient experience" in res["penalty_reasons"][1]
 

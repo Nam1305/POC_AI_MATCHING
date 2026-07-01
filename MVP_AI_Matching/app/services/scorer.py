@@ -49,8 +49,9 @@ class SkillMatcher:
     """
 
     ALIASES: dict[str, str] = {
-        # JavaScript ecosystem
+        # JavaScript ecosystem — including versioned forms like "JavaScript (ES6+)"
         "js": "javascript", "javascript": "javascript", "es6": "javascript",
+        "es6+": "javascript", "es2015": "javascript", "es2017": "javascript",
         "ecmascript": "javascript",
         "ts": "typescript", "typescript": "typescript",
         "react": "react", "reactjs": "react", "react.js": "react",
@@ -60,15 +61,22 @@ class SkillMatcher:
         "next": "nextjs", "nextjs": "nextjs", "next.js": "nextjs",
         "express": "express", "expressjs": "express",
         "nestjs": "nestjs", "nest.js": "nestjs",
+        # HTML / CSS — explicit versioned forms
+        "html": "html", "html5": "html", "html 5": "html",
+        "css": "css", "css3": "css", "css 3": "css",
+        "modern css": "css", "modern css layout techniques": "css",
+        "tailwind": "tailwind", "tailwind css": "tailwind",
         # Python
         "py": "python", "python": "python", "python3": "python",
         "django": "django", "flask": "flask", "fastapi": "fastapi",
-        # .NET
+        # .NET — ".NET Core" maps to same canonical as "ASP.NET Core"
         "c#": "csharp", "csharp": "csharp", "c sharp": "csharp",
         ".net": "dotnet", "dotnet": "dotnet", "dot net": "dotnet",
+        ".net core": "aspnet", "dotnetcore": "aspnet", "dot net core": "aspnet",
         "asp.net": "aspnet", "aspnet": "aspnet", "asp.net core": "aspnet",
         "ef": "entity framework", "ef core": "entity framework",
         "entity framework": "entity framework",
+        "entity framework core": "entity framework",
         # Java
         "java": "java", "spring": "spring", "spring boot": "spring",
         "springboot": "spring",
@@ -78,7 +86,7 @@ class SkillMatcher:
         "mongo": "mongodb", "mongodb": "mongodb",
         "sqlserver": "sqlserver", "sql server": "sqlserver", "mssql": "sqlserver",
         "redis": "redis",
-        "elastic": "elasticsearch", "elasticsearch": "elasticsearch", "es": "elasticsearch",
+        "elastic": "elasticsearch", "elasticsearch": "elasticsearch",
         # Cloud / DevOps
         "aws": "aws", "amazon web services": "aws",
         "gcp": "gcp", "google cloud": "gcp", "google cloud platform": "gcp",
@@ -87,21 +95,35 @@ class SkillMatcher:
         "docker": "docker",
         "ci/cd": "ci_cd", "cicd": "ci_cd", "ci cd": "ci_cd",
         "jenkins": "jenkins", "terraform": "terraform",
-        # ML / Data
+        # ML / AI — frameworks
         "tf": "tensorflow", "tensorflow": "tensorflow",
         "pytorch": "pytorch", "torch": "pytorch",
         "sklearn": "scikit-learn", "scikit-learn": "scikit-learn",
         "scikit learn": "scikit-learn",
-        "keras": "keras", "pandas": "pandas", "numpy": "numpy",
+        "keras": "keras",
+        # ML / AI — domain concepts (canonical form without spaces)
+        "machine learning": "machine_learning", "machine_learning": "machine_learning",
+        "ml": "machine_learning",
+        "deep learning": "deep_learning", "deep_learning": "deep_learning",
+        "dl": "deep_learning",
+        "natural language processing": "nlp", "nlp": "nlp",
+        "computer vision": "computer_vision", "computer_vision": "computer_vision",
+        "data preprocessing": "data_preprocessing", "data_preprocessing": "data_preprocessing",
+        "data analysis": "data_analysis", "data_analysis": "data_analysis",
+        "artificial intelligence": "machine_learning", "ai": "machine_learning",
+        # Data
+        "pandas": "pandas", "numpy": "numpy",
         # APIs
         "rest": "rest_api", "restful": "rest_api", "rest api": "rest_api",
         "restful api": "rest_api", "restful apis": "rest_api",
+        "restful apis design": "rest_api",
         "graphql": "graphql", "grpc": "grpc",
         # Misc
         "git": "git", "github": "github", "gitlab": "gitlab",
-        "html": "html", "html5": "html", "css": "css", "css3": "css",
-        "tailwind": "tailwind", "tailwind css": "tailwind",
         "go": "go", "golang": "go",
+        "sql": "sql", "nosql": "nosql",
+        "agile": "agile", "scrum": "agile",
+        "oop": "oop", "object oriented programming": "oop",
     }
 
     CATEGORIES: dict[str, set[str]] = {
@@ -109,22 +131,41 @@ class SkillMatcher:
                      "html", "css", "nextjs", "tailwind"},
         "backend":  {"django", "flask", "fastapi", "spring", "express",
                      "nestjs", "aspnet", "dotnet", "nodejs"},
+        "dotnet":   {"dotnet", "aspnet", "csharp", "entity framework"},
         "database": {"mysql", "postgresql", "mongodb", "redis", "sqlserver",
-                     "elasticsearch"},
+                     "elasticsearch", "sql", "nosql"},
         "cloud":    {"aws", "gcp", "azure"},
         "devops":   {"docker", "kubernetes", "ci_cd", "jenkins", "terraform"},
-        "ml_frameworks": {"tensorflow", "pytorch", "keras", "scikit-learn"},
-        "data":     {"pandas", "numpy"},
+        # ml_frameworks: concrete frameworks give category credit for ML/DL domain skills
+        "ml_frameworks": {"tensorflow", "pytorch", "keras", "scikit-learn",
+                          "machine_learning", "deep_learning"},
+        "ml_domain":     {"machine_learning", "deep_learning", "nlp",
+                          "computer_vision", "data_preprocessing"},
+        "data":     {"pandas", "numpy", "data_preprocessing", "data_analysis"},
         "api":      {"rest_api", "graphql", "grpc"},
         "language": {"python", "javascript", "typescript", "csharp", "java",
                      "go", "ruby", "php", "rust"},
+    }
+
+    # Categories where having related tools at category_match ≥ 0.4 justifies
+    # skipping the hard penalty (D2 already reflects the skill gap via partial credit).
+    # "frontend" is included because TypeScript+ReactJS strongly implies JavaScript.
+    # "language" is excluded — knowing Python does NOT cover Java, Go, etc.
+    PENALTY_SKIP_CATEGORIES: set[str] = {
+        "ml_frameworks", "ml_domain", "dotnet", "devops", "cloud", "frontend",
     }
 
     def normalize_skill(self, skill: str) -> str:
         if not skill:
             return ""
         key = skill.lower().strip()
-        return self.ALIASES.get(key, key)
+        if key in self.ALIASES:
+            return self.ALIASES[key]
+        # Strip parenthetical suffix: "JavaScript (ES6+)" → "javascript"
+        stripped = re.sub(r'\s*\([^)]*\)', '', key).strip()
+        if stripped and stripped != key:
+            return self.ALIASES.get(stripped, stripped)
+        return key
 
     def fuzzy_match(self, skill1: str, skill2: str, threshold: float = 0.85) -> bool:
         if not skill1 or not skill2:
@@ -561,11 +602,18 @@ def calculate_score_with_rules(
 ) -> dict:
     """
     Wraps calculate_score and applies hard-rule penalties:
-      - Missing must-have skills (jd.required_skills with weight ≥ 3):
-          0.20 penalty each, cumulative cap 0.70.
+      - Missing must-have skills (weight ≥ 3) with no category fallback:
+          0.15 penalty each, cumulative cap 0.55.
       - cv_years < 0.8 × jd.min_experience_years:
-          0.30 penalty.
-    Penalties multiply final_score (i.e. final * (1 - penalty)).
+          0.20 penalty.
+      - Total cap: 0.70 (prevents crushing candidates to near-zero).
+
+    A skill is only counted as "hard missing" if:
+      - Not exact/fuzzy matched, AND
+      - No same-category skills present (category_match < 0.3).
+    This avoids penalizing candidates who have related skills in the same domain
+    (e.g. PyTorch/TensorFlow covering "Machine Learning") while still factoring
+    skill gaps into the D2 score dimension.
     """
     result = calculate_score(
         parsed_cv, parsed_jd, cv_embedding, jd_embedding, cv_raw_text,
@@ -581,30 +629,39 @@ def calculate_score_with_rules(
         cv_skills = {matcher.normalize_skill(s) for s in _collect_cv_skills(parsed_cv) if s}
 
         must_haves = [r for r in parsed_jd.required_skills if r.weight >= 3]
-        missing: list[str] = []
+        hard_missing: list[str] = []
         for req in must_haves:
             jd_skill = matcher.normalize_skill(req.skill)
             if jd_skill in cv_skills:
                 continue
             if any(matcher.fuzzy_match(jd_skill, cv_s) for cv_s in cv_skills):
                 continue
-            missing.append(req.skill)
+            # Skip hard penalty only for specific skill-cluster categories where
+            # having related tools genuinely covers the domain (e.g. pytorch+scikit-learn
+            # covering "Machine Learning", or csharp+aspnet covering ".NET Core").
+            # Broad categories like "language" are excluded — knowing Python does NOT
+            # cover Java, even if they share the same category.
+            cat = matcher._category_of(jd_skill)
+            if (cat in matcher.PENALTY_SKIP_CATEGORIES
+                    and matcher.category_match(cv_skills, jd_skill) >= 0.4):
+                continue
+            hard_missing.append(req.skill)
 
-        if missing:
-            skill_penalty = min(0.20 * len(missing), 0.70)
+        if hard_missing:
+            skill_penalty = min(0.15 * len(hard_missing), 0.55)
             penalty += skill_penalty
-            reasons.append(f"missing must-have skills: {missing}")
+            reasons.append(f"missing must-have skills: {hard_missing}")
 
         if parsed_jd.min_experience_years:
             cv_years = parsed_cv.total_exp_months / 12.0
             min_required = 0.8 * parsed_jd.min_experience_years
             if cv_years < min_required:
-                penalty += 0.30
+                penalty += 0.20
                 reasons.append(
                     f"insufficient experience: {cv_years:.1f}y < {min_required:.1f}y"
                 )
 
-    penalty = min(penalty, 0.95)
+    penalty = min(penalty, 0.70)
     result["final_score"]      = round(result["final_score"] * (1 - penalty), 1)
     result["penalty_applied"]  = round(penalty, 3)
     result["penalty_reasons"]  = reasons

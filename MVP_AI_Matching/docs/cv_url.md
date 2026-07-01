@@ -1,0 +1,10 @@
+https://jobseeker-r2.quocdk.id.vn/career-hub/backend_developer_1.pdf
+https://jobseeker-r2.quocdk.id.vn/career-hub/backend_developer_2.pdf
+https://jobseeker-r2.quocdk.id.vn/career-hub/backend_developer_3.pdf
+https://jobseeker-r2.quocdk.id.vn/career-hub/frontend_developer_1.pdf
+https://jobseeker-r2.quocdk.id.vn/career-hub/software_developer_1.pdf
+https://jobhunter-storage.s3.amazonaws.com/resumes/software-engineer-cv.pdf
+https://jobhunter-storage.s3.amazonaws.com/resumes/backend-developer-resume.pdf
+https://jobseeker-r2.quocdk.id.vn/career-hub/ai_engineer_1.pdf
+https://jobseeker-r2.quocdk.id.vn/career-hub/ai_engineer_2.pdf
+https://jobseeker-r2.quocdk.id.vn/career-hub/ai_engineer_3.pdf

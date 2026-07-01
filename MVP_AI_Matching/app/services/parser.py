@@ -39,7 +39,7 @@ JSON structure:
     {
       "company": "company name",
       "role": "job title / position",
-      "start": "YYYY-MM (month started, e.g. 2021-06)",
+      "start": "YYYY-MM",
       "end": "YYYY-MM or present",
       "is_current": true or false,
       "tech_stack": ["all technologies / tools used in this role"],
@@ -65,11 +65,23 @@ JSON structure:
   "languages": ["English - TOEIC 835", "Vietnamese - Native"]
 }
 
-Rules:
+DATE CONVERSION RULES (apply to every start/end field):
+Convert any date format found in the CV to YYYY-MM. Examples:
+  "Jan 2021" / "January 2021"         → "2021-01"
+  "06/2021" / "2021/06" / "2021.06"   → "2021-06"
+  "Mar. 2022" / "March, 2022"         → "2022-03"
+  "Q2 2020" / "Summer 2020"           → "2020-06"  (use mid-quarter/season month)
+  "2019" (year only)                  → "2019-01"
+  "Tháng 3/2021" / "T3/2021" / "3/2021" → "2021-03"  (Vietnamese formats)
+  "09-2023" / "09.2023"               → "2023-09"
+  Any of: "Present", "Now", "Current", "To date", "Ongoing",
+          "Hiện tại", "Nay", "Đến nay", "Till now"  → "present"
+  Missing or unknown date             → ""
+
+GENERAL RULES:
 - Extract ALL work experiences, even internships and part-time roles.
 - For skills: scan the entire CV — skills section, work experience, projects, summary.
 - Do NOT calculate months — only provide start and end date strings.
-- If a date is missing, use empty string "".
 - If a field has no data, use [] for arrays or "" for strings.
 
 CV text:
@@ -95,7 +107,15 @@ Return ONLY valid JSON — no explanation, no markdown.
 }
 
 Include ALL jobs — full-time, part-time, internships, freelance.
-If dates are unclear, extract what is available (year only is fine as YYYY-01).
+
+DATE CONVERSION — convert any format to YYYY-MM:
+  "Jan 2021" / "01/2021" / "1/2021"   → "2021-01"
+  "Tháng 3/2021" / "T3/2021" / "3/2021" → "2021-03"
+  "2019" (year only)                  → "2019-01"
+  "Mar. 2022" / "March 2022"          → "2022-03"
+  "Q1 2020" / "Spring 2020"           → "2020-03"
+  "Present" / "Now" / "Hiện tại" / "Nay" / "Đến nay" → "present"
+  Unknown or missing                  → ""
 
 CV text:
 """
