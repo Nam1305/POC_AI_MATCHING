@@ -326,6 +326,13 @@ class ParsedJD(BaseModel):
         except (TypeError, ValueError):
             return 0
 
+    @field_validator("education_degree", mode="before")
+    @classmethod
+    def _coerce_degree(cls, v: object) -> object:
+        if isinstance(v, str) and v.strip().lower() in ("null", "none", ""):
+            return None
+        return v
+
     # --- Internal helpers (not serialized) ---
 
     @property

@@ -127,7 +127,7 @@ JSON structure:
   ],
   "preferred_skills": ["nice-to-have skill names"],
   "min_experience_years": integer (0 if not specified),
-  "education_degree": "bachelor or master or phd or associate or high_school or other or null",
+  "education_degree": "one of: bachelor, master, phd, associate, high_school, other; use JSON null if not specified",
   "keywords": ["important technical keywords from the JD"]
 }
 
