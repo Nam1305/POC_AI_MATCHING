@@ -16,13 +16,13 @@ from __future__ import annotations
 
 from app.schemas import CVJobEvaluation, ParsedCV, ParsedJD, SkillMatchDetail
 from app.services.llm_client import call_llm_text
-from app.services.scorer import (
-    SkillMatcher,
-    _collect_cv_skills,
-    _detect_level,
-)
+from app.services.scorer import _detect_level, _skill_matcher
 
-_matcher = SkillMatcher()
+_matcher = _skill_matcher
+
+# Recommendation labels the LLM is allowed to emit.
+VALID_RECOMMENDATIONS = {"strong_fit", "possible_fit", "weak_fit", "poor_fit"}
+_DEFAULT_RECOMMENDATION = "possible_fit"
 
 
 # ---------------------------------------------------------------------------
@@ -30,8 +30,7 @@ _matcher = SkillMatcher()
 # ---------------------------------------------------------------------------
 
 def _analyze_skills(cv: ParsedCV, jd: ParsedJD) -> dict:
-    cv_skills_raw = _collect_cv_skills(cv)
-    cv_skills = {_matcher.normalize_skill(s) for s in cv_skills_raw if s}
+    cv_skills, cv_skills_expanded = _matcher.normalized_cv_skills(cv)
 
     skill_details: list[SkillMatchDetail] = []
     missing_must: list[str] = []
@@ -40,28 +39,49 @@ def _analyze_skills(cv: ParsedCV, jd: ParsedJD) -> dict:
     total_weight   = sum(r.weight for r in jd.required_skills)
 
     for req in jd.required_skills:
-        jd_norm = _matcher.normalize_skill(req.skill)
-        is_matched = jd_norm in cv_skills or any(
-            _matcher.fuzzy_match(jd_norm, s) for s in cv_skills
-        )
-        if is_matched:
-            matched_weight += req.weight
+        # OR-group aware: a requirement is satisfied by any of its alternatives.
+        label = _matcher.group_label(req)
+        status, credit = _matcher.evaluate_group(req, cv_skills, cv_skills_expanded)
+        matched_weight += req.weight * credit
+        if status in ("matched", "matched_implied"):
             skill_details.append(SkillMatchDetail(
-                skill=req.skill, status="matched", weight=req.weight
+                skill=label, status=status, weight=req.weight
             ))
         elif req.weight >= 3:
-            missing_must.append(req.skill)
+            missing_must.append(label)
             skill_details.append(SkillMatchDetail(
-                skill=req.skill, status="missing_must_have", weight=req.weight
+                skill=label, status="missing_must_have", weight=req.weight
             ))
         else:
-            missing_pref.append(req.skill)
+            missing_pref.append(label)
             skill_details.append(SkillMatchDetail(
-                skill=req.skill, status="missing_preferred", weight=req.weight
+                skill=label, status="missing_preferred", weight=req.weight
             ))
 
-    # Bonus: CV có nhưng JD không yêu cầu
-    jd_normalized = {_matcher.normalize_skill(r.skill) for r in jd.required_skills}
+    # Preferred (nice-to-have) skills — analyzed for display only. They never
+    # affect D2 or trigger penalties (that is the point of separating them from
+    # required), but HR still wants to see which optional skills a candidate lacks.
+    seen_pref: set[str] = set()
+    for pref in jd.preferred_skills:
+        norm = _matcher.normalize_skill(pref)
+        if not norm or norm in seen_pref:
+            continue
+        seen_pref.add(norm)
+        status, _ = _matcher.evaluate_skill(norm, cv_skills, cv_skills_expanded)
+        if status == "missing":
+            missing_pref.append(pref)
+            skill_details.append(SkillMatchDetail(
+                skill=pref, status="missing_preferred", weight=1
+            ))
+        else:
+            skill_details.append(SkillMatchDetail(
+                skill=pref, status=status, weight=1
+            ))
+
+    # Bonus: CV có nhưng JD không yêu cầu (kể cả các alternative của OR-group)
+    jd_normalized: set[str] = set()
+    for r in jd.required_skills:
+        jd_normalized |= set(_matcher.group_names(r))
     jd_normalized |= {_matcher.normalize_skill(s) for s in jd.preferred_skills}
     bonus = [s for s in cv.skills if _matcher.normalize_skill(s) not in jd_normalized][:8]
 
@@ -226,15 +246,14 @@ async def _llm_narrative(cv: ParsedCV, jd: ParsedJD, analysis: dict) -> dict:
     raw_text = await call_llm_text(prompt, temperature=0.4, max_tokens=1200)
 
     # Tách narrative và recommendation từ raw text
-    narrative   = raw_text
-    rec         = "possible_fit"
-    valid_recs  = {"strong_fit", "possible_fit", "weak_fit", "poor_fit"}
+    narrative = raw_text
+    rec = _DEFAULT_RECOMMENDATION
 
     if "RECOMMENDATION:" in raw_text:
         parts     = raw_text.split("RECOMMENDATION:")
         narrative = parts[0].strip()
         rec_raw   = parts[1].strip().lower().replace(" ", "_").split()[0]
-        if rec_raw in valid_recs:
+        if rec_raw in VALID_RECOMMENDATIONS:
             rec = rec_raw
 
     return {"narrative": narrative, "recommendation": rec}
@@ -264,11 +283,6 @@ async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD) -> CVJobEvaluation:
 
     narrative = await _llm_narrative(cv, jd, combined)
 
-    valid_recs = {"strong_fit", "possible_fit", "weak_fit", "poor_fit"}
-    rec = narrative.get("recommendation", "").strip().lower().replace(" ", "_")
-    if rec not in valid_recs:
-        rec = "possible_fit"
-
     return CVJobEvaluation(
         skill_details      = skill_data["skill_details"],
         missing_must_have  = skill_data["missing_must_have"],
@@ -285,5 +299,5 @@ async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD) -> CVJobEvaluation:
         seniority_detail   = sen_data["detail"],
 
         narrative          = narrative.get("narrative", ""),
-        recommendation     = rec,
+        recommendation     = narrative.get("recommendation", _DEFAULT_RECOMMENDATION),
     )

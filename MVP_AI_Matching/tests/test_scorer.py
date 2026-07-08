@@ -11,7 +11,7 @@ from app.schemas import (
 from app.services.scorer import (
     cosine_sim, normalize_cosine,
     score_skills, score_experience, score_education, score_keywords,
-    calculate_score, calculate_score_with_rules, recalculate_final,
+    calculate_score, calculate_score_with_rules,
 )
 
 
@@ -68,8 +68,10 @@ def test_score_skills_partial_with_tech_stack():
 
 
 def test_score_skills_alias_and_fuzzy():
-    # 'js' → javascript, 'reactjs' → react via ALIASES
-    # 'fastapi' exact, 'pythonn' (typo) → fuzzy match python (0.9 credit)
+    # 'js' → javascript, 'reactjs' → react via ALIASES; 'fastapi' exact.
+    # "Python" is satisfied via the implied tier (fastapi implies python is a
+    # guaranteed fact) before the fuzzy typo 'pythonn' is even considered —
+    # so all 4 required skills get full credit.
     cv = ParsedCV(skills=["js", "reactjs", "fastapi", "pythonn"])
     jd = ParsedJD(
         title="Backend",
@@ -80,8 +82,18 @@ def test_score_skills_alias_and_fuzzy():
             RequiredSkill(skill="Python", weight=1),
         ],
     )
-    # total = (1 + 1 + 1 + 0.9) / 4 = 3.9 / 4
-    assert score_skills(cv, jd) == pytest.approx(3.9 / 4)
+    assert score_skills(cv, jd) == pytest.approx(1.0)
+
+
+def test_score_skills_fuzzy_still_applies_without_implied_path():
+    # Genuine fuzzy-only case: 'pythonn' (typo) with no other CV skill that
+    # implies python — must still get the 0.9 fuzzy credit, not full credit.
+    cv = ParsedCV(skills=["pythonn"])
+    jd = ParsedJD(
+        title="Backend",
+        required_skills=[RequiredSkill(skill="Python", weight=1)],
+    )
+    assert score_skills(cv, jd) == pytest.approx(0.9)
 
 
 def test_score_skills_category_partial_credit():
@@ -92,6 +104,85 @@ def test_score_skills_category_partial_credit():
         required_skills=[RequiredSkill(skill="PostgreSQL", weight=1)],
     )
     assert score_skills(cv, jd) == pytest.approx(0.3)
+
+
+def test_score_skills_implied_match_full_credit():
+    # CV only lists "ReactJS" (not "JavaScript" explicitly) — React implies
+    # JavaScript (IMPLIES, sourced from Wikidata P277), so this must be a
+    # full-weight match, not a partial category-credit guess.
+    cv = ParsedCV(skills=["reactjs"])
+    jd = ParsedJD(
+        title="Frontend",
+        required_skills=[RequiredSkill(skill="JavaScript", weight=3)],
+    )
+    assert score_skills(cv, jd) == pytest.approx(1.0)
+
+
+def test_score_skills_or_group_satisfied_by_one_alternative():
+    # JD requires "React OR Vue OR TypeScript" as one requirement; CV has React
+    # only. The whole group is satisfied → full credit, no missing skill.
+    cv = ParsedCV(skills=["React.js", "TypeScript"])
+    jd = ParsedJD(
+        title="Frontend",
+        required_skills=[
+            RequiredSkill(skill="React.js", weight=3, alternatives=["Vue.js", "TypeScript"]),
+        ],
+    )
+    assert score_skills(cv, jd) == pytest.approx(1.0)
+
+
+def test_or_group_not_flagged_hard_missing():
+    # A candidate with one option of an OR-group must not be penalized for
+    # lacking the redundant alternatives.
+    cv = ParsedCV(skills=["React.js", "TypeScript"])
+    jd = ParsedJD(
+        title="Frontend",
+        required_skills=[
+            RequiredSkill(skill="React.js", weight=3, alternatives=["Vue.js"]),
+        ],
+    )
+    res = calculate_score_with_rules(cv, jd, [1.0, 0.0], [1.0, 0.0], "react")
+    assert res["penalty_applied"] == 0.0
+    assert res["penalty_reasons"] == []
+
+
+def test_chartjs_implies_data_visualization():
+    # Chart.js is a data-visualization library; a JD asking for "Data
+    # Visualization" must count it as matched (concept implication), not missing.
+    cv = ParsedCV(skills=["Chart.js"])
+    jd = ParsedJD(
+        title="Frontend",
+        required_skills=[RequiredSkill(skill="Data Visualization", weight=3)],
+    )
+    assert score_skills(cv, jd) == pytest.approx(1.0)
+    res = calculate_score_with_rules(cv, jd, [1.0, 0.0], [1.0, 0.0], "chart.js")
+    assert res["penalty_applied"] == 0.0
+
+
+def test_rest_apis_plural_alias():
+    # "REST APIs" (plural) must normalize to the same canonical as "RESTful APIs".
+    cv = ParsedCV(skills=["REST APIs"])
+    jd = ParsedJD(
+        title="Backend",
+        required_skills=[RequiredSkill(skill="RESTful APIs", weight=3)],
+    )
+    assert score_skills(cv, jd) == pytest.approx(1.0)
+
+
+def test_score_skills_implied_match_different_ecosystem():
+    # CV only has "django" (implies python) — must NOT satisfy an unrelated
+    # ecosystem's JD requirement (java). Guards against implied-match noise
+    # leaking across languages.
+    cv = ParsedCV(skills=["django"])
+    jd = ParsedJD(
+        title="Backend",
+        required_skills=[
+            RequiredSkill(skill="Python", weight=3),
+            RequiredSkill(skill="Java", weight=3),
+        ],
+    )
+    # python matched via implied (1.0), java stays unmatched (0.0)
+    assert score_skills(cv, jd) == pytest.approx(0.5)
 
 
 # ---------------------------------------------------------------------------
@@ -208,8 +299,18 @@ def test_calculate_score_with_rules_must_have_and_exp():
     assert "insufficient experience" in res["penalty_reasons"][1]
 
 
-def test_recalculate_final_weighted_sum():
-    scores = {"semantic": 80, "skills": 100, "experience": 50, "education": 100, "keywords": 0}
-    weights = {"semantic": 0.2, "skills": 0.5, "experience": 0.2, "education": 0.1, "keywords": 0.0}
-    # 80*0.2 + 100*0.5 + 50*0.2 + 100*0.1 + 0*0.0 = 16+50+10+10 = 86.0
-    assert recalculate_final(scores, weights) == 86.0
+def test_calculate_score_with_rules_implied_skill_no_penalty():
+    # Regression test for the original reported bug: JD requires "JavaScript"
+    # as a must-have, CV only lists "ReactJS" (no explicit JavaScript entry).
+    # Before IMPLIES, this incurred a 0.15 hard-missing penalty even though
+    # knowing React logically guarantees knowing JavaScript.
+    cv = ParsedCV(skills=["reactjs"])
+    jd = ParsedJD(
+        title="Frontend",
+        required_skills=[RequiredSkill(skill="JavaScript", weight=3)],
+    )
+    cv_vec = [1.0, 0.0]
+    jd_vec = [1.0, 0.0]
+    res = calculate_score_with_rules(cv, jd, cv_vec, jd_vec, "reactjs")
+    assert res["penalty_applied"] == 0.0
+    assert res["penalty_reasons"] == []

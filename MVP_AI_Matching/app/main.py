@@ -3,8 +3,9 @@ FastAPI entry point for AI Service.
 
 Endpoints (all under /ai prefix, see app/api/*.py):
   POST /ai/parse-jd     — JD text → parsed JSON + embedding
-  POST /ai/parse-cv     — CV file(s) → parsed JSON + embedding
-  POST /ai/score        — CV ↔ JD → 5-dimension score (pure Python, no LLM)
+  POST /ai/parse-cv     — CV URL(s) → parsed JSON + embedding
+  POST /ai/score        — CV ↔ JD → 5-dimension score + penalties + LLM evaluation
+  POST /ai/evaluate     — CV ↔ JD → qualitative HR narrative + recommendation
 
 Plus:
   GET /health           — health check

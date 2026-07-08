@@ -143,7 +143,7 @@ JSON structure:
 {
   "title": "job title",
   "required_skills": [
-    {"skill": "skill name", "weight": 1 or 2 or 3}
+    {"skill": "skill name", "weight": 1 or 2 or 3, "alternatives": ["interchangeable skill names"]}
   ],
   "preferred_skills": ["nice-to-have skill names"],
   "min_experience_years": integer (0 if not specified),
@@ -151,7 +151,26 @@ JSON structure:
   "keywords": ["important technical keywords from the JD"]
 }
 
-Weight guide: 3 = must-have, 2 = important, 1 = nice-to-have.
+REQUIRED vs PREFERRED (critical — do not mix):
+- required_skills = skills the JD lists under "Required", "Must have", "Requirements",
+  or states as mandatory. Only these.
+- preferred_skills = skills under "Preferred", "Nice to have", "Plus", "Bonus",
+  "Desirable", "Advantage". Put them ONLY in preferred_skills, NEVER in required_skills.
+
+ALTERNATIVES / OR-GROUPS (critical):
+When a requirement lists skills as interchangeable options — "A, B, or C",
+"A / B", "experience with A or B", "one of A, B" — emit ONE required_skills entry
+whose "skill" is the first option and "alternatives" holds the rest. Do NOT split
+an OR-group into separate entries.
+  "React.js, TypeScript, or Vue.js"  → {"skill": "React.js", "weight": 3, "alternatives": ["TypeScript", "Vue.js"]}
+  "Bootstrap or Tailwind CSS"        → {"skill": "Bootstrap", "weight": 3, "alternatives": ["Tailwind CSS"]}
+A skill that stands on its own (not an option) has "alternatives": [].
+
+Weight guide (required_skills only): 3 = must-have / core, 2 = important, 1 = minor.
+Reserve weight 3 for skills the JD truly mandates; do not mark everything as 3.
+
+keywords: the core technical keywords a matching CV would contain. Keep it focused —
+do not pad with preferred-only tools or non-technical phrases.
 
 JD text:
 """

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime
 import math
+import re
 from enum import Enum
 from typing import Optional
 
@@ -15,35 +16,44 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Date helpers — single source of truth for month parsing
 # ---------------------------------------------------------------------------
 
-def _diff_months(start: str, end: str) -> int:
-    """Calculate calendar months between two 'YYYY-MM' strings.
-    'present' / 'now' / 'nay' resolve to the current month.
+# Non-empty tokens meaning "still ongoing"; an empty string is handled by the
+# caller (unknown date), which is a different case from an explicit "present".
+PRESENT_TOKENS = {"present", "nay", "now", "current"}
+
+
+def parse_month(s: str) -> Optional[datetime.date]:
     """
-    _PRESENT = {"present", "nay", "now", "current", ""}
-
-    def _parse(s: str) -> datetime.date:
-        s = (s or "").strip().lower()
-        if s in _PRESENT:
-            return datetime.date.today().replace(day=1)
-        parts = s.split("-")
-        try:
-            year  = int(parts[0])
-            month = int(parts[1]) if len(parts) > 1 else 1
-            return datetime.date(year, max(1, min(12, month)), 1)
-        except (ValueError, IndexError):
-            return datetime.date.today().replace(day=1)
-
+    Parse a 'YYYY-MM' date (also accepting '/', '.' separators or year-only)
+    into the first day of that month. 'present'/'now'/'nay'/'current' resolve
+    to the current month. Empty or unparseable input returns None.
+    """
+    s = (s or "").strip().lower()
+    if not s:
+        return None
+    if s in PRESENT_TOKENS:
+        return datetime.date.today().replace(day=1)
+    m = re.match(r"(\d{4})(?:[-/.](\d{1,2}))?", s)
+    if not m:
+        return None
+    year = int(m.group(1))
+    month = int(m.group(2)) if m.group(2) else 1
     try:
-        s = _parse(start)
-        e = _parse(end)
-        if e < s:
-            e = s
-        return (e.year - s.year) * 12 + (e.month - s.month)
-    except Exception:
-        return 0
+        return datetime.date(year, max(1, min(12, month)), 1)
+    except ValueError:
+        return None
+
+
+def _diff_months(start: str, end: str) -> int:
+    """Calendar months between two dates. Unknown dates fall back to the current month."""
+    today = datetime.date.today().replace(day=1)
+    s = parse_month(start) or today
+    e = parse_month(end) or today
+    if e < s:
+        e = s
+    return (e.year - s.year) * 12 + (e.month - s.month)
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +95,7 @@ class WorkExperience(BaseModel):
 
     @model_validator(mode="after")
     def _set_current_and_months(self) -> "WorkExperience":
-        if self.end and self.end.lower() in ("present", "nay", "now", "current"):
+        if self.end and self.end.strip().lower() in PRESENT_TOKENS:
             self.is_current = True
         # Prefer Python calculation over LLM-provided value for accuracy
         if self.start:
@@ -145,7 +155,8 @@ class Project(BaseModel):
 
 class SkillMatchDetail(BaseModel):
     skill:  str
-    status: str   # "matched" | "missing_must_have" | "missing_preferred"
+    # "matched" | "matched_implied" | "missing_must_have" | "missing_preferred"
+    status: str
     weight: int = 1
 
 
@@ -176,6 +187,17 @@ class CVJobEvaluation(BaseModel):
 class RequiredSkill(BaseModel):
     skill:  str
     weight: int = 1   # 1 nice-to-have → 3 must-have
+    # Interchangeable alternatives — when the JD lists skills as "A, B, or C",
+    # the group is satisfied by ANY one of {skill} ∪ alternatives. `skill` is the
+    # representative; `alternatives` holds the rest. Empty for a plain requirement.
+    alternatives: list[str] = Field(default_factory=list)
+
+    @field_validator("alternatives", mode="before")
+    @classmethod
+    def _coerce_alternatives(cls, v: object) -> list:
+        if not isinstance(v, list):
+            return []
+        return [s for s in v if isinstance(s, str) and s.strip()]
 
 
 # ---------------------------------------------------------------------------
@@ -334,7 +356,11 @@ class ParsedJD(BaseModel):
 
     @property
     def all_skill_names(self) -> list[str]:
-        return [s.skill for s in self.required_skills] + self.preferred_skills
+        names: list[str] = []
+        for s in self.required_skills:
+            names.append(s.skill)
+            names.extend(s.alternatives)
+        return names + self.preferred_skills
 
     # --- Embed text ---
 
@@ -342,10 +368,10 @@ class ParsedJD(BaseModel):
         parts = [self.title]
 
         if self.required_skills:
-            skill_strs = [
-                f"{s.skill} [required]" if s.weight == 3 else s.skill
-                for s in self.required_skills
-            ]
+            skill_strs = []
+            for s in self.required_skills:
+                label = " or ".join([s.skill, *s.alternatives]) if s.alternatives else s.skill
+                skill_strs.append(f"{label} [required]" if s.weight == 3 else label)
             parts.append("Required skills: " + ", ".join(skill_strs))
 
         if self.preferred_skills:

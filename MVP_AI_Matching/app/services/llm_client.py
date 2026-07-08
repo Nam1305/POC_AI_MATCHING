@@ -1,5 +1,5 @@
 """
-Provider-agnostic LLM client — shared by parser and nl_search.
+Provider-agnostic LLM client — shared by the parser and evaluator.
 
 Exposes two call modes:
   call_llm_json(prompt, text)  → parsed JSON dict  (for structured extraction)

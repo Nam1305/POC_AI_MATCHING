@@ -1,7 +1,7 @@
 """
 Stage 3 — Dense Embedding
 
-Converts text into a dense vector for D1 semantic scoring + NL search.
+Converts text into a dense vector for D1 semantic scoring.
 Provider selected via .env EMBED_PROVIDER:
 
   - openai                : text-embedding-3-small   (1536-dim, paid)

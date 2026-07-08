@@ -58,6 +58,17 @@ MAX_RETRIES = 3
 
 RETRY_DELAY_SECONDS = 3
 
+# A source with more than this many distinct direct P277 targets is treated
+# as polyglot/ambiguous and dropped entirely rather than partially trusted.
+# IMPLIES grants FULL match credit, which is only justified when the base
+# language is a guaranteed fact (react -> javascript). Libraries with many
+# language bindings (spark -> java/python/r/scala/sql, xgboost ->
+# java/python/ruby) don't have one certain base language — most real users
+# only know ONE of those, so keeping all of them would produce false
+# positives. Verified empirically: every legitimate single-ecosystem
+# framework in this vocabulary has <=2 direct P277 targets.
+MAX_DIRECT_TARGETS = 2
+
 
 # ============================================================
 # IMPORT PROJECT MODULE
@@ -171,8 +182,9 @@ SKILL_QIDS: dict[str, str | None] = {
 # ============================================================
 
 BLOCKED_SOURCE_TYPE_TERMS: tuple[str, ...] = (
-    # Database
-    "database",
+    # Database — "database" alone is too broad (matches "database abstraction
+    # layer" e.g. Entity Framework, which is NOT a database). Use specific
+    # phrases only, verified against real Wikidata P31/P279 labels.
     "database management system",
     "relational database management system",
     "document-oriented database",
@@ -182,10 +194,15 @@ BLOCKED_SOURCE_TYPE_TERMS: tuple[str, ...] = (
     # Search infrastructure
     "search engine",
 
-    # Container / infrastructure
-    "containerization software",
-    "container orchestration",
+    # Container / infrastructure — verified real Wikidata labels (the earlier
+    # guessed terms like "containerization software"/"container orchestration"
+    # did not match actual labels and let docker/kubernetes/terraform leak
+    # "go" through as a false implied relation).
+    "container runtime",
+    "container orchestrator",
     "container platform",
+    "infrastructure automation software",
+    "infrastructure provisioning tool",
 
     # Version control
     "version control system",
@@ -196,9 +213,15 @@ BLOCKED_SOURCE_TYPE_TERMS: tuple[str, ...] = (
     "continuous integration tool",
     "continuous delivery software",
 
-    # Hosting / forge platforms
-    "software forge",
-    "source code hosting service",
+    # Hosting / forge platforms — verified real Wikidata labels (GitLab's
+    # actual P31/P279 chain uses "forge"/"internet hosting service", not the
+    # earlier guessed "software forge"/"source code hosting service", so it
+    # leaked through as a false "gitlab -> ruby" implied relation).
+    "forge",
+    "internet hosting service",
+    "repository hosting service",
+    "bug tracking system",
+    "issue tracking system",
     "code hosting platform",
     "devops platform",
 
@@ -907,6 +930,31 @@ def qid_graph_to_skill_graph(
 
 
 # ============================================================
+# AMBIGUITY FILTER — drop polyglot sources
+# ============================================================
+
+def filter_ambiguous_sources(
+    graph: dict[str, set[str]],
+    max_targets: int = MAX_DIRECT_TARGETS,
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """Drop sources with too many distinct direct targets (polyglot
+    libraries with no single certain base language). Returns
+    (kept_graph, dropped_graph) for logging."""
+
+    kept: dict[str, set[str]] = {}
+    dropped: dict[str, set[str]] = {}
+
+    for source, targets in graph.items():
+
+        if len(targets) <= max_targets:
+            kept[source] = targets
+        else:
+            dropped[source] = targets
+
+    return kept, dropped
+
+
+# ============================================================
 # TRANSITIVE CLOSURE
 # ============================================================
 
@@ -1221,12 +1269,33 @@ def generate() -> dict[str, set[str]]:
     )
 
     # ========================================================
+    # AMBIGUITY FILTER
+    # ========================================================
+
+    unambiguous_skill_graph, dropped_ambiguous = (
+        filter_ambiguous_sources(
+            direct_skill_graph
+        )
+    )
+
+    print(
+        "\n========== DROPPED (POLYGLOT / AMBIGUOUS) =========="
+    )
+
+    if not dropped_ambiguous:
+        print("  None")
+    else:
+        for source in sorted(dropped_ambiguous):
+            targets = ", ".join(sorted(dropped_ambiguous[source]))
+            print(f"  {source} -> {{{targets}}}")
+
+    # ========================================================
     # TRANSITIVE CLOSURE
     # ========================================================
 
     closed_skill_graph = (
         transitive_closure(
-            direct_skill_graph
+            unambiguous_skill_graph
         )
     )
 
