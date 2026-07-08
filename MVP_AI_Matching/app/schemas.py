@@ -338,6 +338,19 @@ class ParsedJD(BaseModel):
     education_degree:     Optional[DegreeLevel] = None
     keywords:             list[str]           = Field(default_factory=list)
 
+    @field_validator("education_degree", mode="before")
+    @classmethod
+    def _coerce_degree(cls, v: object) -> Optional[str]:
+        # LLMs sometimes emit the literal string "null"/"none"/"" instead of a
+        # JSON null; treat those as "no requirement" rather than 500-ing.
+        if v is None:
+            return None
+        if isinstance(v, str):
+            s = v.strip().lower()
+            if s in ("", "null", "none", "n/a", "na"):
+                return None
+        return v
+
     @field_validator("min_experience_years", mode="before")
     @classmethod
     def _coerce_exp(cls, v: object) -> int:

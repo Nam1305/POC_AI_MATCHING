@@ -21,25 +21,9 @@ import numpy as np
 
 from app.config import settings
 from app.schemas import ParsedCV, ParsedJD, parse_month
-from app.services.skill_implies import IMPLIES
-
-# Concept implications Wikidata P277 ("programmed in") does not model: a concrete
-# library guarantees the capability it exists to provide (Chart.js → data
-# visualization) or the transport it wraps (axios → REST). Kept here rather than
-# in the generated skill_implies.py so regenerating that file won't drop them.
-_MANUAL_IMPLIES: dict[str, set[str]] = {
-    "chartjs":    {"data_visualization", "javascript"},
-    "d3js":       {"data_visualization", "javascript"},
-    "recharts":   {"data_visualization", "react"},
-    "highcharts": {"data_visualization", "javascript"},
-    "plotly":     {"data_visualization"},
-    "axios":      {"rest_api"},
-}
-
-# Effective implication graph = generated P277 data + manual concept edges.
-_IMPLIES_ALL: dict[str, set[str]] = {k: set(v) for k, v in IMPLIES.items()}
-for _k, _v in _MANUAL_IMPLIES.items():
-    _IMPLIES_ALL.setdefault(_k, set()).update(_v)
+from app.services.skill_data import (
+    ALIASES, CATEGORIES, IMPLIES_ALL, PENALTY_SKIP_CATEGORIES,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -52,154 +36,11 @@ class SkillMatcher:
     grant partial credit for skills in the same broad category.
     """
 
-    ALIASES: dict[str, str] = {
-        # JavaScript ecosystem — including versioned forms like "JavaScript (ES6+)"
-        "js": "javascript", "javascript": "javascript", "es6": "javascript",
-        "es6+": "javascript", "es2015": "javascript", "es2017": "javascript",
-        "ecmascript": "javascript",
-        "ts": "typescript", "typescript": "typescript",
-        "react": "react", "reactjs": "react", "react.js": "react",
-        "node": "nodejs", "nodejs": "nodejs", "node.js": "nodejs",
-        "vue": "vue", "vuejs": "vue", "vue.js": "vue",
-        "angular": "angular", "angularjs": "angular",
-        "next": "nextjs", "nextjs": "nextjs", "next.js": "nextjs",
-        "express": "express", "expressjs": "express",
-        "nestjs": "nestjs", "nest.js": "nestjs",
-        # HTML / CSS — explicit versioned forms
-        "html": "html", "html5": "html", "html 5": "html",
-        "css": "css", "css3": "css", "css 3": "css",
-        "modern css": "css", "modern css layout techniques": "css",
-        "tailwind": "tailwind", "tailwind css": "tailwind",
-        # Data visualization — libraries + the capability they provide
-        "chart.js": "chartjs", "chartjs": "chartjs", "chart js": "chartjs",
-        "d3.js": "d3js", "d3": "d3js", "d3js": "d3js", "d3 js": "d3js",
-        "recharts": "recharts", "highcharts": "highcharts", "plotly": "plotly",
-        "data visualization": "data_visualization",
-        "data visualisation": "data_visualization",
-        "data viz": "data_visualization", "dataviz": "data_visualization",
-        # Frontend delivery concepts
-        "responsive web design": "responsive_web_design",
-        "responsive design": "responsive_web_design",
-        "responsive ui": "responsive_web_design",
-        "responsive web": "responsive_web_design", "rwd": "responsive_web_design",
-        "cross-browser compatibility": "cross_browser",
-        "cross browser compatibility": "cross_browser",
-        "cross-browser": "cross_browser", "cross browser": "cross_browser",
-        "ui design": "ui_design", "user interface design": "ui_design",
-        "clean code": "clean_code",
-        # Python
-        "py": "python", "python": "python", "python3": "python",
-        "django": "django", "flask": "flask", "fastapi": "fastapi",
-        # .NET — ".NET Core" maps to same canonical as "ASP.NET Core"
-        "c#": "csharp", "csharp": "csharp", "c sharp": "csharp",
-        ".net": "dotnet", "dotnet": "dotnet", "dot net": "dotnet",
-        ".net core": "aspnet", "dotnetcore": "aspnet", "dot net core": "aspnet",
-        "asp.net": "aspnet", "aspnet": "aspnet", "asp.net core": "aspnet",
-        "ef": "entity framework", "ef core": "entity framework",
-        "entity framework": "entity framework",
-        "entity framework core": "entity framework",
-        "dapper": "dapper",
-        "nuget": "nuget",
-        # Java
-        "java": "java", "spring": "spring", "spring boot": "spring",
-        "springboot": "spring",
-        "hibernate": "hibernate",
-        "maven": "maven", "apache maven": "maven",
-        "gradle": "gradle",
-        "junit": "junit",
-        "quarkus": "quarkus",
-        "micronaut": "micronaut",
-        # Databases
-        "postgres": "postgresql", "postgresql": "postgresql", "psql": "postgresql",
-        "mysql": "mysql", "mariadb": "mysql",
-        "mongo": "mongodb", "mongodb": "mongodb",
-        "sqlserver": "sqlserver", "sql server": "sqlserver", "mssql": "sqlserver",
-        "redis": "redis",
-        "elastic": "elasticsearch", "elasticsearch": "elasticsearch",
-        # Cloud / DevOps
-        "aws": "aws", "amazon web services": "aws",
-        "gcp": "gcp", "google cloud": "gcp", "google cloud platform": "gcp",
-        "azure": "azure", "microsoft azure": "azure",
-        "k8s": "kubernetes", "kubernetes": "kubernetes",
-        "docker": "docker",
-        "ci/cd": "ci_cd", "cicd": "ci_cd", "ci cd": "ci_cd",
-        "jenkins": "jenkins", "terraform": "terraform",
-        # ML / AI — frameworks
-        "tf": "tensorflow", "tensorflow": "tensorflow",
-        "pytorch": "pytorch", "torch": "pytorch",
-        "sklearn": "scikit-learn", "scikit-learn": "scikit-learn",
-        "scikit learn": "scikit-learn",
-        "keras": "keras",
-        # ML / AI — domain concepts (canonical form without spaces)
-        "machine learning": "machine_learning", "machine_learning": "machine_learning",
-        "ml": "machine_learning",
-        "deep learning": "deep_learning", "deep_learning": "deep_learning",
-        "dl": "deep_learning",
-        "natural language processing": "nlp", "nlp": "nlp",
-        "computer vision": "computer_vision", "computer_vision": "computer_vision",
-        "data preprocessing": "data_preprocessing", "data_preprocessing": "data_preprocessing",
-        "data analysis": "data_analysis", "data_analysis": "data_analysis",
-        "artificial intelligence": "machine_learning", "ai": "machine_learning",
-        # Data
-        "pandas": "pandas", "numpy": "numpy",
-        "airflow": "airflow", "apache airflow": "airflow",
-        "opencv": "opencv", "open cv": "opencv",
-        "spacy": "spacy",
-        "nltk": "nltk",
-        "xgboost": "xgboost", "xg boost": "xgboost",
-        "spark": "spark", "apache spark": "spark", "pyspark": "spark",
-        # APIs
-        "rest": "rest_api", "restful": "rest_api", "rest api": "rest_api",
-        "rest apis": "rest_api", "restful api": "rest_api", "restful apis": "rest_api",
-        "restful apis design": "rest_api", "restful api integration": "rest_api",
-        "rest api integration": "rest_api", "api integration": "rest_api",
-        "axios": "axios",
-        "graphql": "graphql", "grpc": "grpc",
-        # Misc
-        "git": "git", "github": "github", "gitlab": "gitlab",
-        "go": "go", "golang": "go",
-        "sql": "sql", "nosql": "nosql",
-        "agile": "agile", "scrum": "agile",
-        "oop": "oop", "object oriented programming": "oop",
-        # Other languages / frameworks
-        "ruby": "ruby",
-        "php": "php",
-        "rust": "rust",
-        "laravel": "laravel",
-        "rails": "rails", "ruby on rails": "rails",
-    }
-
-    CATEGORIES: dict[str, set[str]] = {
-        "frontend": {"react", "angular", "vue", "javascript", "typescript",
-                     "html", "css", "nextjs", "tailwind"},
-        "dataviz":  {"chartjs", "d3js", "recharts", "highcharts", "plotly",
-                     "data_visualization"},
-        "backend":  {"django", "flask", "fastapi", "spring", "express",
-                     "nestjs", "aspnet", "dotnet", "nodejs"},
-        "dotnet":   {"dotnet", "aspnet", "csharp", "entity framework"},
-        "database": {"mysql", "postgresql", "mongodb", "redis", "sqlserver",
-                     "elasticsearch", "sql", "nosql"},
-        "cloud":    {"aws", "gcp", "azure"},
-        "devops":   {"docker", "kubernetes", "ci_cd", "jenkins", "terraform"},
-        # ml_frameworks: concrete frameworks give category credit for ML/DL domain skills
-        "ml_frameworks": {"tensorflow", "pytorch", "keras", "scikit-learn",
-                          "machine_learning", "deep_learning"},
-        "ml_domain":     {"machine_learning", "deep_learning", "nlp",
-                          "computer_vision", "data_preprocessing"},
-        "data":     {"pandas", "numpy", "data_preprocessing", "data_analysis"},
-        "api":      {"rest_api", "graphql", "grpc"},
-        "language": {"python", "javascript", "typescript", "csharp", "java",
-                     "go", "ruby", "php", "rust"},
-    }
-
-    # Categories where having related tools at category_match ≥ 0.4 justifies
-    # skipping the hard penalty (D2 already reflects the skill gap via partial credit).
-    # "frontend" is included because TypeScript+ReactJS strongly implies JavaScript.
-    # "language" is excluded — knowing Python does NOT cover Java, Go, etc.
-    PENALTY_SKIP_CATEGORIES: set[str] = {
-        "ml_frameworks", "ml_domain", "dotnet", "devops", "cloud", "frontend",
-        "dataviz",
-    }
+    # Data tables live in skill_data.py; bound here as class attributes so
+    # `matcher.ALIASES` / `SkillMatcher.CATEGORIES` keep working as before.
+    ALIASES = ALIASES
+    CATEGORIES = CATEGORIES
+    PENALTY_SKIP_CATEGORIES = PENALTY_SKIP_CATEGORIES
 
     def normalize_skill(self, skill: str) -> str:
         if not skill:
@@ -248,7 +89,7 @@ class SkillMatcher:
         seen: set[str] = set()
         stack = [skill]
         while stack:
-            for nxt in _IMPLIES_ALL.get(stack.pop(), ()):
+            for nxt in IMPLIES_ALL.get(stack.pop(), ()):
                 if nxt not in seen:
                     seen.add(nxt)
                     stack.append(nxt)
