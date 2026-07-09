@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from app.schemas import CVJobEvaluation, ParsedCV, ParsedJD, SkillMatchDetail
 from app.services.llm_client import call_llm_text
-from app.services.scorer import _detect_level, _skill_matcher
+from app.services.scorer import _detect_level, _skill_matcher, jd_seniority_level
 
 _matcher = _skill_matcher
 
@@ -154,7 +154,7 @@ def _analyze_seniority(cv: ParsedCV, jd: ParsedJD) -> dict:
     if not jd.title:
         return {"match": "unknown", "detail": ""}
 
-    jd_level = _detect_level(jd.title)
+    jd_level = jd_seniority_level(jd)
     cv_role  = cv.current_role or (cv.work_experience[0].role if cv.work_experience else "")
 
     if not cv_role:

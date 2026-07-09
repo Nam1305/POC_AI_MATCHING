@@ -141,9 +141,35 @@ class SkillMatcher:
             return "matched", 1.0
         if jd_norm in cv_skills_expanded:
             return "matched_implied", 1.0
+        # Language proficiency: when the JD asks for a standardized level, credit
+        # the CV only via same-framework ordinal comparison (an equal-or-higher
+        # level matches; a lower one does not), never fuzzy on the level code.
+        prof = self._match_proficiency(jd_norm, cv_skills)
+        if prof is not None:
+            return prof
         if self.is_fuzzy(jd_norm, cv_skills):
             return "matched", 0.9
         return "missing", self.category_match(cv_skills, jd_norm)
+
+    def _match_proficiency(self, jd_norm: str,
+                           cv_skills: set[str]) -> Optional[tuple[str, float]]:
+        """
+        Ordinal language-proficiency match. Returns a (status, credit) verdict
+        when the JD skill is a standardized proficiency AND the CV carries a
+        credential in the same framework; otherwise None (defer to fuzzy/category).
+        """
+        req = _parse_proficiency(jd_norm)
+        if req is None:
+            return None
+        framework, req_rank = req
+        best: Optional[float] = None
+        for cv_s in cv_skills:
+            cp = _parse_proficiency(cv_s)
+            if cp and cp[0] == framework:
+                best = cp[1] if best is None else max(best, cp[1])
+        if best is None:
+            return None
+        return ("matched", 1.0) if best >= req_rank else ("missing", 0.0)
 
     def evaluate_group(self, req, cv_skills: set[str],
                        cv_skills_expanded: set[str]) -> tuple[str, float]:
@@ -173,6 +199,44 @@ class SkillMatcher:
         return True
 
 
+# ---------------------------------------------------------------------------
+# Language-proficiency frameworks — ordinal, language-agnostic
+# ---------------------------------------------------------------------------
+#
+# Standardized language certificates are ordered: a required level is satisfied
+# by ANY equal-or-higher level in the SAME framework, for every language —
+# JLPT (Japanese), HSK (Chinese), TOPIK (Korean), TOEIC/TOEFL/IELTS (English),
+# CEFR (language-neutral). This replaces fuzzy-matching on level codes, which
+# can't tell direction apart ("N4" looks 86% similar to "N3" yet is BELOW it).
+
+_CEFR_RANK = {"a1": 1, "a2": 2, "b1": 3, "b2": 4, "c1": 5, "c2": 6}
+
+# (compiled pattern, framework, rank-from-match). Rank is monotonic within a
+# framework: higher = more proficient. Order matters — first match wins.
+_PROFICIENCY_PATTERNS: list[tuple[re.Pattern, str, "callable"]] = [
+    (re.compile(r"\bjlpt\s*n\s*([1-5])\b"),          "jlpt",  lambda m: 6 - int(m.group(1))),  # N1 highest
+    (re.compile(r"\bhsk\s*([1-9])\b"),               "hsk",   lambda m: float(m.group(1))),
+    (re.compile(r"\btopik\s*([1-6])\b"),             "topik", lambda m: float(m.group(1))),
+    (re.compile(r"\bielts\s*([0-9](?:\.[05])?)\b"),  "ielts", lambda m: float(m.group(1))),
+    (re.compile(r"\btoeic\s*([0-9]{2,3})\b"),        "toeic", lambda m: float(m.group(1))),
+    (re.compile(r"\btoefl(?:\s*ibt)?\s*([0-9]{2,3})\b"), "toefl", lambda m: float(m.group(1))),
+    (re.compile(r"\b([abc][12])\b"),                 "cefr",  lambda m: float(_CEFR_RANK[m.group(1)])),
+]
+
+
+def _parse_proficiency(token: str) -> Optional[tuple[str, float]]:
+    """
+    (framework, rank) for a standardized language-proficiency token, else None.
+    Rank is comparable only within the same framework (higher = better).
+    """
+    t = token.lower()
+    for pattern, framework, rank_of in _PROFICIENCY_PATTERNS:
+        m = pattern.search(t)
+        if m:
+            return framework, rank_of(m)
+    return None
+
+
 _skill_matcher = SkillMatcher()
 
 
@@ -199,13 +263,43 @@ def normalize_cosine(raw: float, min_val: float = 0.55, max_val: float = 0.90) -
 # D2: Skills — alias + fuzzy + category
 # ---------------------------------------------------------------------------
 
+# Separators inside a credential string: "Japanese - JLPT N3", "English: TOEIC 835".
+_CREDENTIAL_SPLIT_RE = re.compile(r"[-–—:,/()]+")
+
+
+def _expand_credential(text: str) -> set[str]:
+    """
+    A language/certification entry carries the qualification as a sub-token,
+    e.g. "Japanese - JLPT N3". Yield the whole string AND its parts
+    ("japanese", "jlpt n3") so a JD skill like "JLPT N3" can match exactly.
+    """
+    out: set[str] = set()
+    whole = text.strip().lower()
+    if not whole:
+        return out
+    out.add(whole)
+    for part in _CREDENTIAL_SPLIT_RE.split(whole):
+        part = part.strip()
+        if part:
+            out.add(part)
+    return out
+
+
 def _collect_cv_skills(cv: ParsedCV) -> set[str]:
-    """Aggregate skills from cv.skills + work_experience.tech_stack + projects.tech_stack."""
+    """
+    Aggregate skills from cv.skills + work_experience.tech_stack +
+    projects.tech_stack, plus languages/certifications (split into sub-tokens so
+    credentials like "JLPT N3" inside "Japanese - JLPT N3" become matchable).
+    """
     skills: set[str] = {s.lower() for s in cv.skills}
     for exp in cv.work_experience:
         skills.update(s.lower() for s in exp.tech_stack)
     for proj in cv.projects:
         skills.update(s.lower() for s in proj.tech_stack)
+    for lang in cv.languages:
+        skills |= _expand_credential(lang)
+    for cert in cv.certifications:
+        skills |= _expand_credential(cert)
     return skills
 
 
@@ -407,13 +501,42 @@ _LEVEL_KEYWORDS: list[tuple[str, int]] = [
 ]
 
 
-def _detect_level(title: str) -> int:
-    """Seniority level 0–4 from a job title. Defaults to mid-level (2)."""
+def _explicit_title_level(title: str) -> Optional[int]:
+    """Seniority level from an explicit keyword in the title, or None when the
+    title carries no seniority word (e.g. a bare 'Software Engineer')."""
     if not title:
-        return 2
+        return None
     t = title.lower()
     levels = [lvl for kw, lvl in _LEVEL_KEYWORDS if kw in t]
-    return max(levels) if levels else 2
+    return max(levels) if levels else None
+
+
+def _detect_level(title: str) -> int:
+    """Seniority level 0–4 from a job title. Defaults to mid-level (2)."""
+    lvl = _explicit_title_level(title)
+    return lvl if lvl is not None else 2
+
+
+def jd_seniority_level(jd: ParsedJD) -> int:
+    """
+    Seniority a JD is actually hiring for. An explicit title keyword wins
+    ('Senior Engineer' → 3); otherwise infer from required experience, because a
+    role open to fresh graduates with zero required years is entry-level, NOT the
+    mid-level default a bare title would fall back to.
+    """
+    explicit = _explicit_title_level(jd.title)
+    if explicit is not None:
+        return explicit
+    yrs = jd.min_experience_years
+    if yrs <= 0:   # zero / unspecified years, no seniority word → entry-level
+        return 0
+    if yrs <= 2:
+        return 1
+    if yrs <= 5:
+        return 2
+    if yrs <= 8:
+        return 3
+    return 4
 
 
 # ---------------------------------------------------------------------------

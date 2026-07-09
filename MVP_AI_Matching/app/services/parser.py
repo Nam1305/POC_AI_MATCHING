@@ -169,6 +169,13 @@ A skill that stands on its own (not an option) has "alternatives": [].
 Weight guide (required_skills only): 3 = must-have / core, 2 = important, 1 = minor.
 Reserve weight 3 for skills the JD truly mandates; do not mark everything as 3.
 
+Emit ONLY concrete, matchable skills (languages, frameworks, tools, platforms,
+certifications, standardized language levels like "JLPT N3"). Do NOT emit generic
+competencies or soft skills — "programming fundamentals", "problem solving",
+"teamwork", "communication", "self-learning", "responsibility" — in either
+required_skills or preferred_skills; a concrete language/tool requirement already
+implies them.
+
 keywords: the core technical keywords a matching CV would contain. Keep it focused —
 do not pad with preferred-only tools or non-technical phrases.
 

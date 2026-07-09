@@ -200,6 +200,41 @@ class RequiredSkill(BaseModel):
         return [s for s in v if isinstance(s, str) and s.strip()]
 
 
+# Generic soft-skills / meta-competencies that JD parsers sometimes emit as
+# discrete required skills (e.g. "Programming Fundamentals", "Problem Solving").
+# They never appear as literal, matchable tokens on a CV, so keeping them as
+# hard requirements guarantees a phantom "missing must-have" for EVERY candidate
+# and silently deflates skill_match_rate. They are dropped from the JD skill
+# lists — the concrete signal they stand for (e.g. actually knowing a language)
+# is already captured by the real technical skills the JD lists alongside them.
+GENERIC_NON_SKILLS: frozenset[str] = frozenset({
+    "programming", "programming fundamentals", "programming basics",
+    "programming knowledge", "coding fundamentals", "basic programming",
+    "software development", "software engineering", "computer science",
+    "problem solving", "analytical thinking", "analytical skills",
+    "critical thinking", "logical thinking", "logical reasoning",
+    "communication", "communication skills", "interpersonal skills",
+    "teamwork", "team player", "teamworking", "collaboration",
+    "self learning", "self study", "self motivated", "self motivation",
+    "willingness to learn", "eager to learn", "fast learner", "quick learner",
+    "learning ability", "continuous learning", "responsibility",
+    "sense of responsibility", "time management", "leadership", "creativity",
+    "adaptability", "attention to detail", "work ethic", "proactive",
+    "hard working", "detail oriented", "multitasking",
+})
+
+
+def _normalize_skill_key(name: str) -> str:
+    """Lowercase, strip punctuation, collapse whitespace — for denylist lookup."""
+    key = re.sub(r"[^\w\s]", " ", name.lower())
+    return re.sub(r"\s+", " ", key).strip()
+
+
+def is_generic_non_skill(name: str) -> bool:
+    """True when `name` is a soft-skill / meta-competency, not a matchable skill."""
+    return _normalize_skill_key(name) in GENERIC_NON_SKILLS
+
+
 # ---------------------------------------------------------------------------
 # ParsedCV
 # ---------------------------------------------------------------------------
@@ -360,6 +395,22 @@ class ParsedJD(BaseModel):
             return math.ceil(float(v))
         except (TypeError, ValueError):
             return 0
+
+    @model_validator(mode="after")
+    def _drop_generic_skills(self) -> "ParsedJD":
+        """
+        Remove soft-skill / meta-competency entries the parser mistook for
+        concrete skills. A discrete "Programming Fundamentals" or "Teamwork"
+        requirement can never be matched against a CV and would show as a
+        permanent missing must-have, so it is filtered out here.
+        """
+        self.required_skills = [
+            r for r in self.required_skills if not is_generic_non_skill(r.skill)
+        ]
+        self.preferred_skills = [
+            p for p in self.preferred_skills if not is_generic_non_skill(p)
+        ]
+        return self
 
     # --- Internal helpers (not serialized) ---
 
