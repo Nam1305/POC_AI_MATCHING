@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 
 from app.schemas import ParsedCV, ParsedJD, WorkExperience
+from app.services import location_service
 from app.services.llm_client import call_llm_json
 
 
@@ -62,8 +63,25 @@ JSON structure:
     }
   ],
   "certifications": ["Certificate Name 1", "Certificate Name 2"],
-  "languages": ["English - TOEIC 835", "Vietnamese - Native"]
+  "languages": ["English - TOEIC 835", "Vietnamese - Native"],
+  "candidate_location": {
+    "raw_address": "address exactly as written in the CV header/contact info block (near name, email, phone), or null if no address is present anywhere",
+    "willing_to_relocate": "true ONLY if the CV explicitly states something like 'open to relocate' / 'sẵn sàng chuyển nơi làm việc', otherwise null",
+    "work_mode_preference": "onsite, hybrid, or remote ONLY if the CV explicitly states a preference, otherwise null"
+  }
 }
+
+CANDIDATE_LOCATION RULES (critical — do not hallucinate):
+- raw_address: extract ONLY from the CV's header/contact info block (near name,
+  email, phone). Copy it as-is — do not clean, normalize, or reformat it.
+  Do NOT derive an address from phone number area code, university location,
+  or company locations in work history. If no address is stated in the
+  contact block, use null.
+- willing_to_relocate: null unless the CV explicitly states willingness to
+  relocate. Never infer this from context (e.g. don't assume "true" just
+  because the candidate lists an out-of-city address).
+- work_mode_preference: null unless the CV explicitly states a work mode
+  preference (e.g. "seeking remote work", "open to hybrid").
 
 DATE CONVERSION RULES (apply to every start/end field):
 Convert any date format found in the CV to YYYY-MM. Examples:
@@ -143,15 +161,54 @@ JSON structure:
 {
   "title": "job title",
   "required_skills": [
-    {"skill": "skill name", "weight": 1 or 2 or 3}
+    {"skill": "skill name", "weight": 1 or 2 or 3, "alternatives": ["interchangeable skill names"]}
   ],
   "preferred_skills": ["nice-to-have skill names"],
   "min_experience_years": integer (0 if not specified),
   "education_degree": "bachelor or master or phd or associate or high_school or other or null",
-  "keywords": ["important technical keywords from the JD"]
+  "keywords": ["important technical keywords from the JD"],
+  "work_location": {
+    "city": "MUST be exactly one of: Ha Noi, Ho Chi Minh, Da Nang (pick the closest match; default Ha Noi if unclear)",
+    "raw_address": "the exact address/location text as written in the JD (street, district, building — whatever is present), empty string if none stated",
+    "work_mode": "onsite or hybrid or remote"
+  }
 }
 
-Weight guide: 3 = must-have, 2 = important, 1 = nice-to-have.
+WORK_MODE (critical):
+Infer from explicit signals in the JD text:
+  - "remote" if the JD says things like "remote", "work from home", "làm việc từ xa", "100% remote", "WFH"
+  - "hybrid" if the JD says "hybrid", "kết hợp", "2-3 days in office", "part remote"
+  - "onsite" if the JD says "onsite", "tại văn phòng", "on-site", "full-time in office"
+If the JD gives no signal either way, default to "onsite" — this is a heuristic
+assumption (most unlabeled JDs in this market are onsite), not a neutral guess.
+
+REQUIRED vs PREFERRED (critical — do not mix):
+- required_skills = skills the JD lists under "Required", "Must have", "Requirements",
+  or states as mandatory. Only these.
+- preferred_skills = skills under "Preferred", "Nice to have", "Plus", "Bonus",
+  "Desirable", "Advantage". Put them ONLY in preferred_skills, NEVER in required_skills.
+
+ALTERNATIVES / OR-GROUPS (critical):
+When a requirement lists skills as interchangeable options — "A, B, or C",
+"A / B", "experience with A or B", "one of A, B" — emit ONE required_skills entry
+whose "skill" is the first option and "alternatives" holds the rest. Do NOT split
+an OR-group into separate entries.
+  "React.js, TypeScript, or Vue.js"  → {"skill": "React.js", "weight": 3, "alternatives": ["TypeScript", "Vue.js"]}
+  "Bootstrap or Tailwind CSS"        → {"skill": "Bootstrap", "weight": 3, "alternatives": ["Tailwind CSS"]}
+A skill that stands on its own (not an option) has "alternatives": [].
+
+Weight guide (required_skills only): 3 = must-have / core, 2 = important, 1 = minor.
+Reserve weight 3 for skills the JD truly mandates; do not mark everything as 3.
+
+Emit ONLY concrete, matchable skills (languages, frameworks, tools, platforms,
+certifications, standardized language levels like "JLPT N3"). Do NOT emit generic
+competencies or soft skills — "programming fundamentals", "problem solving",
+"teamwork", "communication", "self-learning", "responsibility" — in either
+required_skills or preferred_skills; a concrete language/tool requirement already
+implies them.
+
+keywords: the core technical keywords a matching CV would contain. Keep it focused —
+do not pad with preferred-only tools or non-technical phrases.
 
 JD text:
 """
@@ -187,6 +244,25 @@ async def _retry_skills(cv_text: str) -> list[str]:
         return []
 
 
+async def _geocode(address: str) -> tuple[float, float] | tuple[None, None]:
+    """
+    Geocode once at parse-time (lat/lng is a property of the JD/CV itself,
+    like its embedding — not recomputed per score call). location_service
+    is a blocking/sync HTTP call, so it runs in a thread to not block the
+    event loop. Any failure (network, no match) yields (None, None) —
+    never fails the parse call, same per-item error tolerance used elsewhere.
+    """
+    if not address or not address.strip():
+        return None, None
+    try:
+        result = await asyncio.to_thread(location_service.geocode, address)
+    except Exception:
+        result = None
+    if result is None:
+        return None, None
+    return result["lat"], result["lng"]
+
+
 # ---------------------------------------------------------------------------
 # Public API — CV / JD parsing
 # ---------------------------------------------------------------------------
@@ -200,6 +276,8 @@ async def parse_cv(cv_text: str) -> ParsedCV:
       2. Completeness check — work_experience and skills are critical
       3. If either is empty, run focused retry prompts in parallel
       4. Merge retry results into the CV object
+      5. Geocode candidate_location.raw_address once (lat/lng persisted with
+         the CV, same as cv_embedding — not recomputed at score-time)
     """
     raw = await call_llm_json(CV_EXTRACT_PROMPT, cv_text)
     cv  = ParsedCV.model_validate(raw)
@@ -207,31 +285,43 @@ async def parse_cv(cv_text: str) -> ParsedCV:
     needs_exp    = not cv.work_experience
     needs_skills = not cv.skills
 
-    if not needs_exp and not needs_skills:
-        return cv
+    if needs_exp or needs_skills:
+        # Build only the tasks we actually need
+        retry_coros = []
+        if needs_exp:
+            retry_coros.append(_retry_work_experience(cv_text))
+        if needs_skills:
+            retry_coros.append(_retry_skills(cv_text))
 
-    # Build only the tasks we actually need
-    retry_coros = []
-    if needs_exp:
-        retry_coros.append(_retry_work_experience(cv_text))
-    if needs_skills:
-        retry_coros.append(_retry_skills(cv_text))
+        results = await asyncio.gather(*retry_coros, return_exceptions=True)
 
-    results = await asyncio.gather(*retry_coros, return_exceptions=True)
+        idx = 0
+        if needs_exp:
+            if isinstance(results[idx], list) and results[idx]:
+                cv.work_experience = results[idx]
+            idx += 1
+        if needs_skills:
+            if isinstance(results[idx], list) and results[idx]:
+                cv.skills = results[idx]
 
-    idx = 0
-    if needs_exp:
-        if isinstance(results[idx], list) and results[idx]:
-            cv.work_experience = results[idx]
-        idx += 1
-    if needs_skills:
-        if isinstance(results[idx], list) and results[idx]:
-            cv.skills = results[idx]
+    if cv.candidate_location.raw_address:
+        cv.candidate_location.lat, cv.candidate_location.lng = await _geocode(
+            cv.candidate_location.raw_address
+        )
 
     return cv
 
 
 async def parse_jd(jd_text: str) -> ParsedJD:
-    """Extract structured JD from raw text. Validates against ParsedJD schema."""
+    """
+    Extract structured JD from raw text, then geocode work_location once
+    (lat/lng persisted with the JD, same as jd_embedding — not recomputed
+    at score-time).
+    """
     raw = await call_llm_json(JD_EXTRACT_PROMPT, jd_text)
-    return ParsedJD.model_validate(raw)
+    jd  = ParsedJD.model_validate(raw)
+
+    address = jd.work_location.raw_address or jd.work_location.city
+    jd.work_location.lat, jd.work_location.lng = await _geocode(address)
+
+    return jd

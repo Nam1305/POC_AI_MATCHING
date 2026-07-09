@@ -8,42 +8,52 @@ from __future__ import annotations
 
 import datetime
 import math
+import re
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Date helpers — single source of truth for month parsing
 # ---------------------------------------------------------------------------
 
-def _diff_months(start: str, end: str) -> int:
-    """Calculate calendar months between two 'YYYY-MM' strings.
-    'present' / 'now' / 'nay' resolve to the current month.
+# Non-empty tokens meaning "still ongoing"; an empty string is handled by the
+# caller (unknown date), which is a different case from an explicit "present".
+PRESENT_TOKENS = {"present", "nay", "now", "current"}
+
+
+def parse_month(s: str) -> Optional[datetime.date]:
     """
-    _PRESENT = {"present", "nay", "now", "current", ""}
-
-    def _parse(s: str) -> datetime.date:
-        s = (s or "").strip().lower()
-        if s in _PRESENT:
-            return datetime.date.today().replace(day=1)
-        parts = s.split("-")
-        try:
-            year  = int(parts[0])
-            month = int(parts[1]) if len(parts) > 1 else 1
-            return datetime.date(year, max(1, min(12, month)), 1)
-        except (ValueError, IndexError):
-            return datetime.date.today().replace(day=1)
-
+    Parse a 'YYYY-MM' date (also accepting '/', '.' separators or year-only)
+    into the first day of that month. 'present'/'now'/'nay'/'current' resolve
+    to the current month. Empty or unparseable input returns None.
+    """
+    s = (s or "").strip().lower()
+    if not s:
+        return None
+    if s in PRESENT_TOKENS:
+        return datetime.date.today().replace(day=1)
+    m = re.match(r"(\d{4})(?:[-/.](\d{1,2}))?", s)
+    if not m:
+        return None
+    year = int(m.group(1))
+    month = int(m.group(2)) if m.group(2) else 1
     try:
-        s = _parse(start)
-        e = _parse(end)
-        if e < s:
-            e = s
-        return (e.year - s.year) * 12 + (e.month - s.month)
-    except Exception:
-        return 0
+        return datetime.date(year, max(1, min(12, month)), 1)
+    except ValueError:
+        return None
+
+
+def _diff_months(start: str, end: str) -> int:
+    """Calendar months between two dates. Unknown dates fall back to the current month."""
+    today = datetime.date.today().replace(day=1)
+    s = parse_month(start) or today
+    e = parse_month(end) or today
+    if e < s:
+        e = s
+    return (e.year - s.year) * 12 + (e.month - s.month)
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +95,7 @@ class WorkExperience(BaseModel):
 
     @model_validator(mode="after")
     def _set_current_and_months(self) -> "WorkExperience":
-        if self.end and self.end.lower() in ("present", "nay", "now", "current"):
+        if self.end and self.end.strip().lower() in PRESENT_TOKENS:
             self.is_current = True
         # Prefer Python calculation over LLM-provided value for accuracy
         if self.start:
@@ -128,6 +138,37 @@ class Education(BaseModel):
         return "other"
 
 
+class CandidateLocation(BaseModel):
+    """
+    Location info for a CV. `raw_address` is free-text as stated in the CV;
+    `lat`/`lng` are geocoded once at parse-time (see parser.parse_cv) via
+    location_service.geocode() and persisted alongside cv_embedding — mirrors
+    how cv_embedding is computed once at parse-time rather than per score
+    call. None if no address was found or geocoding failed.
+    """
+    raw_address:          Optional[str]                              = None
+    lat:                  Optional[float]                            = None
+    lng:                  Optional[float]                            = None
+    # True only if the CV explicitly states willingness to relocate; never inferred.
+    willing_to_relocate:  Optional[bool]                              = None
+    work_mode_preference: Optional[Literal["onsite", "hybrid", "remote"]] = None
+
+    @field_validator("raw_address", mode="before")
+    @classmethod
+    def _coerce_raw_address(cls, v: object) -> Optional[str]:
+        if not isinstance(v, str) or not v.strip():
+            return None
+        return v
+
+    @field_validator("work_mode_preference", mode="before")
+    @classmethod
+    def _normalize_work_mode(cls, v: object) -> Optional[str]:
+        if not isinstance(v, str):
+            return None
+        s = v.lower().strip()
+        return s if s in {"onsite", "hybrid", "remote"} else None
+
+
 class Project(BaseModel):
     name:        str       = ""
     tech_stack:  list[str] = Field(default_factory=list)
@@ -145,7 +186,8 @@ class Project(BaseModel):
 
 class SkillMatchDetail(BaseModel):
     skill:  str
-    status: str   # "matched" | "missing_must_have" | "missing_preferred"
+    # "matched" | "matched_implied" | "missing_must_have" | "missing_preferred"
+    status: str
     weight: int = 1
 
 
@@ -176,6 +218,52 @@ class CVJobEvaluation(BaseModel):
 class RequiredSkill(BaseModel):
     skill:  str
     weight: int = 1   # 1 nice-to-have → 3 must-have
+    # Interchangeable alternatives — when the JD lists skills as "A, B, or C",
+    # the group is satisfied by ANY one of {skill} ∪ alternatives. `skill` is the
+    # representative; `alternatives` holds the rest. Empty for a plain requirement.
+    alternatives: list[str] = Field(default_factory=list)
+
+    @field_validator("alternatives", mode="before")
+    @classmethod
+    def _coerce_alternatives(cls, v: object) -> list:
+        if not isinstance(v, list):
+            return []
+        return [s for s in v if isinstance(s, str) and s.strip()]
+
+
+# Generic soft-skills / meta-competencies that JD parsers sometimes emit as
+# discrete required skills (e.g. "Programming Fundamentals", "Problem Solving").
+# They never appear as literal, matchable tokens on a CV, so keeping them as
+# hard requirements guarantees a phantom "missing must-have" for EVERY candidate
+# and silently deflates skill_match_rate. They are dropped from the JD skill
+# lists — the concrete signal they stand for (e.g. actually knowing a language)
+# is already captured by the real technical skills the JD lists alongside them.
+GENERIC_NON_SKILLS: frozenset[str] = frozenset({
+    "programming", "programming fundamentals", "programming basics",
+    "programming knowledge", "coding fundamentals", "basic programming",
+    "software development", "software engineering", "computer science",
+    "problem solving", "analytical thinking", "analytical skills",
+    "critical thinking", "logical thinking", "logical reasoning",
+    "communication", "communication skills", "interpersonal skills",
+    "teamwork", "team player", "teamworking", "collaboration",
+    "self learning", "self study", "self motivated", "self motivation",
+    "willingness to learn", "eager to learn", "fast learner", "quick learner",
+    "learning ability", "continuous learning", "responsibility",
+    "sense of responsibility", "time management", "leadership", "creativity",
+    "adaptability", "attention to detail", "work ethic", "proactive",
+    "hard working", "detail oriented", "multitasking",
+})
+
+
+def _normalize_skill_key(name: str) -> str:
+    """Lowercase, strip punctuation, collapse whitespace — for denylist lookup."""
+    key = re.sub(r"[^\w\s]", " ", name.lower())
+    return re.sub(r"\s+", " ", key).strip()
+
+
+def is_generic_non_skill(name: str) -> bool:
+    """True when `name` is a soft-skill / meta-competency, not a matchable skill."""
+    return _normalize_skill_key(name) in GENERIC_NON_SKILLS
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +279,7 @@ class ParsedCV(BaseModel):
     projects:        list[Project]        = Field(default_factory=list)
     certifications:  list[str]            = Field(default_factory=list)
     languages:       list[str]            = Field(default_factory=list)
+    candidate_location: CandidateLocation = Field(default_factory=CandidateLocation)
 
     @field_validator("name", "summary", mode="before")
     @classmethod
@@ -304,6 +393,53 @@ class ParsedCV(BaseModel):
         return "\n".join(parts)
 
 
+class WorkLocation(BaseModel):
+    """
+    JD work location. `city` is intentionally hardcoded to the 3 cities the
+    business operates in — do not widen this to free text.
+
+    `lat`/`lng` are geocoded once at parse-time (see parser.parse_jd) via
+    location_service.geocode() and persisted alongside jd_embedding — mirrors
+    how jd_embedding is computed once at parse-time rather than per score
+    call. None if geocoding failed.
+    """
+    city:        Literal["Ha Noi", "Ho Chi Minh", "Da Nang"] = "Ha Noi"
+    raw_address: str                                          = ""
+    work_mode:   Literal["onsite", "hybrid", "remote"]        = "onsite"
+    lat:         Optional[float]                              = None
+    lng:         Optional[float]                              = None
+
+    @field_validator("city", mode="before")
+    @classmethod
+    def _normalize_city(cls, v: object) -> str:
+        if not isinstance(v, str):
+            return "Ha Noi"
+        s = v.lower().strip()
+        if "ha noi" in s or "hanoi" in s or s in {"hn"}:
+            return "Ha Noi"
+        if "ho chi minh" in s or "hcm" in s or "saigon" in s or "sai gon" in s:
+            return "Ho Chi Minh"
+        if "da nang" in s or "danang" in s:
+            return "Da Nang"
+        return "Ha Noi"
+
+    @field_validator("raw_address", mode="before")
+    @classmethod
+    def _coerce_raw_address(cls, v: object) -> str:
+        return v if isinstance(v, str) else ""
+
+    @field_validator("work_mode", mode="before")
+    @classmethod
+    def _normalize_work_mode(cls, v: object) -> str:
+        # Defaults to "onsite" when the JD gives no explicit signal — this is
+        # a heuristic assumption (most JDs without a stated mode ARE onsite
+        # in this market), not a neutral default. Revisit if that stops holding.
+        if not isinstance(v, str):
+            return "onsite"
+        s = v.lower().strip()
+        return s if s in {"onsite", "hybrid", "remote"} else "onsite"
+
+
 # ---------------------------------------------------------------------------
 # ParsedJD
 # ---------------------------------------------------------------------------
@@ -315,6 +451,20 @@ class ParsedJD(BaseModel):
     min_experience_years: int                 = 0
     education_degree:     Optional[DegreeLevel] = None
     keywords:             list[str]           = Field(default_factory=list)
+    work_location:        WorkLocation        = Field(default_factory=WorkLocation)
+
+    @field_validator("education_degree", mode="before")
+    @classmethod
+    def _coerce_degree(cls, v: object) -> Optional[str]:
+        # LLMs sometimes emit the literal string "null"/"none"/"" instead of a
+        # JSON null; treat those as "no requirement" rather than 500-ing.
+        if v is None:
+            return None
+        if isinstance(v, str):
+            s = v.strip().lower()
+            if s in ("", "null", "none", "n/a", "na"):
+                return None
+        return v
 
     @field_validator("min_experience_years", mode="before")
     @classmethod
@@ -326,6 +476,22 @@ class ParsedJD(BaseModel):
         except (TypeError, ValueError):
             return 0
 
+    @model_validator(mode="after")
+    def _drop_generic_skills(self) -> "ParsedJD":
+        """
+        Remove soft-skill / meta-competency entries the parser mistook for
+        concrete skills. A discrete "Programming Fundamentals" or "Teamwork"
+        requirement can never be matched against a CV and would show as a
+        permanent missing must-have, so it is filtered out here.
+        """
+        self.required_skills = [
+            r for r in self.required_skills if not is_generic_non_skill(r.skill)
+        ]
+        self.preferred_skills = [
+            p for p in self.preferred_skills if not is_generic_non_skill(p)
+        ]
+        return self
+
     # --- Internal helpers (not serialized) ---
 
     @property
@@ -334,7 +500,11 @@ class ParsedJD(BaseModel):
 
     @property
     def all_skill_names(self) -> list[str]:
-        return [s.skill for s in self.required_skills] + self.preferred_skills
+        names: list[str] = []
+        for s in self.required_skills:
+            names.append(s.skill)
+            names.extend(s.alternatives)
+        return names + self.preferred_skills
 
     # --- Embed text ---
 
@@ -342,10 +512,10 @@ class ParsedJD(BaseModel):
         parts = [self.title]
 
         if self.required_skills:
-            skill_strs = [
-                f"{s.skill} [required]" if s.weight == 3 else s.skill
-                for s in self.required_skills
-            ]
+            skill_strs = []
+            for s in self.required_skills:
+                label = " or ".join([s.skill, *s.alternatives]) if s.alternatives else s.skill
+                skill_strs.append(f"{label} [required]" if s.weight == 3 else label)
             parts.append("Required skills: " + ", ".join(skill_strs))
 
         if self.preferred_skills:

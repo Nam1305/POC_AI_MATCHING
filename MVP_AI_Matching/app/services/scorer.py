@@ -2,40 +2,31 @@
 5-Dimension Scoring Engine — pure Python + numpy, NO LLM calls.
 
 D1 Semantic   : cosine_sim(cv_embedding, jd_embedding), normalized to 0–1
-D2 Skills     : weighted skill overlap with alias/fuzzy/category match
+D2 Skills     : weighted skill overlap with alias/implied/fuzzy/category match
 D3 Experience : base ratio + relevance/recency/over-qual modifiers
 D4 Education  : cv_degree_level / jd_required_degree_level, capped at 1.0
-D5 Keywords   : exact / word-boundary / multi-word phrase scoring
-D6 Role Fit   : (optional) title similarity + seniority level match
+D5 Location   : driving-time estimate (OSRM route over parse-time-geocoded
+                lat/lng) × work-mode fit
 
 final_score = Σ(Di × Wi) × 100
 """
 
 from __future__ import annotations
 
+import datetime
 import difflib
 import re
-from datetime import datetime
+import time
 from typing import Optional
 
 import numpy as np
 
 from app.config import settings
-from app.schemas import ParsedCV, ParsedJD
-
-
-# ---------------------------------------------------------------------------
-# 6D weights including role_fit — used when use_role_fit=True
-# ---------------------------------------------------------------------------
-
-DEFAULT_WEIGHTS_WITH_ROLE: dict[str, float] = {
-    "semantic":   0.25,
-    "skills":     0.30,
-    "experience": 0.20,
-    "education":  0.10,
-    "keywords":   0.05,
-    "role_fit":   0.10,
-}
+from app.schemas import ParsedCV, ParsedJD, parse_month
+from app.services import location_service
+from app.services.skill_data import (
+    ALIASES, CATEGORIES, IMPLIES_ALL, PENALTY_SKIP_CATEGORIES,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -48,112 +39,11 @@ class SkillMatcher:
     grant partial credit for skills in the same broad category.
     """
 
-    ALIASES: dict[str, str] = {
-        # JavaScript ecosystem — including versioned forms like "JavaScript (ES6+)"
-        "js": "javascript", "javascript": "javascript", "es6": "javascript",
-        "es6+": "javascript", "es2015": "javascript", "es2017": "javascript",
-        "ecmascript": "javascript",
-        "ts": "typescript", "typescript": "typescript",
-        "react": "react", "reactjs": "react", "react.js": "react",
-        "node": "nodejs", "nodejs": "nodejs", "node.js": "nodejs",
-        "vue": "vue", "vuejs": "vue", "vue.js": "vue",
-        "angular": "angular", "angularjs": "angular",
-        "next": "nextjs", "nextjs": "nextjs", "next.js": "nextjs",
-        "express": "express", "expressjs": "express",
-        "nestjs": "nestjs", "nest.js": "nestjs",
-        # HTML / CSS — explicit versioned forms
-        "html": "html", "html5": "html", "html 5": "html",
-        "css": "css", "css3": "css", "css 3": "css",
-        "modern css": "css", "modern css layout techniques": "css",
-        "tailwind": "tailwind", "tailwind css": "tailwind",
-        # Python
-        "py": "python", "python": "python", "python3": "python",
-        "django": "django", "flask": "flask", "fastapi": "fastapi",
-        # .NET — ".NET Core" maps to same canonical as "ASP.NET Core"
-        "c#": "csharp", "csharp": "csharp", "c sharp": "csharp",
-        ".net": "dotnet", "dotnet": "dotnet", "dot net": "dotnet",
-        ".net core": "aspnet", "dotnetcore": "aspnet", "dot net core": "aspnet",
-        "asp.net": "aspnet", "aspnet": "aspnet", "asp.net core": "aspnet",
-        "ef": "entity framework", "ef core": "entity framework",
-        "entity framework": "entity framework",
-        "entity framework core": "entity framework",
-        # Java
-        "java": "java", "spring": "spring", "spring boot": "spring",
-        "springboot": "spring",
-        # Databases
-        "postgres": "postgresql", "postgresql": "postgresql", "psql": "postgresql",
-        "mysql": "mysql", "mariadb": "mysql",
-        "mongo": "mongodb", "mongodb": "mongodb",
-        "sqlserver": "sqlserver", "sql server": "sqlserver", "mssql": "sqlserver",
-        "redis": "redis",
-        "elastic": "elasticsearch", "elasticsearch": "elasticsearch",
-        # Cloud / DevOps
-        "aws": "aws", "amazon web services": "aws",
-        "gcp": "gcp", "google cloud": "gcp", "google cloud platform": "gcp",
-        "azure": "azure", "microsoft azure": "azure",
-        "k8s": "kubernetes", "kubernetes": "kubernetes",
-        "docker": "docker",
-        "ci/cd": "ci_cd", "cicd": "ci_cd", "ci cd": "ci_cd",
-        "jenkins": "jenkins", "terraform": "terraform",
-        # ML / AI — frameworks
-        "tf": "tensorflow", "tensorflow": "tensorflow",
-        "pytorch": "pytorch", "torch": "pytorch",
-        "sklearn": "scikit-learn", "scikit-learn": "scikit-learn",
-        "scikit learn": "scikit-learn",
-        "keras": "keras",
-        # ML / AI — domain concepts (canonical form without spaces)
-        "machine learning": "machine_learning", "machine_learning": "machine_learning",
-        "ml": "machine_learning",
-        "deep learning": "deep_learning", "deep_learning": "deep_learning",
-        "dl": "deep_learning",
-        "natural language processing": "nlp", "nlp": "nlp",
-        "computer vision": "computer_vision", "computer_vision": "computer_vision",
-        "data preprocessing": "data_preprocessing", "data_preprocessing": "data_preprocessing",
-        "data analysis": "data_analysis", "data_analysis": "data_analysis",
-        "artificial intelligence": "machine_learning", "ai": "machine_learning",
-        # Data
-        "pandas": "pandas", "numpy": "numpy",
-        # APIs
-        "rest": "rest_api", "restful": "rest_api", "rest api": "rest_api",
-        "restful api": "rest_api", "restful apis": "rest_api",
-        "restful apis design": "rest_api",
-        "graphql": "graphql", "grpc": "grpc",
-        # Misc
-        "git": "git", "github": "github", "gitlab": "gitlab",
-        "go": "go", "golang": "go",
-        "sql": "sql", "nosql": "nosql",
-        "agile": "agile", "scrum": "agile",
-        "oop": "oop", "object oriented programming": "oop",
-    }
-
-    CATEGORIES: dict[str, set[str]] = {
-        "frontend": {"react", "angular", "vue", "javascript", "typescript",
-                     "html", "css", "nextjs", "tailwind"},
-        "backend":  {"django", "flask", "fastapi", "spring", "express",
-                     "nestjs", "aspnet", "dotnet", "nodejs"},
-        "dotnet":   {"dotnet", "aspnet", "csharp", "entity framework"},
-        "database": {"mysql", "postgresql", "mongodb", "redis", "sqlserver",
-                     "elasticsearch", "sql", "nosql"},
-        "cloud":    {"aws", "gcp", "azure"},
-        "devops":   {"docker", "kubernetes", "ci_cd", "jenkins", "terraform"},
-        # ml_frameworks: concrete frameworks give category credit for ML/DL domain skills
-        "ml_frameworks": {"tensorflow", "pytorch", "keras", "scikit-learn",
-                          "machine_learning", "deep_learning"},
-        "ml_domain":     {"machine_learning", "deep_learning", "nlp",
-                          "computer_vision", "data_preprocessing"},
-        "data":     {"pandas", "numpy", "data_preprocessing", "data_analysis"},
-        "api":      {"rest_api", "graphql", "grpc"},
-        "language": {"python", "javascript", "typescript", "csharp", "java",
-                     "go", "ruby", "php", "rust"},
-    }
-
-    # Categories where having related tools at category_match ≥ 0.4 justifies
-    # skipping the hard penalty (D2 already reflects the skill gap via partial credit).
-    # "frontend" is included because TypeScript+ReactJS strongly implies JavaScript.
-    # "language" is excluded — knowing Python does NOT cover Java, Go, etc.
-    PENALTY_SKIP_CATEGORIES: set[str] = {
-        "ml_frameworks", "ml_domain", "dotnet", "devops", "cloud", "frontend",
-    }
+    # Data tables live in skill_data.py; bound here as class attributes so
+    # `matcher.ALIASES` / `SkillMatcher.CATEGORIES` keep working as before.
+    ALIASES = ALIASES
+    CATEGORIES = CATEGORIES
+    PENALTY_SKIP_CATEGORIES = PENALTY_SKIP_CATEGORIES
 
     def normalize_skill(self, skill: str) -> str:
         if not skill:
@@ -194,6 +84,161 @@ class SkillMatcher:
         # 1 overlap → 0.3, 2 → 0.4, ≥3 → 0.5
         return min(0.3 + 0.1 * (overlap - 1), 0.5)
 
+    def implied_skills(self, skill: str) -> set[str]:
+        """
+        One-way transitive closure over IMPLIES (e.g. nextjs → react → javascript).
+        "Knowing X guarantees knowing Y" — sourced from Wikidata P277, not a guess.
+        """
+        seen: set[str] = set()
+        stack = [skill]
+        while stack:
+            for nxt in IMPLIES_ALL.get(stack.pop(), ()):
+                if nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+        return seen
+
+    def expand_implied(self, skills: set[str]) -> set[str]:
+        """Add every skill logically guaranteed by the given skill set."""
+        expanded = set(skills)
+        for s in skills:
+            expanded |= self.implied_skills(s)
+        return expanded
+
+    def normalized_cv_skills(self, cv: ParsedCV) -> tuple[set[str], set[str]]:
+        """Return (normalized CV skills, same set expanded with implied skills)."""
+        cv_skills = {self.normalize_skill(s) for s in _collect_cv_skills(cv) if s}
+        return cv_skills, self.expand_implied(cv_skills)
+
+    def is_fuzzy(self, jd_skill: str, cv_skills: set[str]) -> bool:
+        """True if any CV skill fuzzy-matches the (normalized) JD skill."""
+        return any(self.fuzzy_match(jd_skill, cv_s) for cv_s in cv_skills)
+
+    # -- OR-group (alternatives) aware matching --------------------------------
+    #
+    # A RequiredSkill may carry `alternatives`: the requirement is satisfied by
+    # ANY of {skill} ∪ alternatives. All group logic funnels through here so the
+    # scorer, penalty rules, and evaluator agree.
+
+    # status priority for picking the best alternative in a group
+    _STATUS_RANK = {"matched": 2, "matched_implied": 1, "missing": 0}
+
+    def group_names(self, req) -> list[str]:
+        """Normalized skill names in a requirement's OR-group."""
+        return [self.normalize_skill(n) for n in [req.skill, *req.alternatives] if n]
+
+    def group_label(self, req) -> str:
+        """Human-readable label for a requirement — 'A / B / C' for OR-groups."""
+        names = [n for n in [req.skill, *req.alternatives] if n]
+        return " / ".join(dict.fromkeys(names))
+
+    def evaluate_skill(self, jd_norm: str, cv_skills: set[str],
+                       cv_skills_expanded: set[str]) -> tuple[str, float]:
+        """
+        Classify one normalized JD skill against the CV.
+        Returns (status, credit) where status ∈ matched|matched_implied|missing
+        and credit ∈ [0,1] mirrors score_skills tiers (exact/implied=1.0,
+        fuzzy=0.9, else category partial credit).
+        """
+        if jd_norm in cv_skills:
+            return "matched", 1.0
+        if jd_norm in cv_skills_expanded:
+            return "matched_implied", 1.0
+        # Language proficiency: when the JD asks for a standardized level, credit
+        # the CV only via same-framework ordinal comparison (an equal-or-higher
+        # level matches; a lower one does not), never fuzzy on the level code.
+        prof = self._match_proficiency(jd_norm, cv_skills)
+        if prof is not None:
+            return prof
+        if self.is_fuzzy(jd_norm, cv_skills):
+            return "matched", 0.9
+        return "missing", self.category_match(cv_skills, jd_norm)
+
+    def _match_proficiency(self, jd_norm: str,
+                           cv_skills: set[str]) -> Optional[tuple[str, float]]:
+        """
+        Ordinal language-proficiency match. Returns a (status, credit) verdict
+        when the JD skill is a standardized proficiency AND the CV carries a
+        credential in the same framework; otherwise None (defer to fuzzy/category).
+        """
+        req = _parse_proficiency(jd_norm)
+        if req is None:
+            return None
+        framework, req_rank = req
+        best: Optional[float] = None
+        for cv_s in cv_skills:
+            cp = _parse_proficiency(cv_s)
+            if cp and cp[0] == framework:
+                best = cp[1] if best is None else max(best, cp[1])
+        if best is None:
+            return None
+        return ("matched", 1.0) if best >= req_rank else ("missing", 0.0)
+
+    def evaluate_group(self, req, cv_skills: set[str],
+                       cv_skills_expanded: set[str]) -> tuple[str, float]:
+        """Best (status, credit) over every alternative in the requirement."""
+        best: tuple[str, float] = ("missing", 0.0)
+        for jd_norm in self.group_names(req):
+            status, credit = self.evaluate_skill(jd_norm, cv_skills, cv_skills_expanded)
+            if (self._STATUS_RANK[status], credit) > (self._STATUS_RANK[best[0]], best[1]):
+                best = (status, credit)
+        return best
+
+    def is_group_hard_missing(self, req, cv_skills: set[str],
+                              cv_skills_expanded: set[str]) -> bool:
+        """
+        A requirement is 'hard missing' only when NO alternative matches
+        (exact/implied/fuzzy) AND no alternative has strong same-category
+        coverage in a penalty-skip category. Mirrors the single-skill rule but
+        satisfied by any one option in the group.
+        """
+        status, _ = self.evaluate_group(req, cv_skills, cv_skills_expanded)
+        if status != "missing":
+            return False
+        for jd_norm in self.group_names(req):
+            cat = self._category_of(jd_norm)
+            if cat in self.PENALTY_SKIP_CATEGORIES and self.category_match(cv_skills, jd_norm) >= 0.4:
+                return False
+        return True
+
+
+# ---------------------------------------------------------------------------
+# Language-proficiency frameworks — ordinal, language-agnostic
+# ---------------------------------------------------------------------------
+#
+# Standardized language certificates are ordered: a required level is satisfied
+# by ANY equal-or-higher level in the SAME framework, for every language —
+# JLPT (Japanese), HSK (Chinese), TOPIK (Korean), TOEIC/TOEFL/IELTS (English),
+# CEFR (language-neutral). This replaces fuzzy-matching on level codes, which
+# can't tell direction apart ("N4" looks 86% similar to "N3" yet is BELOW it).
+
+_CEFR_RANK = {"a1": 1, "a2": 2, "b1": 3, "b2": 4, "c1": 5, "c2": 6}
+
+# (compiled pattern, framework, rank-from-match). Rank is monotonic within a
+# framework: higher = more proficient. Order matters — first match wins.
+_PROFICIENCY_PATTERNS: list[tuple[re.Pattern, str, "callable"]] = [
+    (re.compile(r"\bjlpt\s*n\s*([1-5])\b"),          "jlpt",  lambda m: 6 - int(m.group(1))),  # N1 highest
+    (re.compile(r"\bhsk\s*([1-9])\b"),               "hsk",   lambda m: float(m.group(1))),
+    (re.compile(r"\btopik\s*([1-6])\b"),             "topik", lambda m: float(m.group(1))),
+    (re.compile(r"\bielts\s*([0-9](?:\.[05])?)\b"),  "ielts", lambda m: float(m.group(1))),
+    (re.compile(r"\btoeic\s*([0-9]{2,3})\b"),        "toeic", lambda m: float(m.group(1))),
+    (re.compile(r"\btoefl(?:\s*ibt)?\s*([0-9]{2,3})\b"), "toefl", lambda m: float(m.group(1))),
+    (re.compile(r"\b([abc][12])\b"),                 "cefr",  lambda m: float(_CEFR_RANK[m.group(1)])),
+]
+
+
+def _parse_proficiency(token: str) -> Optional[tuple[str, float]]:
+    """
+    (framework, rank) for a standardized language-proficiency token, else None.
+    Rank is comparable only within the same framework (higher = better).
+    """
+    t = token.lower()
+    for pattern, framework, rank_of in _PROFICIENCY_PATTERNS:
+        m = pattern.search(t)
+        if m:
+            return framework, rank_of(m)
+    return None
+
 
 _skill_matcher = SkillMatcher()
 
@@ -221,13 +266,43 @@ def normalize_cosine(raw: float, min_val: float = 0.55, max_val: float = 0.90) -
 # D2: Skills — alias + fuzzy + category
 # ---------------------------------------------------------------------------
 
+# Separators inside a credential string: "Japanese - JLPT N3", "English: TOEIC 835".
+_CREDENTIAL_SPLIT_RE = re.compile(r"[-–—:,/()]+")
+
+
+def _expand_credential(text: str) -> set[str]:
+    """
+    A language/certification entry carries the qualification as a sub-token,
+    e.g. "Japanese - JLPT N3". Yield the whole string AND its parts
+    ("japanese", "jlpt n3") so a JD skill like "JLPT N3" can match exactly.
+    """
+    out: set[str] = set()
+    whole = text.strip().lower()
+    if not whole:
+        return out
+    out.add(whole)
+    for part in _CREDENTIAL_SPLIT_RE.split(whole):
+        part = part.strip()
+        if part:
+            out.add(part)
+    return out
+
+
 def _collect_cv_skills(cv: ParsedCV) -> set[str]:
-    """Aggregate skills from cv.skills + work_experience.tech_stack + projects.tech_stack."""
+    """
+    Aggregate skills from cv.skills + work_experience.tech_stack +
+    projects.tech_stack, plus languages/certifications (split into sub-tokens so
+    credentials like "JLPT N3" inside "Japanese - JLPT N3" become matchable).
+    """
     skills: set[str] = {s.lower() for s in cv.skills}
     for exp in cv.work_experience:
         skills.update(s.lower() for s in exp.tech_stack)
     for proj in cv.projects:
         skills.update(s.lower() for s in proj.tech_stack)
+    for lang in cv.languages:
+        skills |= _expand_credential(lang)
+    for cert in cv.certifications:
+        skills |= _expand_credential(cert)
     return skills
 
 
@@ -237,36 +312,26 @@ def score_skills(
     matcher: Optional[SkillMatcher] = None,
 ) -> float:
     """
-    Tiered skill matching:
+    Tiered skill matching (per requirement, satisfied by any OR-alternative):
       1. Normalize CV + JD skills via alias map
-      2. Exact match  → full weight
-      3. Fuzzy match  → 0.9 × weight
-      4. Category match (same domain) → 0.3–0.5 × weight
+      2. Exact match   → full weight
+      3. Implied match → full weight (e.g. CV has "react" → JD "javascript" is
+         logically guaranteed, sourced from IMPLIES / Wikidata P277)
+      4. Fuzzy match   → 0.9 × weight
+      5. Category match (same domain) → 0.3–0.5 × weight
     """
     if not jd.required_skills:
         return 1.0
     matcher = matcher or _skill_matcher
 
-    cv_skills_raw = _collect_cv_skills(cv)
-    cv_skills = {matcher.normalize_skill(s) for s in cv_skills_raw if s}
+    cv_skills, cv_skills_expanded = matcher.normalized_cv_skills(cv)
 
     total_w = sum(s.weight for s in jd.required_skills)
     matched_w = 0.0
 
     for req in jd.required_skills:
-        jd_skill = matcher.normalize_skill(req.skill)
-
-        if jd_skill in cv_skills:
-            matched_w += req.weight
-            continue
-
-        if any(matcher.fuzzy_match(jd_skill, cv_s) for cv_s in cv_skills):
-            matched_w += 0.9 * req.weight
-            continue
-
-        cat_score = matcher.category_match(cv_skills, jd_skill)
-        if cat_score > 0:
-            matched_w += req.weight * cat_score
+        _, credit = matcher.evaluate_group(req, cv_skills, cv_skills_expanded)
+        matched_w += req.weight * credit
 
     return matched_w / total_w if total_w > 0 else 0.0
 
@@ -275,23 +340,9 @@ def score_skills(
 # D3: Experience — relevance + recency + over-qualification
 # ---------------------------------------------------------------------------
 
-def _parse_yyyy_mm(date_str: Optional[str]) -> Optional[datetime]:
-    if not date_str:
-        return None
-    s = date_str.strip().lower()
-    if s in ("present", "now", "nay", "current"):
-        return datetime.now()
-    for fmt in ("%Y-%m", "%Y/%m", "%Y"):
-        try:
-            return datetime.strptime(s, fmt)
-        except ValueError:
-            continue
-    return None
-
-
-def _months_since(dt: datetime) -> int:
-    now = datetime.now()
-    return (now.year - dt.year) * 12 + (now.month - dt.month)
+def _months_since(dt: datetime.date) -> int:
+    today = datetime.date.today()
+    return (today.year - dt.year) * 12 + (today.month - dt.month)
 
 
 def _jd_domain_tokens(jd: ParsedJD) -> list[str]:
@@ -345,7 +396,7 @@ def score_experience(cv: ParsedCV, jd: ParsedJD) -> float:
         if latest.is_current:
             modifiers += 0.10
         else:
-            end_dt = _parse_yyyy_mm(latest.end)
+            end_dt = parse_month(latest.end)
             if end_dt:
                 months_ago = _months_since(end_dt)
                 if months_ago < 3:
@@ -375,7 +426,76 @@ def score_education(cv: ParsedCV, jd: ParsedJD) -> float:
 
 
 # ---------------------------------------------------------------------------
-# D5: Keywords — exact / word-boundary / multi-word
+# D5: Location + Work Mode — driving-time estimate × work-mode compatibility
+# ---------------------------------------------------------------------------
+
+_ROUTE_RETRY_DELAY_SECONDS = 0.5
+
+
+def score_location(parsed_jd: ParsedJD, parsed_cv: ParsedCV) -> float:
+    """
+    D5 replacement for keyword matching. Formula:
+      1. JD is remote                       → 1.0
+      2. CV explicitly willing to relocate  → 1.0
+      3. lat/lng missing on either side (geocoding already ran at parse-time
+         — see parser.parse_jd/parse_cv — and either failed or there was no
+         address to geocode) → 0.5 (neutral, don't penalize missing data)
+      4. t = driving minutes via OSRM route; on failure, retry once after
+         0.5s; if it fails again → 0.5 (same neutral contract as missing
+         lat/lng — no distance fallback is computed)
+      5. T_max = 45 (onsite) or 75 (hybrid)
+      6. S_loc = max(0, 1 - t / T_max)
+      7. M = work-mode compatibility multiplier (see table below)
+      return round(S_loc * M, 3)
+    """
+    work_mode = parsed_jd.work_location.work_mode
+    if work_mode == "remote":
+        return 1.0
+
+    if parsed_cv.candidate_location.willing_to_relocate:
+        return 1.0
+
+    jd_loc, cv_loc = parsed_jd.work_location, parsed_cv.candidate_location
+    if jd_loc.lat is None or jd_loc.lng is None or cv_loc.lat is None or cv_loc.lng is None:
+        return 0.5
+
+    jd_coord = {"lat": jd_loc.lat, "lng": jd_loc.lng}
+    cv_coord = {"lat": cv_loc.lat, "lng": cv_loc.lng}
+
+    route = location_service.get_route(cv_coord, jd_coord)
+    if route is None:
+        print("score_location: get_route() failed, retrying once after 0.5s")
+        time.sleep(_ROUTE_RETRY_DELAY_SECONDS)
+        route = location_service.get_route(cv_coord, jd_coord)
+
+    if route is None:
+        print("score_location: get_route() failed again after retry, returning neutral 0.5")
+        return 0.5
+
+    t = route["duration_min"]
+
+    t_max = 45.0 if work_mode == "onsite" else 75.0
+    s_loc = max(0.0, 1 - t / t_max)
+
+    cv_pref = parsed_cv.candidate_location.work_mode_preference
+    if work_mode == "onsite":
+        m = 0.3 if cv_pref == "remote" else 1.0
+    else:  # hybrid
+        if cv_pref == "onsite":
+            m = 0.7
+        elif cv_pref == "remote":
+            m = 0.3
+        else:
+            m = 1.0
+
+    return round(s_loc * m, 3)
+
+
+# ---------------------------------------------------------------------------
+# D5 (deprecated) — Keywords: exact / word-boundary / multi-word
+#
+# Superseded by score_location() above. Kept unused, not deleted, in case of
+# rollback. Not called anywhere in calculate_score() / calculate_score_with_rules().
 # ---------------------------------------------------------------------------
 
 def _clean_text_for_match(text: str) -> str:
@@ -429,102 +549,66 @@ def score_keywords(cv_raw_text: str, jd: ParsedJD) -> float:
 
 
 # ---------------------------------------------------------------------------
-# D6: Role Fit (optional)
+# Seniority detection — shared with the evaluator's seniority analysis
 # ---------------------------------------------------------------------------
 
+# Explicit seniority words. Generic role nouns (developer/engineer/...) carry
+# no seniority signal on their own, so a title with none of these defaults to
+# mid-level (2). Listing "senior" before matching means "Junior Developer"
+# reads as Junior — not Mid — because the seniority word wins over the role noun.
 _LEVEL_KEYWORDS: list[tuple[str, int]] = [
-    ("intern",     0),
-    ("fresher",    1),
-    ("junior",     1),
-    ("entry",      1),
-    ("mid",        2),
-    ("middle",     2),
-    ("developer",  2),
-    ("engineer",   2),
-    ("specialist", 2),
-    ("senior",     3),
-    ("lead",       3),
-    ("manager",    3),
-    ("staff",      4),
-    ("principal",  4),
-    ("architect",  4),
-    ("director",   4),
+    ("intern",    0),
+    ("fresher",   1),
+    ("junior",    1),
+    ("entry",     1),
+    ("mid",       2),
+    ("middle",    2),
+    ("senior",    3),
+    ("lead",      3),
+    ("manager",   3),
+    ("staff",     4),
+    ("principal", 4),
+    ("architect", 4),
+    ("director",  4),
 ]
 
 
-def _detect_level(title: str) -> int:
+def _explicit_title_level(title: str) -> Optional[int]:
+    """Seniority level from an explicit keyword in the title, or None when the
+    title carries no seniority word (e.g. a bare 'Software Engineer')."""
     if not title:
-        return 2
+        return None
     t = title.lower()
-    best: Optional[int] = None
-    for kw, lvl in _LEVEL_KEYWORDS:
-        if kw in t and (best is None or lvl > best):
-            best = lvl
-    return best if best is not None else 2
+    levels = [lvl for kw, lvl in _LEVEL_KEYWORDS if kw in t]
+    return max(levels) if levels else None
 
 
-def score_role_fit(cv: ParsedCV, jd: ParsedJD, recent_n: int = 3) -> float:
+def _detect_level(title: str) -> int:
+    """Seniority level 0–4 from a job title. Defaults to mid-level (2)."""
+    lvl = _explicit_title_level(title)
+    return lvl if lvl is not None else 2
+
+
+def jd_seniority_level(jd: ParsedJD) -> int:
     """
-    Title similarity + seniority level match against the N most recent roles.
-    Returns the best combined score across those roles.
+    Seniority a JD is actually hiring for. An explicit title keyword wins
+    ('Senior Engineer' → 3); otherwise infer from required experience, because a
+    role open to fresh graduates with zero required years is entry-level, NOT the
+    mid-level default a bare title would fall back to.
     """
-    if not jd.title:
-        return 1.0
-    if not cv.work_experience:
-        return 0.0
-
-    jd_title = jd.title.lower()
-    jd_level = _detect_level(jd_title)
-
-    scores: list[float] = []
-    for exp in cv.work_experience[:recent_n]:
-        if not exp.role:
-            continue
-        exp_title = exp.role.lower()
-        title_sim = difflib.SequenceMatcher(None, jd_title, exp_title).ratio()
-        exp_level = _detect_level(exp_title)
-        level_score = max(0.0, 1 - 0.25 * abs(jd_level - exp_level))
-        scores.append(title_sim * 0.6 + level_score * 0.4)
-
-    return max(scores) if scores else 0.0
-
-
-# ---------------------------------------------------------------------------
-# AdaptiveWeights — JD-aware weight tuning
-# ---------------------------------------------------------------------------
-
-class AdaptiveWeights:
-    """
-    Suggest weights based on JD characteristics. Output sums to 1.0.
-    Optional: not used by default in calculate_score; pass result into
-    `weights=` to apply.
-    """
-
-    BASE: dict[str, float] = dict(DEFAULT_WEIGHTS_WITH_ROLE)
-
-    def calculate_weights(self, jd: ParsedJD) -> dict[str, float]:
-        w = dict(self.BASE)
-
-        if jd.required_skills and len(jd.required_skills) > 5:
-            w["skills"]   += 0.10
-            w["semantic"] = max(0.0, w["semantic"] - 0.05)
-            w["keywords"] = max(0.0, w["keywords"] - 0.05)
-
-        if jd.min_experience_years and jd.min_experience_years >= 5:
-            w["experience"] += 0.10
-            w["education"]  = max(0.0, w["education"] - 0.05)
-            w["keywords"]   = max(0.0, w["keywords"] - 0.05)
-
-        if jd.required_degree_level >= 4:
-            w["education"] += 0.10
-            w["skills"]    = max(0.0, w["skills"] - 0.05)
-            w["keywords"]  = max(0.0, w["keywords"] - 0.05)
-
-        total = sum(w.values())
-        if total > 0:
-            for k in w:
-                w[k] = round(w[k] / total, 4)
-        return w
+    explicit = _explicit_title_level(jd.title)
+    if explicit is not None:
+        return explicit
+    yrs = jd.min_experience_years
+    if yrs <= 0:   # zero / unspecified years, no seniority word → entry-level
+        return 0
+    if yrs <= 2:
+        return 1
+    if yrs <= 5:
+        return 2
+    if yrs <= 8:
+        return 3
+    return 4
 
 
 # ---------------------------------------------------------------------------
@@ -538,49 +622,29 @@ def calculate_score(
     jd_embedding: list[float],
     cv_raw_text:  str = "",
     weights:      dict[str, float] | None = None,
-    cosine_min:   float = 0.20,
-    cosine_max:   float = 0.80,
-    use_role_fit: bool = False,
+    cosine_min:   float | None = None,
+    cosine_max:   float | None = None,
 ) -> dict:
-    """
-    Compute all dimensions + final weighted score (0-100).
-    If use_role_fit=True, the `scores` dict additionally includes `role_fit`.
-    """
-    w = weights or (DEFAULT_WEIGHTS_WITH_ROLE if use_role_fit else settings.default_weights)
+    """Compute all 5 dimensions + final weighted score (0-100)."""
+    w = weights or settings.default_weights
+    cosine_min = settings.cosine_min if cosine_min is None else cosine_min
+    cosine_max = settings.cosine_max if cosine_max is None else cosine_max
     if not cv_raw_text:
         cv_raw_text = parsed_cv.build_embed_text()
 
-    d1 = normalize_cosine(cosine_sim(cv_embedding, jd_embedding), cosine_min, cosine_max)
-    d2 = score_skills(parsed_cv, parsed_jd)
-    d3 = score_experience(parsed_cv, parsed_jd)
-    d4 = score_education(parsed_cv, parsed_jd)
-    d5 = score_keywords(cv_raw_text, parsed_jd)
-    d6 = score_role_fit(parsed_cv, parsed_jd) if use_role_fit else None
-
-    final = (
-        d1 * w.get("semantic",   0.0) +
-        d2 * w.get("skills",     0.0) +
-        d3 * w.get("experience", 0.0) +
-        d4 * w.get("education",  0.0) +
-        d5 * w.get("keywords",   0.0)
-    )
-    if use_role_fit and d6 is not None:
-        final += d6 * w.get("role_fit", 0.0)
-    final *= 100
-
-    scores: dict[str, float] = {
-        "semantic":   round(d1 * 100, 1),
-        "skills":     round(d2 * 100, 1),
-        "experience": round(d3 * 100, 1),
-        "education":  round(d4 * 100, 1),
-        "keywords":   round(d5 * 100, 1),
+    dims = {
+        "semantic":   normalize_cosine(cosine_sim(cv_embedding, jd_embedding), cosine_min, cosine_max),
+        "skills":     score_skills(parsed_cv, parsed_jd),
+        "experience": score_experience(parsed_cv, parsed_jd),
+        "education":  score_education(parsed_cv, parsed_jd),
+        "location":   score_location(parsed_jd, parsed_cv),
     }
-    if use_role_fit and d6 is not None:
-        scores["role_fit"] = round(d6 * 100, 1)
+
+    final = 100 * sum(value * w.get(name, 0.0) for name, value in dims.items())
 
     return {
         "final_score": round(final, 1),
-        "scores":      scores,
+        "scores":      {name: round(value * 100, 1) for name, value in dims.items()},
     }
 
 
@@ -593,88 +657,53 @@ def calculate_score_with_rules(
     parsed_jd:         ParsedJD,
     cv_embedding:      list[float],
     jd_embedding:      list[float],
-    cv_raw_text:       str,
+    cv_raw_text:       str = "",
     weights:           dict[str, float] | None = None,
-    cosine_min:        float = 0.20,
-    cosine_max:        float = 0.80,
-    use_role_fit:      bool  = False,
-    enforce_must_have: bool  = True,
+    cosine_min:        float | None = None,
+    cosine_max:        float | None = None,
+    enforce_must_have: bool = True,
 ) -> dict:
     """
-    Wraps calculate_score and applies hard-rule penalties:
-      - Missing must-have skills (weight ≥ 3) with no category fallback:
-          0.15 penalty each, cumulative cap 0.55.
-      - cv_years < 0.8 × jd.min_experience_years:
-          0.20 penalty.
-      - Total cap: 0.70 (prevents crushing candidates to near-zero).
-
-    A skill is only counted as "hard missing" if:
-      - Not exact/fuzzy matched, AND
-      - No same-category skills present (category_match < 0.3).
-    This avoids penalizing candidates who have related skills in the same domain
-    (e.g. PyTorch/TensorFlow covering "Machine Learning") while still factoring
-    skill gaps into the D2 score dimension.
+    Wrap calculate_score and apply hard-rule penalties:
+      - Each hard-missing must-have skill (weight ≥ 3): 0.15 penalty, cap 0.55.
+      - cv_years < 0.8 × jd.min_experience_years: 0.20 penalty.
+      - Total penalty capped at 0.70 (never crush a candidate to near-zero).
+    Adds `penalty_applied` and `penalty_reasons` to the result.
     """
     result = calculate_score(
         parsed_cv, parsed_jd, cv_embedding, jd_embedding, cv_raw_text,
         weights=weights, cosine_min=cosine_min, cosine_max=cosine_max,
-        use_role_fit=use_role_fit,
     )
+    if not enforce_must_have:
+        result["penalty_applied"] = 0.0
+        result["penalty_reasons"] = []
+        return result
+
+    matcher = _skill_matcher
+    cv_skills, cv_skills_expanded = matcher.normalized_cv_skills(parsed_cv)
 
     penalty = 0.0
     reasons: list[str] = []
 
-    if enforce_must_have:
-        matcher = _skill_matcher
-        cv_skills = {matcher.normalize_skill(s) for s in _collect_cv_skills(parsed_cv) if s}
+    hard_missing = [
+        matcher.group_label(req) for req in parsed_jd.required_skills
+        if req.weight >= 3
+        and matcher.is_group_hard_missing(req, cv_skills, cv_skills_expanded)
+    ]
+    if hard_missing:
+        penalty += min(0.15 * len(hard_missing), 0.55)
+        reasons.append(f"missing must-have skills: {hard_missing}")
 
-        must_haves = [r for r in parsed_jd.required_skills if r.weight >= 3]
-        hard_missing: list[str] = []
-        for req in must_haves:
-            jd_skill = matcher.normalize_skill(req.skill)
-            if jd_skill in cv_skills:
-                continue
-            if any(matcher.fuzzy_match(jd_skill, cv_s) for cv_s in cv_skills):
-                continue
-            # Skip hard penalty only for specific skill-cluster categories where
-            # having related tools genuinely covers the domain (e.g. pytorch+scikit-learn
-            # covering "Machine Learning", or csharp+aspnet covering ".NET Core").
-            # Broad categories like "language" are excluded — knowing Python does NOT
-            # cover Java, even if they share the same category.
-            cat = matcher._category_of(jd_skill)
-            if (cat in matcher.PENALTY_SKIP_CATEGORIES
-                    and matcher.category_match(cv_skills, jd_skill) >= 0.4):
-                continue
-            hard_missing.append(req.skill)
-
-        if hard_missing:
-            skill_penalty = min(0.15 * len(hard_missing), 0.55)
-            penalty += skill_penalty
-            reasons.append(f"missing must-have skills: {hard_missing}")
-
-        if parsed_jd.min_experience_years:
-            cv_years = parsed_cv.total_exp_months / 12.0
-            min_required = 0.8 * parsed_jd.min_experience_years
-            if cv_years < min_required:
-                penalty += 0.20
-                reasons.append(
-                    f"insufficient experience: {cv_years:.1f}y < {min_required:.1f}y"
-                )
+    if parsed_jd.min_experience_years:
+        cv_years = parsed_cv.total_exp_months / 12.0
+        min_required = 0.8 * parsed_jd.min_experience_years
+        if cv_years < min_required:
+            penalty += 0.20
+            reasons.append(f"insufficient experience: {cv_years:.1f}y < {min_required:.1f}y")
 
     penalty = min(penalty, 0.70)
-    result["final_score"]      = round(result["final_score"] * (1 - penalty), 1)
-    result["penalty_applied"]  = round(penalty, 3)
-    result["penalty_reasons"]  = reasons
+    result["final_score"]     = round(result["final_score"] * (1 - penalty), 1)
+    result["penalty_applied"] = round(penalty, 3)
+    result["penalty_reasons"] = reasons
     return result
-
-
-def recalculate_final(scores: dict[str, float], weights: dict[str, float]) -> float:
-    """
-    Recalculate final score from dimension scores and new weights.
-    Both input scores and final output score are in [0, 100].
-    """
-    total = 0.0
-    for k, w in weights.items():
-        total += scores.get(k, 0.0) * w
-    return round(total, 1)
 
