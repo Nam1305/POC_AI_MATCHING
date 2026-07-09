@@ -73,6 +73,8 @@ FLOW 1 — UPLOAD CV
     ├─ Stage 2: parser.parse_cv()  →  parsed_cv (JSON)
     │     LLM extract → completeness check → retry if empty
     │     Python tính months từ start/end dates
+    │     Nếu candidate_location.raw_address có giá trị:
+    │       Nominatim geocode() → candidate_location.{lat,lng}  ← 1 lần, giống embedding
     └─ Stage 3: embedder.embed()  →  cv_embedding [1536 float]
     │
     return { parsed_cv, cv_embedding }
@@ -90,6 +92,8 @@ FLOW 2 — CREATE JOB
     ▼
 [Python AI]
     ├─ Stage 2: parser.parse_jd()  →  parsed_jd (JSON)
+    │     LLM extract work_location.raw_address + work_mode
+    │     Nominatim geocode(raw_address) → work_location.{lat,lng}  ← 1 lần, giống embedding
     └─ Stage 3: embedder.embed()   →  jd_embedding [1536 float]
     │
 [.NET] INSERT INTO jobs (parsed_jd JSONB, jd_embedding vector(1536))
@@ -108,7 +112,7 @@ FLOW 3 — SCORE (AI Matching)
     ├─ D2 Skills     : alias → fuzzy → category matching
     ├─ D3 Experience : base ratio + modifiers
     ├─ D4 Education  : degree level ratio
-    ├─ D5 Keywords   : exact / word-boundary / phrase
+    ├─ D5 Location   : OSRM driving-time(lat/lng đã geocode) × work-mode fit
     └─ Hard rules    : must-have penalties
     │
     return { final_score: 78.5, scores: { D1..D5 } }
@@ -164,7 +168,7 @@ FLOW 4 — NL SEARCH
 │ final_score      FLOAT                        │
 │ scores           JSONB                        │
 │   { semantic, skills, experience,            │
-│     education, keywords }                    │
+│     education, location }                    │
 │ penalty_applied  FLOAT                        │
 │ penalty_reasons  JSONB                        │
 │ scored_at        TIMESTAMPTZ                  │
@@ -214,6 +218,9 @@ CREATE INDEX ON jobs    USING ivfflat (jd_embedding vector_cosine_ops);
 - `parsed_cv` / `parsed_jd` chỉ cần gửi nguyên vẹn lên AI khi score
 - Không cần query từng field riêng lẻ ở tầng DB
 - Schema linh hoạt khi AI model thay đổi output structure
+- `work_location.{lat,lng}` / `candidate_location.{lat,lng}` (geocoded 1 lần ở
+  parse-time, giống `embedding`) nằm sẵn trong `parsed_jd`/`parsed_cv` — không
+  cần cột riêng, `/ai/score` đọc thẳng ra để tính D5 mà không phải geocode lại
 
 **Không lưu raw text** — file gốc (PDF) nằm ở Blob Storage (S3/Azure Blob). Nếu cần re-parse thì yêu cầu re-upload.
 
@@ -327,8 +334,12 @@ Lưu ý: cv_embedding và jd_embedding phải cùng model/dimension
 │  cv_degree_level / jd_degree_level  (capped 1.0)            │
 │  high_school=1, associate=2, bachelor=3, master=4, phd=5    │
 ├──────────────────────────────────────────────────────────────┤
-│  D5 Keywords (W=5%)                                          │
-│  exact → word-boundary → multi-word partial(0.7)            │
+│  D5 Location (W=5%)                                          │
+│  remote JD hoặc CV willing_to_relocate → 1.0                │
+│  lat/lng thiếu (geocode fail ở parse-time) → 0.5 (neutral)  │
+│  OSRM route(lat/lng) → t phút; fail → retry 1 lần (0.5s)    │
+│  fail lần 2 → 0.5;  else S_loc = max(0, 1 - t/T_max)        │
+│  T_max = 45 (onsite) / 75 (hybrid);  ×M (work-mode fit)      │
 └──────────────────────────────────────────────────────────────┘
                     │
                     ▼
@@ -459,11 +470,50 @@ Bảng quy đổi bậc học:
 
 Nếu JD không yêu cầu bằng cấp: $\text{D4} = 1.0$ (neutral)
 
-### 4.9 Keyword Score (D5)
+### 4.9 Location + Work-Mode Score (D5)
 
-$$\text{D5} = \frac{1}{|K|} \sum_{k \in K} s_k$$
+D5 thay thế hoàn toàn keyword string-matching (bản cũ, xem `score_keywords()`
+— vẫn giữ trong code nhưng không còn được gọi, để rollback nếu cần) bằng ước
+tính thời gian di chuyển thực tế giữa địa chỉ ứng viên và địa chỉ công ty,
+nhân với hệ số tương thích work-mode (onsite/hybrid/remote).
 
-$$s_k = \begin{cases} 1.0 & \text{exact substring hoặc word-boundary match} \\ 0.7 & \text{multi-word: tất cả subwords xuất hiện} \\ 0.0 & \text{không tìm thấy} \end{cases}$$
+**Geocoding (Nominatim) chạy 1 lần ở parse-time**, giống hệt cách `embedding`
+được tính 1 lần — không tính lại mỗi lần score:
+
+$$(\text{lat}, \text{lng}) = \text{Nominatim.geocode}(\text{raw\_address})$$
+
+**Routing (OSRM) chạy ở score-time**, vì phụ thuộc cặp CV↔JD cụ thể đang so khớp:
+
+$$
+\text{D5} =
+\begin{cases}
+1.0 & \text{JD.work\_mode} = \text{remote} \\
+1.0 & \text{CV.willing\_to\_relocate} = \text{true} \\
+0.5 & \text{lat/lng thiếu ở 1 trong 2 phía (geocode fail ở parse-time)} \\
+0.5 & \text{OSRM route thất bại 2 lần liên tiếp (retry 1 lần sau 0.5s)} \\
+\text{round}(S_{\text{loc}} \times M,\ 3) & \text{otherwise}
+\end{cases}
+$$
+
+$$S_{\text{loc}} = \max\!\left(0,\ 1 - \frac{t}{T_{\max}}\right), \qquad T_{\max} = \begin{cases} 45 & \text{onsite} \\ 75 & \text{hybrid} \end{cases}$$
+
+với $t$ = driving duration (phút) từ OSRM `route.duration`.
+
+**Work-mode compatibility multiplier $M$:**
+
+| JD work\_mode | CV work\_mode\_preference | $M$ |
+|---|---|---|
+| onsite | remote | 0.3 |
+| onsite | onsite / hybrid / null | 1.0 |
+| hybrid | onsite | 0.7 |
+| hybrid | remote | 0.3 |
+| hybrid | hybrid / null | 1.0 |
+
+**Lý do không dùng haversine (đường chim bay) làm fallback:** ban đầu có
+fallback bằng haversine khi OSRM fail, nhưng đường chim bay không phản ánh
+thực tế giao thông đô thị (sông, đường 1 chiều, tắc đường) — dễ đánh giá sai
+lệch hơn là trả điểm trung lập. Hàm `haversine_fallback_minutes()` vẫn còn
+trong `location_service.py` (deprecated, không được gọi) để rollback nếu cần.
 
 ### 4.10 Final Weighted Score
 
@@ -477,7 +527,7 @@ Default weights:
 | $W_2$ Skills | 0.35 | Quan trọng nhất trong tuyển dụng IT |
 | $W_3$ Experience | 0.20 | Số năm + relevance |
 | $W_4$ Education | 0.10 | Thường là threshold, không phải differentiator |
-| $W_5$ Keywords | 0.05 | Tín hiệu phụ |
+| $W_5$ Location | 0.05 | Tín hiệu phụ — khoảng cách di chuyển + work-mode fit |
 | **Tổng** | **1.00** | |
 
 ### 4.11 Hard Rule Penalties
