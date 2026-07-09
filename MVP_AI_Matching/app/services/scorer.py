@@ -5,7 +5,8 @@ D1 Semantic   : cosine_sim(cv_embedding, jd_embedding), normalized to 0–1
 D2 Skills     : weighted skill overlap with alias/implied/fuzzy/category match
 D3 Experience : base ratio + relevance/recency/over-qual modifiers
 D4 Education  : cv_degree_level / jd_required_degree_level, capped at 1.0
-D5 Keywords   : exact / word-boundary / multi-word phrase scoring
+D5 Location   : driving-time estimate (OSRM route over parse-time-geocoded
+                lat/lng) × work-mode fit
 
 final_score = Σ(Di × Wi) × 100
 """
@@ -15,12 +16,14 @@ from __future__ import annotations
 import datetime
 import difflib
 import re
+import time
 from typing import Optional
 
 import numpy as np
 
 from app.config import settings
 from app.schemas import ParsedCV, ParsedJD, parse_month
+from app.services import location_service
 from app.services.skill_data import (
     ALIASES, CATEGORIES, IMPLIES_ALL, PENALTY_SKIP_CATEGORIES,
 )
@@ -329,7 +332,76 @@ def score_education(cv: ParsedCV, jd: ParsedJD) -> float:
 
 
 # ---------------------------------------------------------------------------
-# D5: Keywords — exact / word-boundary / multi-word
+# D5: Location + Work Mode — driving-time estimate × work-mode compatibility
+# ---------------------------------------------------------------------------
+
+_ROUTE_RETRY_DELAY_SECONDS = 0.5
+
+
+def score_location(parsed_jd: ParsedJD, parsed_cv: ParsedCV) -> float:
+    """
+    D5 replacement for keyword matching. Formula:
+      1. JD is remote                       → 1.0
+      2. CV explicitly willing to relocate  → 1.0
+      3. lat/lng missing on either side (geocoding already ran at parse-time
+         — see parser.parse_jd/parse_cv — and either failed or there was no
+         address to geocode) → 0.5 (neutral, don't penalize missing data)
+      4. t = driving minutes via OSRM route; on failure, retry once after
+         0.5s; if it fails again → 0.5 (same neutral contract as missing
+         lat/lng — no distance fallback is computed)
+      5. T_max = 45 (onsite) or 75 (hybrid)
+      6. S_loc = max(0, 1 - t / T_max)
+      7. M = work-mode compatibility multiplier (see table below)
+      return round(S_loc * M, 3)
+    """
+    work_mode = parsed_jd.work_location.work_mode
+    if work_mode == "remote":
+        return 1.0
+
+    if parsed_cv.candidate_location.willing_to_relocate:
+        return 1.0
+
+    jd_loc, cv_loc = parsed_jd.work_location, parsed_cv.candidate_location
+    if jd_loc.lat is None or jd_loc.lng is None or cv_loc.lat is None or cv_loc.lng is None:
+        return 0.5
+
+    jd_coord = {"lat": jd_loc.lat, "lng": jd_loc.lng}
+    cv_coord = {"lat": cv_loc.lat, "lng": cv_loc.lng}
+
+    route = location_service.get_route(cv_coord, jd_coord)
+    if route is None:
+        print("score_location: get_route() failed, retrying once after 0.5s")
+        time.sleep(_ROUTE_RETRY_DELAY_SECONDS)
+        route = location_service.get_route(cv_coord, jd_coord)
+
+    if route is None:
+        print("score_location: get_route() failed again after retry, returning neutral 0.5")
+        return 0.5
+
+    t = route["duration_min"]
+
+    t_max = 45.0 if work_mode == "onsite" else 75.0
+    s_loc = max(0.0, 1 - t / t_max)
+
+    cv_pref = parsed_cv.candidate_location.work_mode_preference
+    if work_mode == "onsite":
+        m = 0.3 if cv_pref == "remote" else 1.0
+    else:  # hybrid
+        if cv_pref == "onsite":
+            m = 0.7
+        elif cv_pref == "remote":
+            m = 0.3
+        else:
+            m = 1.0
+
+    return round(s_loc * m, 3)
+
+
+# ---------------------------------------------------------------------------
+# D5 (deprecated) — Keywords: exact / word-boundary / multi-word
+#
+# Superseded by score_location() above. Kept unused, not deleted, in case of
+# rollback. Not called anywhere in calculate_score() / calculate_score_with_rules().
 # ---------------------------------------------------------------------------
 
 def _clean_text_for_match(text: str) -> str:
@@ -442,7 +514,7 @@ def calculate_score(
         "skills":     score_skills(parsed_cv, parsed_jd),
         "experience": score_experience(parsed_cv, parsed_jd),
         "education":  score_education(parsed_cv, parsed_jd),
-        "keywords":   score_keywords(cv_raw_text, parsed_jd),
+        "location":   score_location(parsed_jd, parsed_cv),
     }
 
     final = 100 * sum(value * w.get(name, 0.0) for name, value in dims.items())

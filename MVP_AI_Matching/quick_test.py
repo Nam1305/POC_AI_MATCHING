@@ -132,7 +132,7 @@ def score_cv(client: httpx.Client, parsed_cv: dict, parsed_jd: dict,
 
 
 def print_summary_table(results: list[tuple[str, dict]]) -> None:
-    headers = ["#", "CV", "Final", "Skills", "Exp", "Edu", "Semantic", "Recommendation"]
+    headers = ["#", "CV", "Final", "Skills", "Exp", "Edu", "Semantic", "Location", "Recommendation"]
     rows = []
     for i, (url, score_result) in enumerate(results, start=1):
         name = url.rsplit("/", 1)[-1]
@@ -145,6 +145,7 @@ def print_summary_table(results: list[tuple[str, dict]]) -> None:
             f"{scores.get('experience', 0):.1f}",
             f"{scores.get('education', 0):.1f}",
             f"{scores.get('semantic', 0):.1f}",
+            f"{scores.get('location', 0):.1f}",
             score_result["evaluation"]["recommendation"],
         ])
 
@@ -169,7 +170,35 @@ def print_summary_table(results: list[tuple[str, dict]]) -> None:
         print(fmt_row(row, colorize_last=True))
 
 
-def print_result(index: int, url: str, score_result: dict) -> None:
+def format_location(work_location: dict, candidate_location: dict) -> str:
+    jd_addr = work_location.get("raw_address") or work_location.get("city", "?")
+    jd_mode = work_location.get("work_mode", "?")
+    jd_coords = (
+        f"({work_location['lat']:.4f}, {work_location['lng']:.4f})"
+        if work_location.get("lat") is not None and work_location.get("lng") is not None
+        else "(not geocoded)"
+    )
+
+    cv_addr = candidate_location.get("raw_address") or "(none stated)"
+    cv_coords = (
+        f"({candidate_location['lat']:.4f}, {candidate_location['lng']:.4f})"
+        if candidate_location.get("lat") is not None and candidate_location.get("lng") is not None
+        else "(not geocoded)"
+    )
+    relocate = candidate_location.get("willing_to_relocate")
+    pref = candidate_location.get("work_mode_preference")
+
+    lines = [
+        f"  JD location:    {jd_addr}  [{jd_mode}]  {jd_coords}",
+        f"  CV location:    {cv_addr}  {cv_coords}",
+    ]
+    if relocate is not None or pref is not None:
+        lines.append(f"  CV preference:  willing_to_relocate={relocate}  work_mode_preference={pref}")
+    return "\n".join(lines)
+
+
+def print_result(index: int, url: str, score_result: dict,
+                  parsed_cv: dict | None = None, parsed_jd: dict | None = None) -> None:
     name = url.rsplit("/", 1)[-1]
     sep = "─" * 74
 
@@ -184,10 +213,17 @@ def print_result(index: int, url: str, score_result: dict) -> None:
         ("Experience", scores.get("experience", 0)),
         ("Education", scores.get("education", 0)),
         ("Semantic", scores.get("semantic", 0)),
-        ("Keywords", scores.get("keywords", 0)),
+        ("Location", scores.get("location", 0)),
     ]
     for label, value in metrics:
         print(f"  {label:<15} [{bar(value)}]  {value:5.1f}")
+
+    if parsed_jd is not None and parsed_cv is not None:
+        print()
+        print(format_location(
+            parsed_jd.get("work_location", {}),
+            parsed_cv.get("candidate_location", {}),
+        ))
 
     ev = score_result["evaluation"]
     print()
@@ -225,11 +261,15 @@ def main() -> None:
         jd_result = parse_jd(client, jd_text)
         parsed_jd = jd_result["parsed_jd"]
         jd_embedding = jd_result["jd_embedding"]
+        work_location = parsed_jd.get("work_location", {})
         print(f"Parsed JD title: {parsed_jd.get('title')}")
+        print(f"Parsed JD location: {work_location.get('raw_address') or work_location.get('city')}"
+              f"  [{work_location.get('work_mode')}]"
+              f"  lat/lng={work_location.get('lat')},{work_location.get('lng')}")
 
         cv_results = parse_cvs(client, cv_urls)
 
-        scored: list[tuple[str, dict]] = []
+        scored: list[tuple[str, dict, dict]] = []
         for cv in cv_results:
             if cv.get("error"):
                 print(f"\n[FAILED] {cv['url']}: {cv['error']}")
@@ -242,14 +282,14 @@ def main() -> None:
                 cv_embedding=cv["cv_embedding"],
                 jd_embedding=jd_embedding,
             )
-            scored.append((cv["url"], score_result))
+            scored.append((cv["url"], score_result, cv["parsed_cv"]))
 
-        scored.sort(key=lambda pair: pair[1]["final_score"], reverse=True)
+        scored.sort(key=lambda triple: triple[1]["final_score"], reverse=True)
 
-        print_summary_table(scored)
+        print_summary_table([(url, score_result) for url, score_result, _ in scored])
 
-        for i, (url, score_result) in enumerate(scored, start=1):
-            print_result(i, url, score_result)
+        for i, (url, score_result, parsed_cv) in enumerate(scored, start=1):
+            print_result(i, url, score_result, parsed_cv=parsed_cv, parsed_jd=parsed_jd)
 
         print(f"\n{'=' * 70}\nDone.")
 

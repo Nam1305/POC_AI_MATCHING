@@ -10,7 +10,7 @@ import datetime
 import math
 import re
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -138,6 +138,37 @@ class Education(BaseModel):
         return "other"
 
 
+class CandidateLocation(BaseModel):
+    """
+    Location info for a CV. `raw_address` is free-text as stated in the CV;
+    `lat`/`lng` are geocoded once at parse-time (see parser.parse_cv) via
+    location_service.geocode() and persisted alongside cv_embedding — mirrors
+    how cv_embedding is computed once at parse-time rather than per score
+    call. None if no address was found or geocoding failed.
+    """
+    raw_address:          Optional[str]                              = None
+    lat:                  Optional[float]                            = None
+    lng:                  Optional[float]                            = None
+    # True only if the CV explicitly states willingness to relocate; never inferred.
+    willing_to_relocate:  Optional[bool]                              = None
+    work_mode_preference: Optional[Literal["onsite", "hybrid", "remote"]] = None
+
+    @field_validator("raw_address", mode="before")
+    @classmethod
+    def _coerce_raw_address(cls, v: object) -> Optional[str]:
+        if not isinstance(v, str) or not v.strip():
+            return None
+        return v
+
+    @field_validator("work_mode_preference", mode="before")
+    @classmethod
+    def _normalize_work_mode(cls, v: object) -> Optional[str]:
+        if not isinstance(v, str):
+            return None
+        s = v.lower().strip()
+        return s if s in {"onsite", "hybrid", "remote"} else None
+
+
 class Project(BaseModel):
     name:        str       = ""
     tech_stack:  list[str] = Field(default_factory=list)
@@ -213,6 +244,7 @@ class ParsedCV(BaseModel):
     projects:        list[Project]        = Field(default_factory=list)
     certifications:  list[str]            = Field(default_factory=list)
     languages:       list[str]            = Field(default_factory=list)
+    candidate_location: CandidateLocation = Field(default_factory=CandidateLocation)
 
     @field_validator("name", "summary", mode="before")
     @classmethod
@@ -326,6 +358,53 @@ class ParsedCV(BaseModel):
         return "\n".join(parts)
 
 
+class WorkLocation(BaseModel):
+    """
+    JD work location. `city` is intentionally hardcoded to the 3 cities the
+    business operates in — do not widen this to free text.
+
+    `lat`/`lng` are geocoded once at parse-time (see parser.parse_jd) via
+    location_service.geocode() and persisted alongside jd_embedding — mirrors
+    how jd_embedding is computed once at parse-time rather than per score
+    call. None if geocoding failed.
+    """
+    city:        Literal["Ha Noi", "Ho Chi Minh", "Da Nang"] = "Ha Noi"
+    raw_address: str                                          = ""
+    work_mode:   Literal["onsite", "hybrid", "remote"]        = "onsite"
+    lat:         Optional[float]                              = None
+    lng:         Optional[float]                              = None
+
+    @field_validator("city", mode="before")
+    @classmethod
+    def _normalize_city(cls, v: object) -> str:
+        if not isinstance(v, str):
+            return "Ha Noi"
+        s = v.lower().strip()
+        if "ha noi" in s or "hanoi" in s or s in {"hn"}:
+            return "Ha Noi"
+        if "ho chi minh" in s or "hcm" in s or "saigon" in s or "sai gon" in s:
+            return "Ho Chi Minh"
+        if "da nang" in s or "danang" in s:
+            return "Da Nang"
+        return "Ha Noi"
+
+    @field_validator("raw_address", mode="before")
+    @classmethod
+    def _coerce_raw_address(cls, v: object) -> str:
+        return v if isinstance(v, str) else ""
+
+    @field_validator("work_mode", mode="before")
+    @classmethod
+    def _normalize_work_mode(cls, v: object) -> str:
+        # Defaults to "onsite" when the JD gives no explicit signal — this is
+        # a heuristic assumption (most JDs without a stated mode ARE onsite
+        # in this market), not a neutral default. Revisit if that stops holding.
+        if not isinstance(v, str):
+            return "onsite"
+        s = v.lower().strip()
+        return s if s in {"onsite", "hybrid", "remote"} else "onsite"
+
+
 # ---------------------------------------------------------------------------
 # ParsedJD
 # ---------------------------------------------------------------------------
@@ -337,6 +416,7 @@ class ParsedJD(BaseModel):
     min_experience_years: int                 = 0
     education_degree:     Optional[DegreeLevel] = None
     keywords:             list[str]           = Field(default_factory=list)
+    work_location:        WorkLocation        = Field(default_factory=WorkLocation)
 
     @field_validator("education_degree", mode="before")
     @classmethod
