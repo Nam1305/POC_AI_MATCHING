@@ -38,7 +38,7 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
       ← { cv_raw_text, parsed_cv, cv_embedding }
 
       → POST /ai/score { parsed_cv, parsed_jd, cv_embedding, jd_embedding, weights, cv_raw_text }
-      ← { final_score, scores: { semantic, skills, experience, education, keywords } }
+      ← { final_score, scores: { semantic, skills, experience, education, location } }
    e. UPDATE application: lưu tất cả kết quả, status = "done"
    f. Return về ReactJS: { final_score, scores }
 
@@ -49,7 +49,7 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
    │  Skills match         ███░░  75% │
    │  Experience           ████░  80% │
    │  Education            █████ 100% │
-   │  Keywords             ███░░  60% │
+   │  Location             ███░░  60% │
    └─────────────────────────────────┘
 ```
 
@@ -190,7 +190,7 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
     │                   │                        D2: weighted skill match
     │                   │                        D3: experience years ratio
     │                   │                        D4: degree level map
-    │                   │                        D5: keyword overlap
+    │                   │                        D5: location + work-mode (driving-time route)
     │                   │                        → final = Σ(score_i × weight_i) × 100
     │                   │ ←─────────────────────────────
     │                   │  { final_score, scores:{...} }
@@ -204,7 +204,7 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
     │  { final_score: 78.5,
     │    scores: { semantic:82, skills:75,
     │              experience:80,
-    │              education:100, keywords:60 } }
+    │              education:100, location:60 } }
 ```
 
 ---
@@ -218,7 +218,7 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
     │  UPDATE scoring_configs
     │  SELECT applications WHERE job_id = {id}
     │    → chỉ lấy { id, score_semantic, score_skills,
-    │                   score_experience, score_education, score_keywords }
+    │                   score_experience, score_education, score_location }
     │
     │  POST /ai/recalculate
     │  {
@@ -325,12 +325,12 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
 │                 ─────────────────────────────────────────────    │
 │  D4 Education   lookup table       {PhD:4, Master:3, Bach:2}   │
 │                 ─────────────────────────────────────────────    │
-│  D5 Keywords    string match       matched / total_keywords     │
+│  D5 Location    driving-time route  max(0, 1 - t/T_max) × M     │
 │                                                                   │
 │  final_score = Σ(Di × Wi) × 100                                 │
 │                                                                   │
 │  Default weights:                                                 │
-│  semantic=0.30 | skills=0.35 | exp=0.20 | edu=0.10 | kw=0.05   │
+│  semantic=0.30 | skills=0.35 | exp=0.20 | edu=0.10 | loc=0.05  │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
@@ -386,11 +386,24 @@ Response: {
     "min_experience_years": 2,
     "education": { "degree": "Bachelor", "major": "Computer Science" },
     "responsibilities": ["..."],
-    "keywords": ["FastAPI", "PostgreSQL", "Docker"]
+    "keywords": ["FastAPI", "PostgreSQL", "Docker"],
+    "work_location": {
+      "city": "Ha Noi",
+      "raw_address": "Tòa nhà ABC, 123 Cầu Giấy, Hà Nội",
+      "work_mode": "onsite",
+      "lat": 21.0313,
+      "lng": 105.8014
+    }
   },
   "embedding": [0.123, ...]
 }
 ```
+
+`work_location.lat`/`lng` are geocoded once here at parse-time (Nominatim) —
+same treatment as `embedding`. .NET must persist them alongside `parsed_jd`
+so `/ai/score` can read them back without re-geocoding. `null` if geocoding
+failed (e.g. Nominatim unreachable, address not found) — `/ai/score` treats
+a missing lat/lng as neutral, not an error.
 
 ### POST /ai/parse-cv
 
@@ -406,11 +419,23 @@ Response: {
     ],
     "education": { "degree": "Bachelor", "major": "SE", "gpa": 3.6 },
     "certifications": ["AWS Cloud Practitioner"],
-    "projects": [{ "name": "...", "tech_stack": ["FastAPI", "Redis"], "description": "..." }]
+    "projects": [{ "name": "...", "tech_stack": ["FastAPI", "Redis"], "description": "..." }],
+    "candidate_location": {
+      "raw_address": "45 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
+      "lat": 10.7757,
+      "lng": 106.7004,
+      "willing_to_relocate": null,
+      "work_mode_preference": null
+    }
   },
   "embedding": [0.456, ...]
 }
 ```
+
+`candidate_location.lat`/`lng` are geocoded once here at parse-time
+(Nominatim) — same treatment as `embedding`. .NET must persist them
+alongside `parsed_cv`. `null` if `raw_address` was absent or geocoding
+failed — no error is raised.
 
 ### POST /ai/score
 
@@ -420,7 +445,7 @@ Request: {
   "parsed_jd": { ... },
   "cv_embedding": [0.456, ...],
   "jd_embedding": [0.123, ...],
-  "weights": { "semantic": 0.30, "skills": 0.35, "experience": 0.20, "education": 0.10, "keywords": 0.05 },
+  "weights": { "semantic": 0.30, "skills": 0.35, "experience": 0.20, "education": 0.10, "location": 0.05 },
   "cv_raw_text": "string"
 }
 
@@ -431,7 +456,7 @@ Response: {
     "skills": 75.0,
     "experience": 80.0,
     "education": 100.0,
-    "keywords": 60.0
+    "location": 60.0
   }
 }
 ```
@@ -441,9 +466,9 @@ Response: {
 ```json
 Request: {
   "applications": [
-    { "id": "uuid-1", "scores": { "semantic": 82.0, "skills": 75.0, "experience": 80.0, "education": 100.0, "keywords": 60.0 } }
+    { "id": "uuid-1", "scores": { "semantic": 82.0, "skills": 75.0, "experience": 80.0, "education": 100.0, "location": 60.0 } }
   ],
-  "weights": { "semantic": 0.20, "skills": 0.45, "experience": 0.20, "education": 0.10, "keywords": 0.05 }
+  "weights": { "semantic": 0.20, "skills": 0.45, "experience": 0.20, "education": 0.10, "location": 0.05 }
 }
 
 Response: {
@@ -498,7 +523,31 @@ embed("2 years") ≈ embed("10 years")                         # similarity cao
 | D2 Skills     | Đúng skills nào có mặt             | Không — cần structured list       |
 | D3 Experience | Tổng số năm làm việc               | Không — cần tính số               |
 | D4 Education  | Degree level (Bach < Master < PhD) | Không — cần lookup                |
-| D5 Keywords   | Keyword xuất hiện trong text       | Không cần embedding, string match |
+| D5 Location   | Driving-time giữa CV ↔ JD address   | Không — cần geocode + routing      |
+
+**D5 — Location + Work Mode (thay thế D5 Keywords cũ):**
+
+D5 không còn dùng keyword string-match. Thay vào đó, D5 ước tính thời gian
+di chuyển thực tế giữa địa chỉ ứng viên và địa chỉ công ty, kết hợp với độ
+tương thích work mode (onsite/hybrid/remote):
+
+- **Parse-time** (`/ai/parse-jd`, `/ai/parse-cv`): trích xuất `raw_address`
+  thô từ text (LLM), sau đó gọi **Nominatim** (OpenStreetMap, miễn phí, không
+  cần API key) một lần để geocode → `lat`/`lng`. Giống hệt cách `embedding`
+  được tính một lần tại parse-time chứ không tính lại ở mỗi lần score — vì
+  lat/lng là thuộc tính của bản thân JD/CV, không phụ thuộc cặp CV↔JD nào cả.
+  .NET lưu `lat`/`lng` cùng với `parsed_jd`/`parsed_cv` (như đã lưu
+  `jd_embedding`/`cv_embedding`).
+- **Score-time** (`/ai/score`, trong `score_location()`): đọc thẳng `lat`/`lng`
+  đã lưu từ parse-time, không geocode lại. Chỉ gọi **OSRM public demo server**
+  (miễn phí, không cần API key) để tính route driving distance/duration giữa
+  2 tọa độ — vì route thực sự phụ thuộc cặp CV↔JD cụ thể đang được so khớp.
+- Nếu geocode (tại parse-time) thất bại → thiếu lat/lng → `score_location()`
+  trả điểm trung lập 0.5, không geocode lại ở score-time.
+- Nếu route (tại score-time, OSRM) thất bại → retry 1 lần sau 0.5s; nếu vẫn
+  thất bại → trả điểm trung lập 0.5 (không còn ước tính bằng công thức
+  haversine — hàm đó vẫn còn trong code nhưng đã deprecated/unused, giữ lại
+  để rollback nếu cần).
 
 **3 thứ .NET lưu sau mỗi CV:**
 

@@ -5,12 +5,14 @@ from __future__ import annotations
 import pytest
 
 from app.schemas import (
-    DegreeLevel, Education, ParsedCV, ParsedJD,
-    RequiredSkill, WorkExperience,
+    CandidateLocation, DegreeLevel, Education, ParsedCV, ParsedJD,
+    RequiredSkill, WorkExperience, WorkLocation,
 )
+from app.services import scorer as scorer_module
 from app.services.scorer import (
     cosine_sim, normalize_cosine,
     score_skills, score_experience, score_education, score_keywords,
+    score_location,
     calculate_score, calculate_score_with_rules,
 )
 
@@ -276,7 +278,7 @@ def test_calculate_score_returns_full_breakdown():
     out = calculate_score(cv, jd, cv_vec, jd_vec, "I love Python", weights=None)
 
     assert 0 <= out["final_score"] <= 100
-    for dim in ("semantic", "skills", "experience", "education", "keywords"):
+    for dim in ("semantic", "skills", "experience", "education", "location"):
         assert 0 <= out["scores"][dim] <= 100
 
 
@@ -314,3 +316,86 @@ def test_calculate_score_with_rules_implied_skill_no_penalty():
     res = calculate_score_with_rules(cv, jd, cv_vec, jd_vec, "reactjs")
     assert res["penalty_applied"] == 0.0
     assert res["penalty_reasons"] == []
+
+
+# ---------------------------------------------------------------------------
+# D5: Location + Work Mode
+# ---------------------------------------------------------------------------
+
+def test_score_location_remote_jd_short_circuits():
+    jd = ParsedJD(title="Backend", work_location=WorkLocation(work_mode="remote"))
+    cv = ParsedCV()
+    assert score_location(jd, cv) == 1.0
+
+
+def test_score_location_cv_willing_to_relocate_short_circuits():
+    jd = ParsedJD(title="Backend", work_location=WorkLocation(work_mode="onsite"))
+    cv = ParsedCV(candidate_location=CandidateLocation(willing_to_relocate=True))
+    assert score_location(jd, cv) == 1.0
+
+
+def test_score_location_missing_lat_lng_returns_neutral():
+    # lat/lng are geocoded at parse-time (parser.parse_jd/parse_cv); if either
+    # is None here (geocoding failed, or no address was ever present), score
+    # stays neutral — no geocode() call happens at score-time anymore.
+    jd = ParsedJD(
+        title="Backend",
+        work_location=WorkLocation(work_mode="onsite", raw_address="Ha Noi"),
+    )
+    cv = ParsedCV(candidate_location=CandidateLocation(raw_address="Ho Chi Minh"))
+    assert jd.work_location.lat is None and cv.candidate_location.lat is None
+    assert score_location(jd, cv) == 0.5
+
+
+def test_score_location_close_onsite_full_score(monkeypatch):
+    jd = ParsedJD(
+        title="Backend",
+        work_location=WorkLocation(work_mode="onsite", lat=21.0, lng=105.8),
+    )
+    cv = ParsedCV(candidate_location=CandidateLocation(lat=21.0, lng=105.8))
+
+    monkeypatch.setattr(
+        scorer_module.location_service, "get_route",
+        lambda c1, c2: {"distance_km": 0.0, "duration_min": 0.0},
+    )
+    assert score_location(jd, cv) == 1.0
+
+
+def test_score_location_route_failure_after_retry_returns_neutral(monkeypatch):
+    # get_route() failing twice (initial + one retry) must return the same
+    # neutral 0.5 as missing lat/lng — no haversine distance fallback anymore.
+    jd = ParsedJD(
+        title="Backend",
+        work_location=WorkLocation(work_mode="onsite", lat=21.0, lng=105.8),
+    )
+    cv = ParsedCV(candidate_location=CandidateLocation(lat=10.8, lng=106.7))
+
+    call_count = 0
+
+    def _always_fail(c1, c2):
+        nonlocal call_count
+        call_count += 1
+        return None
+
+    monkeypatch.setattr(scorer_module.location_service, "get_route", _always_fail)
+    monkeypatch.setattr(scorer_module.time, "sleep", lambda seconds: None)
+
+    assert score_location(jd, cv) == 0.5
+    assert call_count == 2
+
+
+def test_score_location_hybrid_onsite_preference_multiplier(monkeypatch):
+    jd = ParsedJD(
+        title="Backend",
+        work_location=WorkLocation(work_mode="hybrid", lat=21.0, lng=105.8),
+    )
+    cv = ParsedCV(candidate_location=CandidateLocation(
+        lat=21.0, lng=105.8, work_mode_preference="onsite",
+    ))
+
+    monkeypatch.setattr(
+        scorer_module.location_service, "get_route",
+        lambda c1, c2: {"distance_km": 0.0, "duration_min": 0.0},
+    )
+    # S_loc = 1.0 (0 minutes), M = 0.7 (hybrid JD, CV prefers onsite)
+    assert score_location(jd, cv) == pytest.approx(0.7)

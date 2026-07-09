@@ -41,7 +41,7 @@ class ScoresBreakdown(BaseModel):
     skills:     float = Field(..., ge=0, le=100)
     experience: float = Field(..., ge=0, le=100)
     education:  float = Field(..., ge=0, le=100)
-    keywords:   float = Field(..., ge=0, le=100)
+    location:   float = Field(..., ge=0, le=100)
 
 
 class ScoreResponse(BaseModel):

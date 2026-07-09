@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     default_weight_skills:     float = 0.35
     default_weight_experience: float = 0.20
     default_weight_education:  float = 0.10
-    default_weight_keywords:   float = 0.05
+    default_weight_location:   float = 0.05   # D5 — was "keywords", replaced by location+work-mode score
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -63,7 +63,7 @@ class Settings(BaseSettings):
             "skills":     self.default_weight_skills,
             "experience": self.default_weight_experience,
             "education":  self.default_weight_education,
-            "keywords":   self.default_weight_keywords,
+            "location":   self.default_weight_location,
         }
 
 

@@ -45,9 +45,17 @@
 │  │  │ PyMuPDF     │  │ LLM Extract │  │Dense Vector│  │Semantic   30%  │   │  │
 │  │  │ Tesseract   │──▶ Raw → JSON  │──▶float[1536] │  │Skills     35%  │   │  │
 │  │  │ python-docx │  │             │  │float[384]  │  │Experience 20%  │   │  │
-│  │  └─────────────┘  └─────────────┘  └────────────┘  │Education  10%  │   │  │
-│  │                                                      │Keywords    5%  │   │  │
-│  │  ┌─────────────────────────────┐                    └────────────────┘   │  │
+│  │  └─────────────┘  └─────┬───────┘  └────────────┘  │Education  10%  │   │  │
+│  │                         │                           │Location    5%  │   │  │
+│  │                         ▼                           └───────┬────────┘   │  │
+│  │  ┌─────────────────────────────┐                            │            │  │
+│  │  │      location_service       │◀───────────────────────────┘            │  │
+│  │  │──────────────────────────────│  geocode() called once at parse-time   │  │
+│  │  │ Nominatim geocode (parse)    │  (lat/lng persisted like embedding);   │  │
+│  │  │ + OSRM route (score)         │  get_route() called at score-time only │  │
+│  │  │ — free, no API key           │  (pair-specific). Both free, no auth.  │  │
+│  │  └─────────────────────────────┘                                        │  │
+│  │  ┌─────────────────────────────┐                                          │  │
 │  │  │         nl_search           │                                          │  │
 │  │  │─────────────────────────────│                                          │  │
 │  │  │ Parse Query → Embed →       │                                          │  │
@@ -103,7 +111,7 @@
                  ├──▶  D2 Skills      (35%)  Exact + Fuzzy + Category match
                  ├──▶  D3 Experience  (20%)  Ratio + Relevance + Recency
                  ├──▶  D4 Education   (10%)  Degree level comparison
-  Parsed JD ─────┴──▶  D5 Keywords    ( 5%)  Substring match in raw text
+  Parsed JD ─────┴──▶  D5 Location    ( 5%)  Driving-time (Nominatim geocode + OSRM route) × work-mode fit
 
                             │
                             ▼
