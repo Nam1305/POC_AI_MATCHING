@@ -10,7 +10,7 @@
       <v-btn
         :icon="theme.global.current.value.dark ? 'mdi-weather-night' : 'mdi-weather-sunny'"
         variant="text"
-        @click="theme.toggle()"
+        @click="toggleTheme"
       />
     </v-app-bar>
 
@@ -24,4 +24,28 @@
 
 <script setup lang="ts">
 const theme = useTheme()
+
+const STORAGE_KEY = 'theme-override'
+
+function applySystemTheme(mql: MediaQueryList | MediaQueryListEvent) {
+  theme.change(mql.matches ? 'dark' : 'light')
+}
+
+function toggleTheme() {
+  theme.change(theme.global.current.value.dark ? 'light' : 'dark')
+  if (!import.meta.server) localStorage.setItem(STORAGE_KEY, theme.global.name.value)
+}
+
+onMounted(() => {
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored) {
+    theme.change(stored)
+    return
+  }
+
+  const mql = window.matchMedia('(prefers-color-scheme: dark)')
+  applySystemTheme(mql)
+  mql.addEventListener('change', applySystemTheme)
+  onUnmounted(() => mql.removeEventListener('change', applySystemTheme))
+})
 </script>

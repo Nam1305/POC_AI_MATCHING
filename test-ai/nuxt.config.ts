@@ -28,5 +28,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     aiServiceUrl: process.env.NUXT_AI_SERVICE_URL || 'http://localhost:8000',
+    authUsername: process.env.NUXT_AUTH_USERNAME || '',
+    authPassword: process.env.NUXT_AUTH_PASSWORD || '',
   },
 })

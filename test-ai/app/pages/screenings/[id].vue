@@ -16,10 +16,7 @@
           <v-icon icon="mdi-briefcase-search-outline" class="mr-2" />
           {{ screening.name }}
           <v-spacer />
-          <span class="text-body-2 text-medium-emphasis mr-3">{{ formatDate(screening.createdAt) }}</span>
-          <v-btn variant="tonal" size="small" prepend-icon="mdi-cog-outline" @click="openDetailsDialog">
-            View Screening Details
-          </v-btn>
+          <span class="text-body-2 text-medium-emphasis">{{ formatDate(screening.createdAt) }}</span>
         </v-card-title>
         <v-card-text>
           <div class="text-h6 mb-2">{{ jd.title }}</div>
@@ -51,6 +48,11 @@
           </div>
         </v-card-text>
       </v-card>
+
+      <v-btn variant="flat" color="primary" prepend-icon="mdi-cog-outline" block class="mb-4"
+        @click="openDetailsDialog">
+        Change Screening Configuration
+      </v-btn>
 
       <v-card v-if="failed.length" class="mb-6" color="error" variant="tonal">
         <v-card-text>
@@ -209,12 +211,15 @@
             </span>
           </div>
 
-          <v-row comfortable>
-            <v-col v-for="dim in weightDims" :key="dim.key" cols="6">
-              <v-text-field v-model.number="editWeights[dim.key]" :label="dim.label" type="number" step="0.01" min="0"
-                max="1" density="compact" :disabled="rerunning" />
-            </v-col>
-          </v-row>
+          <div v-for="dim in weightDims" :key="dim.key" class="mb-2">
+            <v-slider v-model="editWeightPercents[dim.key]" :label="dim.label" min="0" max="100" step="1" thumb-label
+              density="compact" :disabled="rerunning" hide-details>
+              <template #append>
+                <v-text-field v-model.number="editWeightPercents[dim.key]" type="number" step="1" min="0" max="100"
+                  density="compact" style="width: 90px" hide-details suffix="%" :disabled="rerunning" />
+              </template>
+            </v-slider>
+          </div>
 
           <v-alert v-if="dialogError" type="error" variant="tonal" class="mt-2" closable
             @click:close="dialogError = null">
@@ -279,6 +284,12 @@ const { data: screening, pending, error, refresh } = await useFetch<ScreeningDet
 const detailsDialog = ref(false)
 const editName = ref('')
 const editWeights = reactive<Record<string, number>>({ ...DEFAULT_WEIGHTS })
+const editWeightPercents = reactive<Record<string, number>>(
+  Object.fromEntries(weightDims.map(d => [d.key, Math.round((DEFAULT_WEIGHTS[d.key] ?? 0) * 100)])),
+)
+watch(editWeightPercents, (v) => {
+  for (const dim of weightDims) editWeights[dim.key] = (v[dim.key] ?? 0) / 100
+}, { deep: true })
 const rerunning = ref(false)
 const dialogError = ref<string | null>(null)
 
@@ -290,7 +301,7 @@ const weightSumValid = computed(() => Math.abs(weightSum.value - 1.0) < 1e-6)
 function openDetailsDialog() {
   editName.value = screening.value?.name ?? ''
   const current = screening.value?.weights ?? DEFAULT_WEIGHTS
-  for (const dim of weightDims) editWeights[dim.key] = current[dim.key] ?? DEFAULT_WEIGHTS[dim.key] ?? 0
+  for (const dim of weightDims) editWeightPercents[dim.key] = Math.round((current[dim.key] ?? DEFAULT_WEIGHTS[dim.key] ?? 0) * 100)
   dialogError.value = null
   detailsDialog.value = true
 }

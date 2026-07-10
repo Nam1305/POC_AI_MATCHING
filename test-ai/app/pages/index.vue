@@ -33,12 +33,15 @@
             </span>
           </div>
 
-          <v-row comfortable class="mb-2">
-            <v-col v-for="dim in weightDims" :key="dim.key" cols="6">
-              <v-text-field v-model.number="weights[dim.key]" :label="dim.label" type="number" step="0.01" min="0"
-                max="1" density="compact" :disabled="loading" />
-            </v-col>
-          </v-row>
+          <div v-for="dim in weightDims" :key="dim.key" class="mb-2">
+            <v-slider v-model="weightPercents[dim.key]" :label="dim.label" min="0" max="100" step="1"
+              thumb-label density="compact" :disabled="loading" hide-details>
+              <template #append>
+                <v-text-field v-model.number="weightPercents[dim.key]" type="number" step="1" min="0" max="100"
+                  density="compact" style="width: 90px" hide-details suffix="%" :disabled="loading" />
+              </template>
+            </v-slider>
+          </div>
 
           <v-alert v-if="error" type="error" variant="tonal" class="mb-4" closable @click:close="error = null">
             {{ error }}
@@ -117,6 +120,12 @@ const name = ref('')
 const jdText = ref('')
 const cvUrls = ref<string[]>([''])
 const weights = reactive<Record<string, number>>({ ...DEFAULT_WEIGHTS })
+const weightPercents = reactive<Record<string, number>>(
+  Object.fromEntries(weightDims.map(d => [d.key, Math.round((DEFAULT_WEIGHTS[d.key] ?? 0) * 100)])),
+)
+watch(weightPercents, (v) => {
+  for (const dim of weightDims) weights[dim.key] = (v[dim.key] ?? 0) / 100
+}, { deep: true })
 const loading = ref(false)
 const error = ref<string | null>(null)
 
