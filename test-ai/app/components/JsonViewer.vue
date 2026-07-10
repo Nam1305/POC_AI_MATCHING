@@ -3,10 +3,10 @@
     <v-btn
       size="small"
       variant="tonal"
-      :prepend-icon="open ? 'mdi-code-json' : 'mdi-code-json'"
+      :prepend-icon="raw ? 'mdi-text-box-outline' : 'mdi-code-json'"
       @click="open = !open"
     >
-      {{ open ? `Hide ${label} JSON` : `View ${label} JSON` }}
+      {{ open ? `Hide ${label}` : `View ${label}` }}
     </v-btn>
 
     <v-expand-transition>
@@ -16,13 +16,16 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   data: unknown
   label: string
-}>()
+  raw?: boolean
+}>(), {
+  raw: false,
+})
 
 const open = ref(false)
-const formatted = computed(() => JSON.stringify(props.data, null, 2))
+const formatted = computed(() => props.raw ? String(props.data ?? '') : JSON.stringify(props.data, null, 2))
 </script>
 
 <style scoped>

@@ -50,7 +50,10 @@
             </span>
           </div>
 
-          <JsonViewer :data="jd" label="Parsed JD" />
+          <div class="d-flex flex-column ga-2">
+            <JsonViewer :data="jd" label="Parsed JD JSON" />
+            <JsonViewer :data="screening.jobDescription.jdText" label="Raw JD Text" raw />
+          </div>
         </v-card-text>
       </v-card>
 
@@ -190,7 +193,12 @@
             <div class="text-subtitle-2 mb-1">Narrative</div>
             <p class="text-body-2 mb-3" style="white-space: pre-line">{{ r.aiResult.evaluation.narrative }}</p>
 
-            <JsonViewer :data="r.parsedCv" label="Parsed CV" />
+            <div class="d-flex flex-wrap align-center ga-2">
+              <JsonViewer :data="r.parsedCv" label="Parsed CV JSON" />
+              <a :href="r.cvUrl" target="_blank" rel="noopener noreferrer" class="text-body-2">
+                <v-icon icon="mdi-open-in-new" size="16" class="mr-1" />CV URL
+              </a>
+            </div>
           </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>
