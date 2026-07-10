@@ -290,7 +290,7 @@ const weightSumValid = computed(() => Math.abs(weightSum.value - 1.0) < 1e-6)
 function openDetailsDialog() {
   editName.value = screening.value?.name ?? ''
   const current = screening.value?.weights ?? DEFAULT_WEIGHTS
-  for (const dim of weightDims) editWeights[dim.key] = current[dim.key] ?? DEFAULT_WEIGHTS[dim.key]
+  for (const dim of weightDims) editWeights[dim.key] = current[dim.key] ?? DEFAULT_WEIGHTS[dim.key] ?? 0
   dialogError.value = null
   detailsDialog.value = true
 }

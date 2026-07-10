@@ -1,6 +1,15 @@
 import { defineMongooseModel } from '#nuxt/mongoose'
+import { Schema, Types } from 'mongoose'
 
-export const ScreeningBatch = defineMongooseModel({
+export interface IScreeningBatch {
+  name: string
+  jobDescriptionId: Types.ObjectId
+  weights?: unknown
+  createdAt: Date
+  updatedAt: Date
+}
+
+export const ScreeningBatch = defineMongooseModel<IScreeningBatch>({
   name: 'ScreeningBatch',
   schema: {
     name: {
@@ -9,12 +18,12 @@ export const ScreeningBatch = defineMongooseModel({
       trim: true,
     },
     jobDescriptionId: {
-      type: 'ObjectId',
+      type: Schema.Types.ObjectId,
       ref: 'JobDescription',
       required: true,
     },
     weights: {
-      type: 'Mixed',
+      type: Schema.Types.Mixed,
       required: false,
     },
   },

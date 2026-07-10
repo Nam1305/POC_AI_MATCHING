@@ -1,6 +1,15 @@
 import { defineMongooseModel } from '#nuxt/mongoose'
+import { Schema } from 'mongoose'
 
-export const JobDescription = defineMongooseModel({
+export interface IJobDescription {
+  jdText: string
+  parsedJd: unknown
+  jdEmbedding: number[]
+  createdAt: Date
+  updatedAt: Date
+}
+
+export const JobDescription = defineMongooseModel<IJobDescription>({
   name: 'JobDescription',
   schema: {
     jdText: {
@@ -8,7 +17,7 @@ export const JobDescription = defineMongooseModel({
       required: true,
     },
     parsedJd: {
-      type: 'Mixed',
+      type: Schema.Types.Mixed,
       required: true,
     },
     jdEmbedding: {

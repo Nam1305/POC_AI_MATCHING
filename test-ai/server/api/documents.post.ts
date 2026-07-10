@@ -1,3 +1,5 @@
+import { Document } from '~~/server/models/Document'
+
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
 

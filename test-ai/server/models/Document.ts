@@ -1,10 +1,17 @@
 import { defineMongooseModel } from '#nuxt/mongoose'
+import { Schema } from 'mongoose'
 
-export const Document = defineMongooseModel({
+export interface IDocument {
+  data: unknown
+  createdAt: Date
+  updatedAt: Date
+}
+
+export const Document = defineMongooseModel<IDocument>({
   name: 'Document',
   schema: {
     data: {
-      type: 'Mixed',
+      type: Schema.Types.Mixed,
       required: true,
     },
   },

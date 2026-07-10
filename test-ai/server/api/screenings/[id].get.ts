@@ -7,7 +7,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const results = await ScreeningResult.find({ batchId: id }).lean()
-  results.sort((a, b) => (b.aiResult?.final_score ?? -1) - (a.aiResult?.final_score ?? -1))
+  results.sort((a, b) =>
+    ((b.aiResult as { final_score?: number } | undefined)?.final_score ?? -1)
+    - ((a.aiResult as { final_score?: number } | undefined)?.final_score ?? -1))
 
   return {
     _id: batch._id,
