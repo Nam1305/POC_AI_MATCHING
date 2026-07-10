@@ -7,81 +7,36 @@
       </v-card-title>
       <v-card-text>
         <v-form @submit.prevent="submit">
-          <v-text-field
-            v-model="name"
-            label="Screening name"
-            placeholder="e.g. Backend Engineer batch #1"
-            prepend-inner-icon="mdi-tag-outline"
-            :disabled="loading"
-            required
-          />
+          <v-text-field v-model="name" label="Screening name" placeholder="e.g. Backend Engineer batch #1"
+            prepend-inner-icon="mdi-tag-outline" :disabled="loading" required />
 
-          <v-textarea
-            v-model="jdText"
-            label="Job description text"
-            placeholder="Paste the full JD text here..."
-            prepend-inner-icon="mdi-text-box-outline"
-            rows="8"
-            auto-grow
-            :disabled="loading"
-            required
-          />
+          <v-textarea v-model="jdText" label="Job description text" placeholder="Paste the full JD text here..."
+            prepend-inner-icon="mdi-text-box-outline" rows="8" auto-grow :disabled="loading" required />
 
           <div class="text-subtitle-2 mb-2">CV URLs</div>
-          <div
-            v-for="(url, i) in cvUrls"
-            :key="i"
-            class="d-flex align-center mb-1"
-          >
-            <v-text-field
-              v-model="cvUrls[i]"
-              :label="`CV URL #${i + 1}`"
-              prepend-inner-icon="mdi-file-pdf-box"
-              density="comfortable"
-              hide-details
-              :disabled="loading"
-            />
-            <v-btn
-              icon="mdi-close"
-              variant="text"
-              class="ml-1"
-              :disabled="loading || cvUrls.length === 1"
-              @click="cvUrls.splice(i, 1)"
-            />
+          <div v-for="(url, i) in cvUrls" :key="i" class="d-flex align-center mb-1">
+            <v-text-field v-model="cvUrls[i]" :label="`CV URL #${i + 1}`" prepend-inner-icon="mdi-file-pdf-box"
+              density="comfortable" hide-details :disabled="loading" />
+            <v-btn icon="mdi-close" variant="text" class="ml-1" :disabled="loading || cvUrls.length === 1"
+              @click="cvUrls.splice(i, 1)" />
           </div>
           <div class="d-flex mb-4">
-            <v-btn
-              variant="tonal"
-              prepend-icon="mdi-plus"
-              :disabled="loading"
-              @click="cvUrls.push('')"
-            >
+            <v-btn variant="tonal" prepend-icon="mdi-plus" :disabled="loading" @click="cvUrls.push('')">
               Add CV URL
             </v-btn>
           </div>
 
           <div class="text-subtitle-2 mb-2">
             Dimension weights (Wi)
-            <span
-              class="text-body-2 ml-2"
-              :class="weightSumValid ? 'text-medium-emphasis' : 'text-error'"
-            >
+            <span class="text-body-2 ml-2" :class="weightSumValid ? 'text-medium-emphasis' : 'text-error'">
               sum: {{ weightSum.toFixed(2) }} / 1.00
             </span>
           </div>
 
-          <v-row dense class="mb-2">
+          <v-row comfortable class="mb-2">
             <v-col v-for="dim in weightDims" :key="dim.key" cols="6">
-              <v-text-field
-                v-model.number="weights[dim.key]"
-                :label="dim.label"
-                type="number"
-                step="0.01"
-                min="0"
-                max="1"
-                density="compact"
-                :disabled="loading"
-              />
+              <v-text-field v-model.number="weights[dim.key]" :label="dim.label" type="number" step="0.01" min="0"
+                max="1" density="compact" :disabled="loading" />
             </v-col>
           </v-row>
 
@@ -93,15 +48,8 @@
             Screening in progress — this can take a while. Please don't close or reload this tab until it finishes.
           </v-alert>
 
-          <v-btn
-            type="submit"
-            color="primary"
-            size="large"
-            block
-            :loading="loading"
-            :disabled="!canSubmit"
-            prepend-icon="mdi-send"
-          >
+          <v-btn type="submit" color="primary" size="large" block :loading="loading" :disabled="!canSubmit"
+            prepend-icon="mdi-send">
             Run Screening
           </v-btn>
         </v-form>
@@ -118,13 +66,9 @@
       <v-divider />
 
       <v-list v-if="screenings?.length" lines="two">
-        <v-list-item
-          v-for="s in screenings"
-          :key="s._id"
-          :title="s.name"
+        <v-list-item v-for="s in screenings" :key="s._id" :title="s.name"
           :subtitle="`${s.jdTitle ?? 'Untitled JD'} · ${formatDate(s.createdAt)}`"
-          @click="$router.push(`/screenings/${s._id}`)"
-        >
+          @click="$router.push(`/screenings/${s._id}`)">
           <template #prepend>
             <v-avatar color="primary" variant="tonal">
               <v-icon icon="mdi-account-search-outline" />

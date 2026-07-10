@@ -17,12 +17,7 @@
           {{ screening.name }}
           <v-spacer />
           <span class="text-body-2 text-medium-emphasis mr-3">{{ formatDate(screening.createdAt) }}</span>
-          <v-btn
-            variant="tonal"
-            size="small"
-            prepend-icon="mdi-cog-outline"
-            @click="openDetailsDialog"
-          >
+          <v-btn variant="tonal" size="small" prepend-icon="mdi-cog-outline" @click="openDetailsDialog">
             View Screening Details
           </v-btn>
         </v-card-title>
@@ -30,28 +25,20 @@
           <div class="text-h6 mb-2">{{ jd.title }}</div>
 
           <div class="d-flex flex-wrap ga-2 mb-3">
-            <v-chip
-              v-for="s in jd.required_skills"
-              :key="'req-' + s.skill"
-              size="small"
-              color="primary"
-              variant="tonal"
-            >
+            <v-chip v-for="s in jd.required_skills" :key="'req-' + s.skill" size="small" color="primary"
+              variant="tonal">
               {{ s.skill }} <span v-if="s.weight >= 3" class="ml-1">(must-have)</span>
             </v-chip>
-            <v-chip
-              v-for="s in jd.preferred_skills"
-              :key="'pref-' + s"
-              size="small"
-              variant="outlined"
-            >
+            <v-chip v-for="s in jd.preferred_skills" :key="'pref-' + s" size="small" variant="outlined">
               {{ s }}
             </v-chip>
           </div>
 
           <div class="d-flex flex-wrap ga-4 text-body-2 text-medium-emphasis mb-3">
-            <span><v-icon icon="mdi-clock-outline" size="16" class="mr-1" />{{ jd.min_experience_years }}+ yrs experience</span>
-            <span v-if="jd.education_degree"><v-icon icon="mdi-school-outline" size="16" class="mr-1" />{{ jd.education_degree }}</span>
+            <span><v-icon icon="mdi-clock-outline" size="16" class="mr-1" />{{ jd.min_experience_years }}+ yrs
+              experience</span>
+            <span v-if="jd.education_degree"><v-icon icon="mdi-school-outline" size="16" class="mr-1" />{{
+              jd.education_degree }}</span>
             <span>
               <v-icon icon="mdi-map-marker-outline" size="16" class="mr-1" />
               {{ jd.work_location?.raw_address || jd.work_location?.city }} · {{ jd.work_location?.work_mode }}
@@ -91,12 +78,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="(r, i) in scored"
-              :key="r._id"
-              class="cursor-pointer"
-              @click="scrollTo(r._id)"
-            >
+            <tr v-for="(r, i) in scored" :key="r._id" class="cursor-pointer" @click="scrollTo(r._id)">
               <td>{{ i + 1 }}</td>
               <td>{{ cvFileName(r.cvUrl) }}</td>
               <td class="text-right font-weight-medium">{{ r.aiResult.final_score.toFixed(1) }}</td>
@@ -116,12 +98,7 @@
       </v-card>
 
       <v-expansion-panels v-model="openPanels" multiple variant="accordion">
-        <v-expansion-panel
-          v-for="(r, i) in scored"
-          :id="`candidate-${r._id}`"
-          :key="r._id"
-          :value="r._id"
-        >
+        <v-expansion-panel v-for="(r, i) in scored" :id="`candidate-${r._id}`" :key="r._id" :value="r._id">
           <v-expansion-panel-title>
             <div class="d-flex align-center ga-3 w-100">
               <v-avatar color="primary" size="32">
@@ -132,7 +109,8 @@
                 <div class="text-caption text-medium-emphasis">{{ cvFileName(r.cvUrl) }}</div>
               </div>
               <v-chip :color="recommendationColor(r.aiResult.evaluation.recommendation)" variant="flat">
-                {{ r.aiResult.final_score.toFixed(1) }} · {{ recommendationLabel(r.aiResult.evaluation.recommendation) }}
+                {{ r.aiResult.final_score.toFixed(1) }} · {{ recommendationLabel(r.aiResult.evaluation.recommendation)
+                }}
               </v-chip>
             </div>
           </v-expansion-panel-title>
@@ -166,13 +144,15 @@
 
                 <div class="text-subtitle-2 mb-2">Verdict</div>
                 <div class="text-body-2">
-                  <strong>Experience:</strong> {{ r.aiResult.evaluation.experience_verdict }} — {{ r.aiResult.evaluation.experience_detail }}
+                  <strong>Experience:</strong> {{ r.aiResult.evaluation.experience_verdict }} — {{
+                    r.aiResult.evaluation.experience_detail }}
                 </div>
                 <div class="text-body-2">
                   <strong>Education:</strong> {{ r.aiResult.evaluation.education_verdict }}
                 </div>
                 <div class="text-body-2 mb-3">
-                  <strong>Seniority:</strong> {{ r.aiResult.evaluation.seniority_match }} — {{ r.aiResult.evaluation.seniority_detail }}
+                  <strong>Seniority:</strong> {{ r.aiResult.evaluation.seniority_match }} — {{
+                    r.aiResult.evaluation.seniority_detail }}
                 </div>
               </v-col>
             </v-row>
@@ -182,17 +162,20 @@
             <div class="mb-3">
               <div class="text-subtitle-2 mb-1">Skill match rate: {{ r.aiResult.evaluation.skill_match_rate }}%</div>
               <div v-if="r.aiResult.evaluation.missing_must_have?.length" class="mb-1">
-                <v-chip v-for="s in r.aiResult.evaluation.missing_must_have" :key="s" size="small" color="error" variant="tonal" class="mr-1 mb-1">
+                <v-chip v-for="s in r.aiResult.evaluation.missing_must_have" :key="s" size="small" color="error"
+                  variant="tonal" class="mr-1 mb-1">
                   missing: {{ s }}
                 </v-chip>
               </div>
               <div v-if="r.aiResult.evaluation.missing_preferred?.length" class="mb-1">
-                <v-chip v-for="s in r.aiResult.evaluation.missing_preferred" :key="s" size="small" variant="outlined" class="mr-1 mb-1">
+                <v-chip v-for="s in r.aiResult.evaluation.missing_preferred" :key="s" size="small" variant="outlined"
+                  class="mr-1 mb-1">
                   preferred: {{ s }}
                 </v-chip>
               </div>
               <div v-if="r.aiResult.evaluation.bonus_skills?.length">
-                <v-chip v-for="s in r.aiResult.evaluation.bonus_skills" :key="s" size="small" color="success" variant="tonal" class="mr-1 mb-1">
+                <v-chip v-for="s in r.aiResult.evaluation.bonus_skills" :key="s" size="small" color="success"
+                  variant="tonal" class="mr-1 mb-1">
                   bonus: {{ s }}
                 </v-chip>
               </div>
@@ -216,40 +199,25 @@
       <v-card>
         <v-card-title>Screening Details</v-card-title>
         <v-card-text>
-          <v-text-field
-            v-model="editName"
-            label="Screening name"
-            prepend-inner-icon="mdi-tag-outline"
-            :disabled="rerunning"
-            required
-          />
+          <v-text-field v-model="editName" label="Screening name" prepend-inner-icon="mdi-tag-outline"
+            :disabled="rerunning" required />
 
           <div class="text-subtitle-2 mt-2 mb-1">
             Dimension weights (Wi)
-            <span
-              class="text-body-2 ml-2"
-              :class="weightSumValid ? 'text-medium-emphasis' : 'text-error'"
-            >
+            <span class="text-body-2 ml-2" :class="weightSumValid ? 'text-medium-emphasis' : 'text-error'">
               sum: {{ weightSum.toFixed(2) }} / 1.00
             </span>
           </div>
 
-          <v-row dense>
+          <v-row comfortable>
             <v-col v-for="dim in weightDims" :key="dim.key" cols="6">
-              <v-text-field
-                v-model.number="editWeights[dim.key]"
-                :label="dim.label"
-                type="number"
-                step="0.01"
-                min="0"
-                max="1"
-                density="compact"
-                :disabled="rerunning"
-              />
+              <v-text-field v-model.number="editWeights[dim.key]" :label="dim.label" type="number" step="0.01" min="0"
+                max="1" density="compact" :disabled="rerunning" />
             </v-col>
           </v-row>
 
-          <v-alert v-if="dialogError" type="error" variant="tonal" class="mt-2" closable @click:close="dialogError = null">
+          <v-alert v-if="dialogError" type="error" variant="tonal" class="mt-2" closable
+            @click:close="dialogError = null">
             {{ dialogError }}
           </v-alert>
 
@@ -260,14 +228,8 @@
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" :disabled="rerunning" @click="detailsDialog = false">Cancel</v-btn>
-          <v-btn
-            color="primary"
-            variant="flat"
-            prepend-icon="mdi-refresh"
-            :loading="rerunning"
-            :disabled="!weightSumValid || !editName.trim()"
-            @click="saveAndRerun"
-          >
+          <v-btn color="primary" variant="flat" prepend-icon="mdi-refresh" :loading="rerunning"
+            :disabled="!weightSumValid || !editName.trim()" @click="saveAndRerun">
             Save &amp; Re-run
           </v-btn>
         </v-card-actions>
