@@ -15,6 +15,9 @@ export const ScreeningResult = defineMongooseModel({
     parsedCv: {
       type: 'Mixed',
     },
+    cvEmbedding: {
+      type: ['Number'],
+    },
     aiResult: {
       type: 'Mixed',
     },

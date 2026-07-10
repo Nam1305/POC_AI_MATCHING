@@ -60,6 +60,31 @@
             </v-btn>
           </div>
 
+          <div class="text-subtitle-2 mb-2">
+            Dimension weights (Wi)
+            <span
+              class="text-body-2 ml-2"
+              :class="weightSumValid ? 'text-medium-emphasis' : 'text-error'"
+            >
+              sum: {{ weightSum.toFixed(2) }} / 1.00
+            </span>
+          </div>
+
+          <v-row dense class="mb-2">
+            <v-col v-for="dim in weightDims" :key="dim.key" cols="6">
+              <v-text-field
+                v-model.number="weights[dim.key]"
+                :label="dim.label"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                density="compact"
+                :disabled="loading"
+              />
+            </v-col>
+          </v-row>
+
           <v-alert v-if="error" type="error" variant="tonal" class="mb-4" closable @click:close="error = null">
             {{ error }}
           </v-alert>
@@ -128,9 +153,26 @@ interface ScreeningSummary {
   createdAt: string
 }
 
+const DEFAULT_WEIGHTS: Record<string, number> = {
+  semantic: 0.30,
+  skills: 0.35,
+  experience: 0.20,
+  education: 0.10,
+  location: 0.05,
+}
+
+const weightDims = [
+  { key: 'semantic', label: 'Semantic' },
+  { key: 'skills', label: 'Skills' },
+  { key: 'experience', label: 'Experience' },
+  { key: 'education', label: 'Education' },
+  { key: 'location', label: 'Location' },
+] as const
+
 const name = ref('')
 const jdText = ref('')
 const cvUrls = ref<string[]>([''])
+const weights = reactive<Record<string, number>>({ ...DEFAULT_WEIGHTS })
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -138,10 +180,16 @@ const router = useRouter()
 
 const { data: screenings, pending, refresh } = await useFetch<ScreeningSummary[]>('/api/screenings')
 
+const weightSum = computed(() =>
+  weightDims.reduce((sum, d) => sum + (Number(weights[d.key]) || 0), 0),
+)
+const weightSumValid = computed(() => Math.abs(weightSum.value - 1.0) < 1e-6)
+
 const canSubmit = computed(() =>
   name.value.trim().length > 0
   && jdText.value.trim().length > 0
-  && cvUrls.value.some(u => u.trim().length > 0),
+  && cvUrls.value.some(u => u.trim().length > 0)
+  && weightSumValid.value,
 )
 
 function formatDate(iso: string): string {
@@ -178,6 +226,7 @@ async function submit() {
         name: name.value.trim(),
         jdText: jdText.value.trim(),
         cvUrls: cvUrls.value.map(u => u.trim()).filter(Boolean),
+        weights: { ...weights },
       },
     })
     await router.push(`/screenings/${res.batch._id}`)

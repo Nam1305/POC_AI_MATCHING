@@ -1,5 +1,10 @@
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ name?: string, jdText?: string, cvUrls?: string[] }>(event)
+  const body = await readBody<{
+    name?: string
+    jdText?: string
+    cvUrls?: string[]
+    weights?: Record<string, number> | null
+  }>(event)
 
   if (!body?.name?.trim()) {
     throw createError({ statusCode: 400, statusMessage: 'name is required' })
@@ -10,6 +15,7 @@ export default defineEventHandler(async (event) => {
   if (!body?.cvUrls?.length) {
     throw createError({ statusCode: 400, statusMessage: 'cvUrls must be a non-empty array' })
   }
+  assertValidWeights(body.weights)
 
   const { parsed_jd: parsedJd, jd_embedding: jdEmbedding } = await parseJd(body.jdText)
 
@@ -22,6 +28,7 @@ export default defineEventHandler(async (event) => {
   const batch = await ScreeningBatch.create({
     name: body.name,
     jobDescriptionId: jobDescription._id,
+    weights: body.weights ?? undefined,
   })
 
   const cvResults = await parseCvs(body.cvUrls)
@@ -42,12 +49,14 @@ export default defineEventHandler(async (event) => {
       parsedJd,
       cvEmbedding: cv.cv_embedding,
       jdEmbedding,
+      weights: body.weights,
     })
 
     const saved = await ScreeningResult.create({
       batchId: batch._id,
       cvUrl: cv.url,
       parsedCv: cv.parsed_cv,
+      cvEmbedding: cv.cv_embedding,
       aiResult,
     })
 

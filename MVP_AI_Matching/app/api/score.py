@@ -20,13 +20,16 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from app.config import settings
 from app.schemas import CVJobEvaluation, ParsedCV, ParsedJD
 from app.services.evaluator import evaluate_cv_for_job
 from app.services.scorer import calculate_score_with_rules
 
 router = APIRouter()
+
+_WEIGHT_DIMENSIONS = {"semantic", "skills", "experience", "education", "location"}
 
 
 class ScoreRequest(BaseModel):
@@ -34,6 +37,21 @@ class ScoreRequest(BaseModel):
     parsed_jd:    ParsedJD
     cv_embedding: list[float]
     jd_embedding: list[float]
+    weights:      dict[str, float] | None = None  # Wi overrides; None → settings.default_weights
+
+    @field_validator("weights")
+    @classmethod
+    def _validate_weights(cls, v: dict[str, float] | None) -> dict[str, float] | None:
+        if v is None:
+            return v
+        if set(v) != _WEIGHT_DIMENSIONS:
+            raise ValueError(f"weights must have exactly the keys {sorted(_WEIGHT_DIMENSIONS)}, got {sorted(v)}")
+        if any(not (0.0 <= wi <= 1.0) for wi in v.values()):
+            raise ValueError("each weight must be between 0 and 1")
+        total = sum(v.values())
+        if abs(total - 1.0) > 1e-6:
+            raise ValueError(f"weights must sum to 1.0, got {total}")
+        return v
 
 
 class ScoresBreakdown(BaseModel):
@@ -47,6 +65,7 @@ class ScoresBreakdown(BaseModel):
 class ScoreResponse(BaseModel):
     final_score:     float = Field(..., ge=0, le=100)   # after hard-rule penalties
     scores:          ScoresBreakdown
+    weights_used:    dict[str, float]                   # Wi actually applied (request override or defaults)
     penalty_applied: float = Field(0.0, ge=0, le=1)     # fraction subtracted from final_score
     penalty_reasons: list[str] = Field(default_factory=list)
     evaluation:      CVJobEvaluation
@@ -60,6 +79,7 @@ async def score_endpoint(req: ScoreRequest) -> ScoreResponse:
         req.parsed_jd,
         req.cv_embedding,
         req.jd_embedding,
+        weights=req.weights,
     )
 
     score_result, evaluation = await asyncio.gather(
@@ -70,6 +90,7 @@ async def score_endpoint(req: ScoreRequest) -> ScoreResponse:
     return ScoreResponse(
         final_score     = score_result["final_score"],
         scores          = ScoresBreakdown(**score_result["scores"]),
+        weights_used    = req.weights or settings.default_weights,
         penalty_applied = score_result["penalty_applied"],
         penalty_reasons = score_result["penalty_reasons"],
         evaluation      = evaluation,

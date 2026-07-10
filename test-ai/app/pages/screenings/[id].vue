@@ -16,7 +16,15 @@
           <v-icon icon="mdi-briefcase-search-outline" class="mr-2" />
           {{ screening.name }}
           <v-spacer />
-          <span class="text-body-2 text-medium-emphasis">{{ formatDate(screening.createdAt) }}</span>
+          <span class="text-body-2 text-medium-emphasis mr-3">{{ formatDate(screening.createdAt) }}</span>
+          <v-btn
+            variant="tonal"
+            size="small"
+            prepend-icon="mdi-cog-outline"
+            @click="openDetailsDialog"
+          >
+            View Screening Details
+          </v-btn>
         </v-card-title>
         <v-card-text>
           <div class="text-h6 mb-2">{{ jd.title }}</div>
@@ -203,6 +211,68 @@
         </v-expansion-panel>
       </v-expansion-panels>
     </template>
+
+    <v-dialog v-model="detailsDialog" max-width="560" persistent>
+      <v-card>
+        <v-card-title>Screening Details</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="editName"
+            label="Screening name"
+            prepend-inner-icon="mdi-tag-outline"
+            :disabled="rerunning"
+            required
+          />
+
+          <div class="text-subtitle-2 mt-2 mb-1">
+            Dimension weights (Wi)
+            <span
+              class="text-body-2 ml-2"
+              :class="weightSumValid ? 'text-medium-emphasis' : 'text-error'"
+            >
+              sum: {{ weightSum.toFixed(2) }} / 1.00
+            </span>
+          </div>
+
+          <v-row dense>
+            <v-col v-for="dim in weightDims" :key="dim.key" cols="6">
+              <v-text-field
+                v-model.number="editWeights[dim.key]"
+                :label="dim.label"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                density="compact"
+                :disabled="rerunning"
+              />
+            </v-col>
+          </v-row>
+
+          <v-alert v-if="dialogError" type="error" variant="tonal" class="mt-2" closable @click:close="dialogError = null">
+            {{ dialogError }}
+          </v-alert>
+
+          <v-alert v-if="rerunning" type="warning" variant="tonal" class="mt-2">
+            Re-running screening — this can take a while.
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" :disabled="rerunning" @click="detailsDialog = false">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            prepend-icon="mdi-refresh"
+            :loading="rerunning"
+            :disabled="!weightSumValid || !editName.trim()"
+            @click="saveAndRerun"
+          >
+            Save &amp; Re-run
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -219,13 +289,71 @@ interface ScreeningResultItem {
 interface ScreeningDetail {
   _id: string
   name: string
+  weights: Record<string, number> | null
   createdAt: string
   jobDescription: { jdText: string, parsedJd: any }
   results: ScreeningResultItem[]
 }
 
+const DEFAULT_WEIGHTS: Record<string, number> = {
+  semantic: 0.30,
+  skills: 0.35,
+  experience: 0.20,
+  education: 0.10,
+  location: 0.05,
+}
+
+const weightDims = [
+  { key: 'semantic', label: 'Semantic' },
+  { key: 'skills', label: 'Skills' },
+  { key: 'experience', label: 'Experience' },
+  { key: 'education', label: 'Education' },
+  { key: 'location', label: 'Location' },
+] as const
+
 const route = useRoute()
-const { data: screening, pending, error } = await useFetch<ScreeningDetail>(`/api/screenings/${route.params.id}`)
+const { data: screening, pending, error, refresh } = await useFetch<ScreeningDetail>(`/api/screenings/${route.params.id}`)
+
+const detailsDialog = ref(false)
+const editName = ref('')
+const editWeights = reactive<Record<string, number>>({ ...DEFAULT_WEIGHTS })
+const rerunning = ref(false)
+const dialogError = ref<string | null>(null)
+
+const weightSum = computed(() =>
+  weightDims.reduce((sum, d) => sum + (Number(editWeights[d.key]) || 0), 0),
+)
+const weightSumValid = computed(() => Math.abs(weightSum.value - 1.0) < 1e-6)
+
+function openDetailsDialog() {
+  editName.value = screening.value?.name ?? ''
+  const current = screening.value?.weights ?? DEFAULT_WEIGHTS
+  for (const dim of weightDims) editWeights[dim.key] = current[dim.key] ?? DEFAULT_WEIGHTS[dim.key]
+  dialogError.value = null
+  detailsDialog.value = true
+}
+
+async function saveAndRerun() {
+  if (!weightSumValid.value || !editName.value.trim()) return
+  rerunning.value = true
+  dialogError.value = null
+
+  try {
+    await $fetch(`/api/screenings/${route.params.id}`, {
+      method: 'PATCH',
+      body: {
+        name: editName.value.trim(),
+        weights: { ...editWeights },
+      },
+    })
+    await refresh()
+    detailsDialog.value = false
+  } catch (e: any) {
+    dialogError.value = e?.data?.statusMessage || e?.message || 'Failed to re-run screening'
+  } finally {
+    rerunning.value = false
+  }
+}
 
 const jd = computed(() => screening.value?.jobDescription?.parsedJd ?? {})
 const scored = computed(() => (screening.value?.results ?? []).filter(r => r.aiResult))

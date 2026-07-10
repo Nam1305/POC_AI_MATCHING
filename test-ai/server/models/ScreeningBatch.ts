@@ -13,6 +13,10 @@ export const ScreeningBatch = defineMongooseModel({
       ref: 'JobDescription',
       required: true,
     },
+    weights: {
+      type: 'Mixed',
+      required: false,
+    },
   },
   options: {
     timestamps: true,

@@ -12,6 +12,7 @@ export default defineEventHandler(async (event) => {
   return {
     _id: batch._id,
     name: batch.name,
+    weights: batch.weights ?? null,
     createdAt: batch.createdAt,
     jobDescription: batch.jobDescriptionId,
     results,

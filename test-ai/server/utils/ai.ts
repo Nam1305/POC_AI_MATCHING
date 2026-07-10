@@ -19,6 +19,7 @@ interface ParseCvResponse {
 interface ScoreResponse {
   final_score: number
   scores: Record<string, number>
+  weights_used: Record<string, number>
   penalty_applied: number
   penalty_reasons: string[]
   evaluation: Record<string, any>
@@ -26,6 +27,34 @@ interface ScoreResponse {
 
 function aiBaseUrl(): string {
   return useRuntimeConfig().aiServiceUrl
+}
+
+const WEIGHT_DIMENSIONS = ['semantic', 'skills', 'experience', 'education', 'location'] as const
+
+/**
+ * Mirrors the ScoreRequest.weights validator in the AI service (app/api/score.py)
+ * so bad input is rejected before any parsing/scoring work happens.
+ */
+export function assertValidWeights(weights: Record<string, number> | null | undefined): void {
+  if (weights == null) return
+
+  const keys = Object.keys(weights).sort()
+  const expected = [...WEIGHT_DIMENSIONS].sort()
+  if (keys.length !== expected.length || keys.some((k, i) => k !== expected[i])) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `weights must have exactly the keys ${expected.join(', ')}`,
+    })
+  }
+
+  if (Object.values(weights).some(w => typeof w !== 'number' || w < 0 || w > 1)) {
+    throw createError({ statusCode: 400, statusMessage: 'each weight must be between 0 and 1' })
+  }
+
+  const total = Object.values(weights).reduce((a, b) => a + b, 0)
+  if (Math.abs(total - 1.0) > 1e-6) {
+    throw createError({ statusCode: 400, statusMessage: `weights must sum to 1.0, got ${total}` })
+  }
 }
 
 export async function parseJd(jdText: string): Promise<ParseJdResponse> {
@@ -50,6 +79,7 @@ export async function scoreCv(params: {
   parsedJd: Record<string, any>
   cvEmbedding: number[]
   jdEmbedding: number[]
+  weights?: Record<string, number> | null
 }): Promise<ScoreResponse> {
   return $fetch<ScoreResponse>('/ai/score', {
     baseURL: aiBaseUrl(),
@@ -59,6 +89,7 @@ export async function scoreCv(params: {
       parsed_jd: params.parsedJd,
       cv_embedding: params.cvEmbedding,
       jd_embedding: params.jdEmbedding,
+      weights: params.weights ?? null,
     },
   })
 }
