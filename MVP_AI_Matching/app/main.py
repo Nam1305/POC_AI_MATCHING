@@ -6,6 +6,7 @@ Endpoints (all under /ai prefix, see app/api/*.py):
   POST /ai/parse-cv     — CV URL(s) → parsed JSON + embedding
   POST /ai/score        — CV ↔ JD → 5-dimension score + penalties + LLM evaluation
   POST /ai/evaluate     — CV ↔ JD → qualitative HR narrative + recommendation
+  POST /ai/tfidf-score  — JD text + CV URL(s) → TF-IDF cosine similarity ranking (no LLM)
 
 Plus:
   GET /health           — health check
@@ -17,7 +18,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import evaluate, parse, score
+from app.api import evaluate, parse, score, tfidf
 
 app = FastAPI(
     title="AI Service — CV/JD Matching",
@@ -38,6 +39,7 @@ app.add_middleware(
 app.include_router(parse.router,    prefix="/ai", tags=["parse"])
 app.include_router(score.router,    prefix="/ai", tags=["score"])
 app.include_router(evaluate.router, prefix="/ai", tags=["evaluate"])
+app.include_router(tfidf.router,    prefix="/ai", tags=["tfidf"])
 
 
 @app.get("/health")

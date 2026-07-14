@@ -27,6 +27,7 @@ sentence-transformers>=2.7.0      # local embedding (all-MiniLM-L6-v2, 384-dim)
 
 # --- Numerical Computing (Stage 4) ---
 numpy>=1.26.0                     # cosine similarity, vector ops
+scikit-learn>=1.4.0                # TF-IDF vectorizer + cosine similarity (/ai/tfidf-score)
 
 # --- HTTP Client (for R2 file download) ---
 httpx>=0.27.0                     # async HTTP client (Cloudflare R2 fetch)

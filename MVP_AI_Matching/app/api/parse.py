@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, field_validator, model_validator
 
 from app.schemas import ParsedCV, ParsedJD
+from app.services.fetch import fetch_file
 from app.services.pdf_extractor import extract_text
 from app.services.parser import parse_cv as parse_cv_text
 from app.services.parser import parse_jd as parse_jd_text
@@ -159,45 +159,10 @@ class ParseCVResponse(BaseModel):
     results: list[ParseCVResult]
 
 
-async def _fetch_file(url: str, client: httpx.AsyncClient) -> tuple[bytes, str]:
-    """Download file from URL. Returns (bytes, filename). Retries up to 3x on transient errors."""
-    last_exc: Exception | None = None
-    for attempt in range(3):
-        try:
-            resp = await client.get(url, follow_redirects=True, timeout=30.0)
-            resp.raise_for_status()
-            break
-        except (httpx.TransportError, httpx.ConnectError) as e:
-            last_exc = e
-            await asyncio.sleep(1.5 * (attempt + 1))
-    else:
-        raise last_exc
-
-    # Try Content-Disposition header first
-    filename = ""
-    cd = resp.headers.get("content-disposition", "")
-    if cd:
-        m = re.search(r'filename\*?=(?:UTF-8\'\')?["\']?([^"\';\r\n]+)', cd, re.IGNORECASE)
-        if m:
-            filename = m.group(1).strip().strip('"\'')
-
-    # Fallback: last path segment (strip query string)
-    if not filename:
-        filename = url.split("?")[0].rstrip("/").split("/")[-1]
-
-    # Ensure recognizable extension
-    if "." not in filename.rsplit("/", 1)[-1]:
-        ct = resp.headers.get("content-type", "")
-        ext = ".docx" if ("wordprocessingml" in ct or "docx" in ct) else ".pdf"
-        filename += ext
-
-    return resp.content, filename
-
-
 async def _process_one(url: str, client: httpx.AsyncClient) -> ParseCVResult:
     """Full pipeline for a single CV URL: download → extract → parse → embed."""
     try:
-        file_bytes, filename = await _fetch_file(url, client)
+        file_bytes, filename = await fetch_file(url, client)
     except httpx.HTTPStatusError as e:
         return ParseCVResult(url=url, error=f"HTTP {e.response.status_code} when downloading file")
     except httpx.RequestError as e:
