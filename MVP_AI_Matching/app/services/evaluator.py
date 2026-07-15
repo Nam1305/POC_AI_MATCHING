@@ -9,7 +9,11 @@ Flow:
   2. Experience check  — Python, so sánh cv_years vs jd.min_experience_years
   3. Education check   — Python, so sánh degree level
   4. Seniority check   — Python, reuse _detect_level từ scorer
-  5. LLM narrative     — 1 call duy nhất: hr_summary + strengths + weaknesses + recommendation
+  5. LLM narrative     — 1 call duy nhất: hr_summary + strengths + weaknesses
+
+Không có "recommendation" (strong_fit/possible_fit/...) — nhãn phù hợp do
+final_score + penalty (scorer.py) quyết định, HR tự đọc điểm số. Narrative
+chỉ mô tả, không tự đưa kết luận riêng để tránh mâu thuẫn với điểm số.
 """
 
 from __future__ import annotations
@@ -19,10 +23,6 @@ from app.services.llm_client import call_llm_text
 from app.services.scorer import _detect_level, _skill_matcher, jd_seniority_level
 
 _matcher = _skill_matcher
-
-# Recommendation labels the LLM is allowed to emit.
-VALID_RECOMMENDATIONS = {"strong_fit", "possible_fit", "weak_fit", "poor_fit"}
-_DEFAULT_RECOMMENDATION = "possible_fit"
 
 
 # ---------------------------------------------------------------------------
@@ -231,9 +231,8 @@ def _analyze_seniority(cv: ParsedCV, jd: ParsedJD) -> dict:
 # quả phân tích Python ở 4 bước trên (skill/experience/education/seniority).
 # LLM chỉ đóng vai trò "viết văn" tự nhiên từ dữ liệu đã có sẵn — mọi con số
 # (tỷ lệ khớp skill, số năm kinh nghiệm...) đều do Python tính trước, LLM
-# không tự suy luận số liệu. Cuối prompt yêu cầu LLM tự chấm 1 trong 4 mức
-# recommendation theo quy tắc rõ ràng (dựa trên skill_match_rate + số
-# must-have skill còn thiếu) để đảm bảo tính nhất quán.
+# không tự suy luận số liệu và không tự đưa ra kết luận phù hợp/không phù hợp
+# (không có recommendation) — HR tự đánh giá dựa trên final_score/scores.
 _NARRATIVE_PROMPT = """\
 Bạn là chuyên viên tuyển dụng cấp cao. Hãy viết một đoạn đánh giá ứng viên \
 bằng tiếng Việt, theo phong cách nhận xét chuyên nghiệp như người thật viết cho người thật — \
@@ -262,34 +261,19 @@ Viết 1 đoạn văn khoảng 10 câu. Đoạn văn phải:
 - Nêu rõ điểm mạnh nổi bật của ứng viên so với JD
 - Nêu rõ những điểm còn thiếu hoặc cần cải thiện
 - Đánh giá tiềm năng phát triển và khả năng onboard nhanh
-- Kết luận bằng khuyến nghị hành động cụ thể cho HR (phỏng vấn ngay / cân nhắc thêm / không phù hợp, kèm lý do)
+- Kết thúc bằng 1-2 câu tổng kết ngắn gọn mức độ phù hợp tổng thể, KHÔNG đưa ra
+  khuyến nghị hành động (phỏng vấn / loại...) — quyết định đó do HR tự đánh giá
+  dựa trên điểm số hệ thống đã tính, không phải bạn.
 - Giọng văn tự nhiên, chuyên nghiệp, khách quan như nhận xét thực của chuyên viên tuyển dụng cấp cao
-
-Sau đoạn văn, thêm 1 dòng riêng biệt:
-RECOMMENDATION: strong_fit | possible_fit | weak_fit | poor_fit
-
-Quy tắc chọn recommendation:
-- strong_fit  : skill_match ≥ 80% VÀ đủ kinh nghiệm VÀ không thiếu must-have skill
-- possible_fit: skill_match ≥ 60% VÀ thiếu tối đa 1 must-have skill
-- weak_fit    : skill_match 40-60% HOẶC thiếu 2 must-have skill
-- poor_fit    : skill_match < 40% HOẶC thiếu hơn 2 must-have skill
 """
 
 
-async def _llm_narrative(cv: ParsedCV, jd: ParsedJD, analysis: dict) -> dict:
+async def _llm_narrative(cv: ParsedCV, jd: ParsedJD, analysis: dict) -> str:
     """
-    Gọi LLM đúng 1 lần để sinh đoạn nhận xét (narrative) + recommendation,
+    Gọi LLM đúng 1 lần để sinh đoạn nhận xét (narrative) bằng tiếng Việt,
     dựa trên kết quả phân tích Python (skill/experience/education/seniority)
-    đã gộp sẵn trong `analysis`.
-
-    Sau khi nhận raw_text từ LLM, tách riêng phần narrative (đoạn văn) và
-    phần "RECOMMENDATION: ..." (dòng cuối). Nếu LLM trả về nhãn
-    recommendation không hợp lệ (không nằm trong VALID_RECOMMENDATIONS) hoặc
-    quên không kèm dòng RECOMMENDATION, sẽ dùng _DEFAULT_RECOMMENDATION
-    ("possible_fit") làm giá trị an toàn thay vì để lỗi.
-
-    Trả về dict {"narrative": đoạn văn tiếng Việt, "recommendation": nhãn
-    khuyến nghị}.
+    đã gộp sẵn trong `analysis`. Trả về đoạn văn narrative, không kèm nhãn
+    phân loại (recommendation) — HR tự đánh giá dựa trên final_score/scores.
     """
     matched = [d.skill for d in analysis["skill_details"] if d.status == "matched"]
 
@@ -316,19 +300,7 @@ async def _llm_narrative(cv: ParsedCV, jd: ParsedJD, analysis: dict) -> dict:
     )
 
     raw_text = await call_llm_text(prompt, temperature=0.4, max_tokens=1200)
-
-    # Tách narrative và recommendation từ raw text
-    narrative = raw_text
-    rec = _DEFAULT_RECOMMENDATION
-
-    if "RECOMMENDATION:" in raw_text:
-        parts     = raw_text.split("RECOMMENDATION:")
-        narrative = parts[0].strip()
-        rec_raw   = parts[1].strip().lower().replace(" ", "_").split()[0]
-        if rec_raw in VALID_RECOMMENDATIONS:
-            rec = rec_raw
-
-    return {"narrative": narrative, "recommendation": rec}
+    return raw_text.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -348,7 +320,7 @@ async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD, *, include_narrative: 
     edu_verdict  = _analyze_education(cv, jd)
     sen_data     = _analyze_seniority(cv, jd)
 
-    narrative = {"narrative": "", "recommendation": _DEFAULT_RECOMMENDATION}
+    narrative = ""
     if include_narrative:
         # Bundle all for LLM context
         combined = {
@@ -374,6 +346,5 @@ async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD, *, include_narrative: 
         seniority_match    = sen_data["match"],
         seniority_detail   = sen_data["detail"],
 
-        narrative          = narrative.get("narrative", ""),
-        recommendation     = narrative.get("recommendation", _DEFAULT_RECOMMENDATION),
+        narrative          = narrative,
     )

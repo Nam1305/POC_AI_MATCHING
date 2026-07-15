@@ -7,8 +7,9 @@ Required inputs (from .NET, pre-fetched from DB):
 
 Returns:
   - final_score + scores breakdown  (pure Python, ~1ms)
-  - evaluation: skill breakdown, experience/education verdicts, recommendation
-                (LLM narrative included only if include_narrative=true in the request)
+  - evaluation: skill breakdown, experience/education verdicts
+                (LLM narrative included only if include_narrative=true in the request;
+                 no recommendation/fit label — HR judges fit from final_score directly)
 
 .NET saves the response to applications table:
   final_score      FLOAT

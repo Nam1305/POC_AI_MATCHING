@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import datetime
+
 import pytest
 
 from app.schemas import (
     CandidateLocation, DegreeLevel, Education, ParsedCV, ParsedJD,
     RequiredSkill, WorkExperience, WorkLocation,
+    merge_month_intervals, parse_month,
 )
 from app.services import scorer as scorer_module
 from app.services.scorer import (
@@ -15,6 +18,14 @@ from app.services.scorer import (
     score_location,
     calculate_score,
 )
+
+
+def _months_ago(n: int) -> str:
+    """'YYYY-MM' string for n calendar months before today, for date-based fixtures."""
+    today = datetime.date.today()
+    total = today.year * 12 + (today.month - 1) - n
+    year, month0 = divmod(total, 12)
+    return f"{year:04d}-{month0 + 1:02d}"
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +186,11 @@ def test_score_skills_implied_match_different_ecosystem():
 # ---------------------------------------------------------------------------
 
 def test_score_experience_ratio_and_cap():
-    cv = ParsedCV(work_experience=[WorkExperience(company="Company A", months=24)])
+    # start/end 24 calendar months apart, ending mid-range (6mo ago) so no
+    # recency modifier kicks in and only the base ratio is exercised.
+    cv = ParsedCV(work_experience=[
+        WorkExperience(company="Company A", start=_months_ago(30), end=_months_ago(6))
+    ])
     jd2 = ParsedJD(title="x", min_experience_years=2)
     jd4 = ParsedJD(title="x", min_experience_years=4)
     assert score_experience(cv, jd2) == 1.0
@@ -184,7 +199,10 @@ def test_score_experience_ratio_and_cap():
 
 def test_score_experience_relevance_bonus():
     cv = ParsedCV(
-        work_experience=[WorkExperience(company="Company A", role=".NET Developer", months=24, tech_stack=[".NET"])]
+        work_experience=[WorkExperience(
+            company="Company A", role=".NET Developer",
+            start=_months_ago(30), end=_months_ago(6), tech_stack=[".NET"],
+        )]
     )
     jd = ParsedJD(title=".NET Developer", min_experience_years=2)
     # base=1.0 + relevance bonus → capped at 1.0
@@ -192,17 +210,112 @@ def test_score_experience_relevance_bonus():
 
 
 def test_score_experience_recency_bonus():
-    cv = ParsedCV(work_experience=[WorkExperience(company="Company A", role="Dev", months=12, is_current=True)])
+    cv = ParsedCV(work_experience=[WorkExperience(
+        company="Company A", role="Dev", start=_months_ago(12), is_current=True,
+    )])
     jd = ParsedJD(title="Dev", min_experience_years=2)
     # base=0.5, recency bonus=+0.1 → 0.6
     assert score_experience(cv, jd) == pytest.approx(0.6)
 
 
 def test_score_experience_over_qualification_penalty():
-    cv = ParsedCV(work_experience=[WorkExperience(company="Company A", months=120)])
+    cv = ParsedCV(work_experience=[
+        WorkExperience(company="Company A", start=_months_ago(126), end=_months_ago(6))
+    ])
     jd = ParsedJD(title="Dev", min_experience_years=2)
     # base=1.0, over-qual penalty=-0.05 → 0.95
     assert score_experience(cv, jd) == pytest.approx(0.95)
+
+
+def test_total_exp_months_merges_overlapping_jobs():
+    """W4: concurrent freelance + full-time must not double-count the overlap."""
+    cv = ParsedCV(work_experience=[
+        WorkExperience(company="Full-time", start="2020-01", end="2023-01"),   # 36mo
+        WorkExperience(company="Freelance", start="2021-01", end="2022-01"),   # 12mo, fully inside the above
+    ])
+    # Naive sum would give 48; the merged calendar span is 36.
+    assert cv.total_exp_months == 36
+
+
+def test_total_exp_months_sums_non_overlapping_jobs():
+    cv = ParsedCV(work_experience=[
+        WorkExperience(company="Job A", start="2018-01", end="2019-01"),  # 12mo
+        WorkExperience(company="Job B", start="2020-01", end="2021-01"),  # 12mo, no overlap
+    ])
+    assert cv.total_exp_months == 24
+
+
+def test_score_experience_overlapping_jobs_not_double_counted():
+    """W4 regression via score_experience: overlap must not inflate the D3 base ratio."""
+    # Full-time ends 6mo ago (inside the [3,12] no-recency-modifier window), so
+    # the only thing under test is the base ratio. Freelance sits fully inside
+    # the full-time span, so merged = 36mo; naive sum would be 36+12 = 48mo.
+    cv = ParsedCV(work_experience=[
+        WorkExperience(company="Full-time", start=_months_ago(42), end=_months_ago(6)),
+        WorkExperience(company="Freelance", start=_months_ago(30), end=_months_ago(18)),
+    ])
+    jd = ParsedJD(title="x", min_experience_years=3)
+    jd_strict = ParsedJD(title="x", min_experience_years=4)
+    assert score_experience(cv, jd) == pytest.approx(1.0)          # 36/36 = 1.0
+    assert score_experience(cv, jd_strict) == pytest.approx(0.75)  # 36/48, not 48/48=1.0
+
+
+def test_merge_month_intervals_touching_boundaries_no_gap_no_double_count():
+    """Back-to-back jobs (one ends exactly where the next starts) must merge
+    into one continuous span — the shared boundary month is neither lost nor
+    counted twice."""
+    intervals = [
+        (parse_month("2020-01"), parse_month("2021-01")),  # 12mo
+        (parse_month("2021-01"), parse_month("2022-01")),  # 12mo, starts exactly where the first ends
+    ]
+    assert merge_month_intervals(intervals) == 24
+
+
+def test_merge_month_intervals_real_gap_kept_separate():
+    """A genuine 1-month gap between jobs must not be merged away."""
+    intervals = [
+        (parse_month("2020-01"), parse_month("2021-01")),  # 12mo
+        (parse_month("2021-02"), parse_month("2022-02")),  # 12mo, starts 1mo after the first ends
+    ]
+    assert merge_month_intervals(intervals) == 24  # no overlap: same as naive sum
+
+
+def test_merge_month_intervals_chain_overlap_order_independent():
+    """A overlaps B and B overlaps C, but A and C don't touch directly —
+    all three must still collapse into one continuous span regardless of
+    input order."""
+    a = (parse_month("2018-01"), parse_month("2019-01"))  # 12mo
+    b = (parse_month("2018-07"), parse_month("2019-07"))  # overlaps A by 6mo
+    c = (parse_month("2019-06"), parse_month("2020-06"))  # overlaps B by 1mo, doesn't touch A
+    # Overall span 2018-01 -> 2020-06 = 29mo; naive sum would be 36.
+    assert merge_month_intervals([a, b, c]) == 29
+    assert merge_month_intervals([c, a, b]) == 29
+    assert merge_month_intervals([b, c, a]) == 29
+
+
+def test_merge_month_intervals_empty_list_returns_zero():
+    assert merge_month_intervals([]) == 0
+
+
+def test_total_exp_months_skips_entry_with_unparseable_start():
+    """An entry with no usable start date is excluded, not counted as 0
+    months and not allowed to crash the total."""
+    cv = ParsedCV(work_experience=[
+        WorkExperience(company="Job A", start="2020-01", end="2021-01"),  # 12mo
+        WorkExperience(company="Bad entry", start="", end="2021-01"),      # unparseable start
+    ])
+    assert cv.total_exp_months == 12
+
+
+def test_total_exp_months_ongoing_job_counts_to_today():
+    cv = ParsedCV(work_experience=[
+        WorkExperience(company="Current job", start=_months_ago(10), end="present"),
+    ])
+    assert cv.total_exp_months == 10
+
+
+def test_total_exp_months_empty_work_experience_returns_zero():
+    assert ParsedCV(work_experience=[]).total_exp_months == 0
 
 
 # ---------------------------------------------------------------------------

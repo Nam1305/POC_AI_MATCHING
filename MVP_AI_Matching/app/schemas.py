@@ -56,6 +56,31 @@ def _diff_months(start: str, end: str) -> int:
     return (e.year - s.year) * 12 + (e.month - s.month)
 
 
+def _months_between(s: datetime.date, e: datetime.date) -> int:
+    return (e.year - s.year) * 12 + (e.month - s.month)
+
+
+def merge_month_intervals(intervals: list[tuple[datetime.date, datetime.date]]) -> int:
+    """
+    Total months covered by a list of (start, end) date intervals, with
+    overlapping or touching intervals merged so overlap is counted once
+    (e.g. concurrent freelance + full-time jobs).
+    """
+    if not intervals:
+        return 0
+    ordered = sorted(intervals, key=lambda iv: iv[0])
+    total = 0
+    cur_start, cur_end = ordered[0]
+    for s, e in ordered[1:]:
+        if s <= cur_end:
+            cur_end = max(cur_end, e)
+        else:
+            total += _months_between(cur_start, cur_end)
+            cur_start, cur_end = s, e
+    total += _months_between(cur_start, cur_end)
+    return total
+
+
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
@@ -205,8 +230,6 @@ class CVJobEvaluation(BaseModel):
     seniority_match:    str = ""   # match | over_qualified | under_qualified | unknown
     seniority_detail:   str = ""
 
-    recommendation:     str = ""   # strong_fit | possible_fit | weak_fit | poor_fit
-
     # Narrative — HR đọc như người viết
     narrative:          str = ""
 
@@ -330,7 +353,22 @@ class ParsedCV(BaseModel):
 
     @property
     def total_exp_months(self) -> int:
-        return sum(e.months for e in self.work_experience)
+        """
+        Months of experience covered by work_experience, with overlapping
+        jobs (e.g. freelance run in parallel with a full-time role) merged
+        so the overlap isn't double-counted.
+        """
+        today = datetime.date.today().replace(day=1)
+        intervals: list[tuple[datetime.date, datetime.date]] = []
+        for e in self.work_experience:
+            s = parse_month(e.start)
+            if not s:
+                continue
+            en = parse_month(e.end) or today
+            if en < s:
+                en = s
+            intervals.append((s, en))
+        return merge_month_intervals(intervals)
 
     @property
     def total_exp_years(self) -> float:

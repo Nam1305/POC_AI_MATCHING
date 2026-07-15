@@ -34,13 +34,12 @@ CYAN = "\033[36m"
 BAR_WIDTH = 20
 
 
-def recommendation_color(recommendation: str) -> str:
-    rec = recommendation.upper()
-    if "STRONG" in rec or "EXCELLENT" in rec:
+def score_color(value: float) -> str:
+    if value >= 80:
         return GREEN
-    if "POSSIBLE" in rec or "GOOD" in rec:
+    if value >= 60:
         return YELLOW
-    if "POOR" in rec or "NOT" in rec or "REJECT" in rec:
+    if value > 0:
         return RED
     return RESET
 
@@ -132,7 +131,7 @@ def score_cv(client: httpx.Client, parsed_cv: dict, parsed_jd: dict,
 
 
 def print_summary_table(results: list[tuple[str, dict]]) -> None:
-    headers = ["#", "CV", "Final", "Skills", "Exp", "Edu", "Semantic", "Location", "Recommendation"]
+    headers = ["#", "CV", "Final", "Skills", "Exp", "Edu", "Semantic", "Location"]
     rows = []
     for i, (url, score_result) in enumerate(results, start=1):
         name = url.rsplit("/", 1)[-1]
@@ -146,17 +145,16 @@ def print_summary_table(results: list[tuple[str, dict]]) -> None:
             f"{scores.get('education', 0):.1f}",
             f"{scores.get('semantic', 0):.1f}",
             f"{scores.get('location', 0):.1f}",
-            score_result["evaluation"]["recommendation"],
         ])
 
     widths = [max(len(h), *(len(r[c]) for r in rows)) for c, h in enumerate(headers)] if rows else [len(h) for h in headers]
 
-    def fmt_row(cells: list[str], colorize_last: bool = False) -> str:
+    def fmt_row(cells: list[str], colorize_final: bool = False) -> str:
         parts = []
         for c, cell in enumerate(cells):
             pad = " " * max(0, widths[c] - len(cell))
-            if colorize_last and c == len(cells) - 1:
-                parts.append(colorize(cell, recommendation_color(cell)) + pad)
+            if colorize_final and c == 2:
+                parts.append(colorize(cell, score_color(float(cell))) + pad)
             else:
                 parts.append(cell + pad)
         return "  ".join(parts)
@@ -167,7 +165,7 @@ def print_summary_table(results: list[tuple[str, dict]]) -> None:
     print(colorize(fmt_row(headers), BOLD))
     print("  ".join("-" * w for w in widths))
     for row in rows:
-        print(fmt_row(row, colorize_last=True))
+        print(fmt_row(row, colorize_final=True))
 
 
 def format_location(work_location: dict, candidate_location: dict) -> str:
@@ -227,7 +225,6 @@ def print_result(index: int, url: str, score_result: dict,
 
     ev = score_result["evaluation"]
     print()
-    print(f"  {'Recommendation':<15}  {colorize(ev['recommendation'], recommendation_color(ev['recommendation']))}")
     print(f"  {'Experience':<15}  {ev['experience_verdict']}  —  {ev['experience_detail']}")
     print(f"  {'Education':<15}  {ev['education_verdict']}")
     print(f"  {'Seniority':<15}  {ev['seniority_match']}  —  {ev['seniority_detail']}")

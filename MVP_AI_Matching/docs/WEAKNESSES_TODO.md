@@ -13,11 +13,13 @@
 
 ## 🔴 Nghiêm trọng — ảnh hưởng trực tiếp độ chính xác
 
-- [ ] **W1. Hai nguồn sự thật mâu thuẫn: `final_score` vs `recommendation`.**
+- [x] **W1. Hai nguồn sự thật mâu thuẫn: `final_score` vs `recommendation`.**
   - Hiện trạng: điểm số tính bằng Python (`scorer.py`), `recommendation` (`strong_fit`...) do LLM tự sinh trong narrative dựa trên quy tắc bằng chữ.
   - Vấn đề: penalty có thể đè điểm xuống 45 nhưng LLM vẫn ghi `possible_fit` (hoặc ngược lại) → HR nhận hai tín hiệu xung đột.
-  - Hướng sửa: suy `recommendation` từ `final_score` + `penalty` bằng ngưỡng cố định; LLM chỉ viết narrative giải thích, không tự quyết nhãn.
-  - Code: `app/services/evaluator.py:213-259`, `app/services/scorer.py:655`
+  - Hướng sửa đã chọn: **bỏ hẳn `recommendation`** thay vì suy nó từ `final_score` — không cần thêm 1 tầng nhãn nữa, HR đọc `final_score`/`scores` (đã là single source of truth) để tự đánh giá.
+  - Đã fix: xoá field `recommendation` khỏi `CVJobEvaluation` (`app/schemas.py`); bỏ `VALID_RECOMMENDATIONS`/`_DEFAULT_RECOMMENDATION`, bỏ khối `RECOMMENDATION: ...` + quy tắc chọn nhãn khỏi `_NARRATIVE_PROMPT`, `_llm_narrative()` giờ trả thẳng string narrative (`app/services/evaluator.py`). Cập nhật `quick_test.py` (bỏ cột/màu recommendation, tô màu theo `final_score` thay thế) và docstring liên quan ở `app/api/score.py`, `app/api/evaluate.py`, `app/main.py`.
+  - Đã xác nhận: scorer/`​/ai/score` vốn đã KHÔNG bắt buộc gọi LLM — `include_narrative` mặc định `false` (`app/api/score.py`), narrative LLM tách hẳn thành endpoint riêng `POST /ai/evaluate` (`app/api/evaluate.py`, `app/services/evaluator.py`); `/score` chỉ gọi LLM khi request set `include_narrative=true`.
+  - Code: `app/schemas.py`, `app/services/evaluator.py`, `app/api/score.py`, `app/api/evaluate.py`, `quick_test.py`
 
 - [ ] **W2. Taxonomy kỹ năng quá hẹp — nhiều mảng nghề bị "mù".**
   - Hiện trạng: `skill_data.py` chỉ phủ ~90 skill web/backend/ML.
@@ -31,10 +33,11 @@
   - Hướng sửa: calibrate `cosine_min/max` theo từng provider, hoặc chuẩn hóa/hiệu chuẩn động; ít nhất cảnh báo khi provider ≠ cấu hình calibrate.
   - Code: `app/services/scorer.py:257`, `app/config.py:44-45`
 
-- [ ] **W4. `total_exp_months` cộng dồn khoảng thời gian chồng lấn.**
+- [x] **W4. `total_exp_months` cộng dồn khoảng thời gian chồng lấn.**
   - Hiện trạng: `sum(e.months for e in work_experience)`.
   - Vấn đề: freelance song song full-time / job overlap bị đếm gấp đôi số năm → thổi phồng D3 và qua mặt penalty kinh nghiệm.
   - Hướng sửa: merge các interval (start,end) trước khi cộng tháng.
+  - Đã fix: thêm `merge_month_intervals()` (`app/schemas.py:59-80`), dùng lại trong `ParsedCV.total_exp_months` (`app/schemas.py:356-372`) và trong tính `relevant_months` theo domain của `score_experience()` (`app/services/scorer.py:415-431`), vốn mắc cùng lỗi. Test: `tests/test_scorer.py` (`test_total_exp_months_merges_overlapping_jobs`, `test_total_exp_months_sums_non_overlapping_jobs`, `test_score_experience_overlapping_jobs_not_double_counted`).
   - Code: `app/schemas.py:332`
 
 - [ ] **W5. Điểm là tổng tuyến tính, gần như không có "cổng chặn".**

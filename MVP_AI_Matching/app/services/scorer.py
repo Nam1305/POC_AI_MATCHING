@@ -30,7 +30,7 @@ from typing import Optional
 import numpy as np
 
 from app.config import settings
-from app.schemas import ParsedCV, ParsedJD, parse_month
+from app.schemas import ParsedCV, ParsedJD, merge_month_intervals, parse_month
 from app.services import location_service
 from app.services.skill_data import ALIASES, CATEGORIES, IMPLIES_ALL
 
@@ -414,11 +414,20 @@ def score_experience(cv: ParsedCV, jd: ParsedJD) -> float:
 
     domain_tokens = _jd_domain_tokens(jd)
     if domain_tokens and cv.work_experience:
-        relevant_months = 0
+        today = datetime.date.today().replace(day=1)
+        relevant_intervals: list[tuple[datetime.date, datetime.date]] = []
         for exp in cv.work_experience:
             haystack = " ".join(filter(None, [exp.role or "", exp.description or ""])).lower()
-            if any(tok in haystack for tok in domain_tokens):
-                relevant_months += (exp.months or 0)
+            if not any(tok in haystack for tok in domain_tokens):
+                continue
+            s = parse_month(exp.start)
+            if not s:
+                continue
+            e = parse_month(exp.end) or today
+            if e < s:
+                e = s
+            relevant_intervals.append((s, e))
+        relevant_months = merge_month_intervals(relevant_intervals)
         if relevant_months > 0:
             relevant_years = relevant_months / 12.0
             relevance_ratio = min(relevant_years / jd.min_experience_years, 1.0)
