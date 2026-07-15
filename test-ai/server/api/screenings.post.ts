@@ -4,7 +4,6 @@ export default defineEventHandler(async (event) => {
     jdText?: string
     cvUrls?: string[]
     weights?: Record<string, number> | null
-    enforcePenalty?: boolean
     includeNarrative?: boolean
   }>(event)
 
@@ -31,7 +30,6 @@ export default defineEventHandler(async (event) => {
     name: body.name,
     jobDescriptionId: jobDescription._id,
     weights: body.weights ?? undefined,
-    enforcePenalty: body.enforcePenalty ?? true,
     includeNarrative: body.includeNarrative ?? false,
   })
 
@@ -54,7 +52,6 @@ export default defineEventHandler(async (event) => {
       cvEmbedding: cv.cv_embedding,
       jdEmbedding,
       weights: body.weights,
-      enforcePenalty: batch.enforcePenalty,
       includeNarrative: batch.includeNarrative,
     })
 

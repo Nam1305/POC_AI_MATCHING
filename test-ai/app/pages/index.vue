@@ -44,8 +44,6 @@
           </div>
 
           <div class="d-flex flex-wrap ga-6 mb-2">
-            <v-switch v-model="enforcePenalty" label="Enforce penalty" color="primary" density="compact"
-              hide-details :disabled="loading" />
             <v-switch v-model="includeNarrative" label="Include narrative" color="primary" density="compact"
               hide-details :disabled="loading" />
           </div>
@@ -150,7 +148,6 @@ const weightPercents = reactive<Record<string, number>>(
 watch(weightPercents, (v) => {
   for (const dim of weightDims) weights[dim.key] = (v[dim.key] ?? 0) / 100
 }, { deep: true })
-const enforcePenalty = ref(true)
 const includeNarrative = ref(false)
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -230,7 +227,6 @@ async function submit() {
         jdText: jdText.value.trim(),
         cvUrls: cvUrls.value.map(u => u.trim()).filter(Boolean),
         weights: { ...weights },
-        enforcePenalty: enforcePenalty.value,
         includeNarrative: includeNarrative.value,
       },
     })

@@ -3,7 +3,6 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{
     name?: string
     weights?: Record<string, number> | null
-    enforcePenalty?: boolean
     includeNarrative?: boolean
   }>(event)
 
@@ -14,7 +13,6 @@ export default defineEventHandler(async (event) => {
   const update: Record<string, any> = {}
   if (body?.name?.trim()) update.name = body.name.trim()
   if (body && 'weights' in body) update.weights = body.weights ?? null
-  if (body && 'enforcePenalty' in body) update.enforcePenalty = body.enforcePenalty ?? true
   if (body && 'includeNarrative' in body) update.includeNarrative = body.includeNarrative ?? false
 
   const batch = await ScreeningBatch.findByIdAndUpdate(id, update, { new: true }).lean() as any
@@ -50,7 +48,6 @@ export default defineEventHandler(async (event) => {
       cvEmbedding,
       jdEmbedding: jobDescription.jdEmbedding,
       weights: batch.weights ?? undefined,
-      enforcePenalty: batch.enforcePenalty,
       includeNarrative: batch.includeNarrative,
     })
 
@@ -64,7 +61,6 @@ export default defineEventHandler(async (event) => {
     _id: batch._id,
     name: batch.name,
     weights: batch.weights ?? null,
-    enforcePenalty: batch.enforcePenalty,
     includeNarrative: batch.includeNarrative,
     createdAt: batch.createdAt,
     jobDescription,

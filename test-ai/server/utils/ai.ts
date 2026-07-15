@@ -20,8 +20,6 @@ interface ScoreResponse {
   final_score: number
   scores: Record<string, number>
   weights_used: Record<string, number>
-  penalty_applied: number
-  penalty_reasons: string[]
   evaluation: Record<string, any>
 }
 
@@ -80,7 +78,6 @@ export async function scoreCv(params: {
   cvEmbedding: number[]
   jdEmbedding: number[]
   weights?: Record<string, number> | null
-  enforcePenalty?: boolean
   includeNarrative?: boolean
 }): Promise<ScoreResponse> {
   return $fetch<ScoreResponse>('/ai/score', {
@@ -92,7 +89,6 @@ export async function scoreCv(params: {
       cv_embedding: params.cvEmbedding,
       jd_embedding: params.jdEmbedding,
       weights: params.weights ?? null,
-      enforce_penalty: params.enforcePenalty ?? true,
       include_narrative: params.includeNarrative ?? false,
     },
   })
