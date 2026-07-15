@@ -5,7 +5,7 @@ CV-Job Evaluation Service
 Khác với scorer (cho số 0-100), evaluator cho narrative định tính cho HR đọc.
 
 Flow:
-  1. Skill analysis    — Python, reuse SkillMatcher từ scorer
+  1. Skill analysis    — Python, reuse SkillMatcher từ skill_matcher.py
   2. Experience check  — Python, so sánh cv_years vs jd.min_experience_years
   3. Education check   — Python, so sánh degree level
   4. Seniority check   — Python, reuse _detect_level từ scorer
@@ -20,7 +20,8 @@ from __future__ import annotations
 
 from app.schemas import CVJobEvaluation, ParsedCV, ParsedJD, SkillMatchDetail
 from app.services.llm_client import call_llm_text
-from app.services.scorer import _detect_level, _skill_matcher, jd_seniority_level
+from app.services.scorer import _detect_level, jd_seniority_level
+from app.services.skill_matcher import _skill_matcher
 
 _matcher = _skill_matcher
 

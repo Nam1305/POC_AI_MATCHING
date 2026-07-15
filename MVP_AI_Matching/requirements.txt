@@ -5,7 +5,6 @@
 # --- Web Framework ---
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
-# python-multipart>=0.0.9        # (removed: /parse-cv now accepts URLs, not file upload)
 
 # --- Config & Validation ---
 pydantic>=2.5.0
