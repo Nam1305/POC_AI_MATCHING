@@ -215,8 +215,6 @@
           </div>
 
           <div class="d-flex flex-wrap ga-6 mt-2">
-            <v-switch v-model="editEnforcePenalty" label="Enforce penalty" color="primary" density="compact"
-              hide-details :disabled="rerunning" />
             <v-switch v-model="editIncludeNarrative" label="Include narrative" color="primary" density="compact"
               hide-details :disabled="rerunning" />
           </div>
@@ -257,7 +255,6 @@ interface ScreeningDetail {
   _id: string
   name: string
   weights: Record<string, number> | null
-  enforcePenalty: boolean
   includeNarrative: boolean
   createdAt: string
   jobDescription: { jdText: string, parsedJd: any }
@@ -292,7 +289,6 @@ const editWeightPercents = reactive<Record<string, number>>(
 watch(editWeightPercents, (v) => {
   for (const dim of weightDims) editWeights[dim.key] = (v[dim.key] ?? 0) / 100
 }, { deep: true })
-const editEnforcePenalty = ref(true)
 const editIncludeNarrative = ref(false)
 const rerunning = ref(false)
 const dialogError = ref<string | null>(null)
@@ -306,7 +302,6 @@ function openDetailsDialog() {
   editName.value = screening.value?.name ?? ''
   const current = screening.value?.weights ?? DEFAULT_WEIGHTS
   for (const dim of weightDims) editWeightPercents[dim.key] = Math.round((current[dim.key] ?? DEFAULT_WEIGHTS[dim.key] ?? 0) * 100)
-  editEnforcePenalty.value = screening.value?.enforcePenalty ?? true
   editIncludeNarrative.value = screening.value?.includeNarrative ?? false
   dialogError.value = null
   detailsDialog.value = true
@@ -323,7 +318,6 @@ async function saveAndRerun() {
       body: {
         name: editName.value.trim(),
         weights: { ...editWeights },
-        enforcePenalty: editEnforcePenalty.value,
         includeNarrative: editIncludeNarrative.value,
       },
     })
