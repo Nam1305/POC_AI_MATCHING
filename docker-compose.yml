@@ -23,7 +23,7 @@ services:
     environment:
       NUXT_AI_SERVICE_URL: http://ai-service:8000
     ports:
-      - "3001:3000"
+      - "3002:3000"
     restart: unless-stopped
     depends_on:
       ai-service:
