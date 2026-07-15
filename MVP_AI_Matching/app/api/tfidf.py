@@ -21,7 +21,7 @@ from app.services.tfidf_scorer import rank_cvs_tfidf
 
 router = APIRouter()
 
-_MAX_CVS_PER_REQUEST = 10
+_MAX_CVS_PER_REQUEST = 50
 
 
 class TfidfScoreRequest(BaseModel):

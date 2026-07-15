@@ -80,16 +80,18 @@ def read_jd_text() -> str:
 
 
 def read_cv_urls() -> list[str]:
-    print("\nEnter CV URL(s), one per line. Empty line to finish:")
+    print("\nPaste all CV URLs (one per line, or all at once). Finish with an empty line, then Ctrl+D:")
     urls: list[str] = []
-    while True:
-        try:
-            url = input(f"  CV URL #{len(urls) + 1}: ").strip()
-        except EOFError:
-            break
-        if not url:
-            break
-        urls.append(url)
+    try:
+        while True:
+            line = input().strip()
+            if not line:
+                if urls:
+                    break
+                continue
+            urls.append(line)
+    except EOFError:
+        pass
     if not urls:
         print("No CV URLs entered. Aborting.")
         sys.exit(1)
