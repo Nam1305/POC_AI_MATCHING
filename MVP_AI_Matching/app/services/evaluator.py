@@ -263,25 +263,29 @@ async def _llm_narrative(cv: ParsedCV, jd: ParsedJD, analysis: dict) -> dict:
 # Public API
 # ---------------------------------------------------------------------------
 
-async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD) -> CVJobEvaluation:
+async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD, *, include_narrative: bool = True) -> CVJobEvaluation:
     """
     Evaluate how well a parsed CV fits a parsed JD.
     Returns structured qualitative report for HR.
+
+    include_narrative=False skips the LLM call (e.g. /score only needs the
+    numeric breakdown, not the HR narrative — that is /evaluate's job).
     """
     skill_data   = _analyze_skills(cv, jd)
     exp_data     = _analyze_experience(cv, jd)
     edu_verdict  = _analyze_education(cv, jd)
     sen_data     = _analyze_seniority(cv, jd)
 
-    # Bundle all for LLM context
-    combined = {
-        **skill_data,
-        "exp_detail":      exp_data["detail"],
-        "edu_verdict":     edu_verdict,
-        "seniority_detail": sen_data["detail"],
-    }
-
-    narrative = await _llm_narrative(cv, jd, combined)
+    narrative = {"narrative": "", "recommendation": _DEFAULT_RECOMMENDATION}
+    if include_narrative:
+        # Bundle all for LLM context
+        combined = {
+            **skill_data,
+            "exp_detail":      exp_data["detail"],
+            "edu_verdict":     edu_verdict,
+            "seniority_detail": sen_data["detail"],
+        }
+        narrative = await _llm_narrative(cv, jd, combined)
 
     return CVJobEvaluation(
         skill_details      = skill_data["skill_details"],

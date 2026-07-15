@@ -1,6 +1,11 @@
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
-  const body = await readBody<{ name?: string, weights?: Record<string, number> | null }>(event)
+  const body = await readBody<{
+    name?: string
+    weights?: Record<string, number> | null
+    enforcePenalty?: boolean
+    includeNarrative?: boolean
+  }>(event)
 
   if (body && 'weights' in body) {
     assertValidWeights(body.weights)
@@ -9,6 +14,8 @@ export default defineEventHandler(async (event) => {
   const update: Record<string, any> = {}
   if (body?.name?.trim()) update.name = body.name.trim()
   if (body && 'weights' in body) update.weights = body.weights ?? null
+  if (body && 'enforcePenalty' in body) update.enforcePenalty = body.enforcePenalty ?? true
+  if (body && 'includeNarrative' in body) update.includeNarrative = body.includeNarrative ?? false
 
   const batch = await ScreeningBatch.findByIdAndUpdate(id, update, { new: true }).lean() as any
   if (!batch) {
@@ -43,6 +50,8 @@ export default defineEventHandler(async (event) => {
       cvEmbedding,
       jdEmbedding: jobDescription.jdEmbedding,
       weights: batch.weights ?? undefined,
+      enforcePenalty: batch.enforcePenalty,
+      includeNarrative: batch.includeNarrative,
     })
 
     await ScreeningResult.findByIdAndUpdate(result._id, { parsedCv, cvEmbedding, aiResult })
@@ -55,6 +64,8 @@ export default defineEventHandler(async (event) => {
     _id: batch._id,
     name: batch.name,
     weights: batch.weights ?? null,
+    enforcePenalty: batch.enforcePenalty,
+    includeNarrative: batch.includeNarrative,
     createdAt: batch.createdAt,
     jobDescription,
     results: updatedResults,

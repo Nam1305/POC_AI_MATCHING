@@ -5,9 +5,14 @@ Required inputs (from .NET, pre-fetched from DB):
   - parsed_cv, parsed_jd        : structured extraction stored as JSONB
   - cv_embedding, jd_embedding  : pre-computed vectors stored as vector(N)
 
+Optional flags:
+  - enforce_penalty (default True) : apply hard-rule penalties (missing must-have
+    skills, insufficient experience). Set False to get the raw weighted score.
+
 Returns:
   - final_score + scores breakdown  (pure Python, ~1ms)
-  - evaluation: skill breakdown, experience/education verdicts, LLM narrative, recommendation
+  - evaluation: skill breakdown, experience/education verdicts, recommendation
+                (LLM narrative included only if include_narrative=true in the request)
 
 .NET saves the response to applications table:
   final_score      FLOAT
@@ -38,6 +43,8 @@ class ScoreRequest(BaseModel):
     cv_embedding: list[float]
     jd_embedding: list[float]
     weights:      dict[str, float] | None = None  # Wi overrides; None → settings.default_weights
+    include_narrative: bool = False  # True → also run the LLM narrative (same cost as calling /evaluate)
+    enforce_penalty:   bool = True   # False → skip hard-rule penalties (missing must-have skills, insufficient experience)
 
     @field_validator("weights")
     @classmethod
@@ -80,11 +87,12 @@ async def score_endpoint(req: ScoreRequest) -> ScoreResponse:
         req.cv_embedding,
         req.jd_embedding,
         weights=req.weights,
+        enforce_must_have=req.enforce_penalty,
     )
 
     score_result, evaluation = await asyncio.gather(
         score_task,
-        evaluate_cv_for_job(req.parsed_cv, req.parsed_jd),
+        evaluate_cv_for_job(req.parsed_cv, req.parsed_jd, include_narrative=req.include_narrative),
     )
 
     return ScoreResponse(

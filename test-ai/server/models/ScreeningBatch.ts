@@ -5,6 +5,8 @@ export interface IScreeningBatch {
   name: string
   jobDescriptionId: Types.ObjectId
   weights?: unknown
+  enforcePenalty: boolean
+  includeNarrative: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -25,6 +27,16 @@ export const ScreeningBatch = defineMongooseModel<IScreeningBatch>({
     weights: {
       type: Schema.Types.Mixed,
       required: false,
+    },
+    enforcePenalty: {
+      type: 'Boolean',
+      required: true,
+      default: true,
+    },
+    includeNarrative: {
+      type: 'Boolean',
+      required: true,
+      default: false,
     },
   },
   options: {

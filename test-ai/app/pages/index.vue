@@ -43,6 +43,13 @@
             </v-slider>
           </div>
 
+          <div class="d-flex flex-wrap ga-6 mb-2">
+            <v-switch v-model="enforcePenalty" label="Enforce penalty" color="primary" density="compact"
+              hide-details :disabled="loading" />
+            <v-switch v-model="includeNarrative" label="Include narrative" color="primary" density="compact"
+              hide-details :disabled="loading" />
+          </div>
+
           <v-alert v-if="error" type="error" variant="tonal" class="mb-4" closable @click:close="error = null">
             {{ error }}
           </v-alert>
@@ -78,9 +85,11 @@
             </v-avatar>
           </template>
           <template #append>
-            <v-chip size="small" variant="tonal">
+            <v-chip size="small" variant="tonal" class="mr-2">
               {{ s.candidateCount }} candidate{{ s.candidateCount === 1 ? '' : 's' }}
             </v-chip>
+            <v-btn icon="mdi-delete-outline" variant="text" color="error" size="small"
+              :loading="deletingId === s._id" @click.stop="confirmDelete(s)" />
           </template>
         </v-list-item>
       </v-list>
@@ -88,6 +97,21 @@
         No screenings yet. Run your first one above.
       </v-card-text>
     </v-card>
+
+    <v-dialog v-model="deleteDialog" max-width="480">
+      <v-card>
+        <v-card-title>Delete screening?</v-card-title>
+        <v-card-text>
+          This will permanently delete "{{ deleteTarget?.name }}" and all its candidate results. This cannot be
+          undone.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" :disabled="!!deletingId" @click="deleteDialog = false">Cancel</v-btn>
+          <v-btn color="error" variant="flat" :loading="!!deletingId" @click="doDelete">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -126,8 +150,14 @@ const weightPercents = reactive<Record<string, number>>(
 watch(weightPercents, (v) => {
   for (const dim of weightDims) weights[dim.key] = (v[dim.key] ?? 0) / 100
 }, { deep: true })
+const enforcePenalty = ref(true)
+const includeNarrative = ref(false)
 const loading = ref(false)
 const error = ref<string | null>(null)
+
+const deleteDialog = ref(false)
+const deleteTarget = ref<ScreeningSummary | null>(null)
+const deletingId = ref<string | null>(null)
 
 const router = useRouter()
 
@@ -147,6 +177,26 @@ const canSubmit = computed(() =>
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString()
+}
+
+function confirmDelete(s: ScreeningSummary) {
+  deleteTarget.value = s
+  deleteDialog.value = true
+}
+
+async function doDelete() {
+  if (!deleteTarget.value) return
+  deletingId.value = deleteTarget.value._id
+  try {
+    await $fetch(`/api/screenings/${deleteTarget.value._id}`, { method: 'DELETE' })
+    deleteDialog.value = false
+    await refresh()
+  } catch (e: any) {
+    error.value = e?.data?.statusMessage || e?.message || 'Failed to delete screening'
+  } finally {
+    deletingId.value = null
+    deleteTarget.value = null
+  }
 }
 
 function beforeUnloadGuard(e: BeforeUnloadEvent) {
@@ -180,6 +230,8 @@ async function submit() {
         jdText: jdText.value.trim(),
         cvUrls: cvUrls.value.map(u => u.trim()).filter(Boolean),
         weights: { ...weights },
+        enforcePenalty: enforcePenalty.value,
+        includeNarrative: includeNarrative.value,
       },
     })
     await router.push(`/screenings/${res.batch._id}`)
