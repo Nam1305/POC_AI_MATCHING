@@ -1,14 +1,22 @@
 """
-5-Dimension Scoring Engine — pure Python + numpy, NO LLM calls.
+5-Dimension Scoring Engine (Bộ máy chấm điểm 5 chiều) — thuần Python +
+numpy, KHÔNG gọi LLM.
 
-D1 Semantic   : cosine_sim(cv_embedding, jd_embedding), normalized to 0–1
-D2 Skills     : weighted skill overlap with alias/implied/fuzzy/category match
-D3 Experience : base ratio + relevance/recency/over-qual modifiers
-D4 Education  : cv_degree_level / jd_required_degree_level, capped at 1.0
-D5 Location   : driving-time estimate (OSRM route over parse-time-geocoded
-                lat/lng) × work-mode fit
+Đây là bước cuối cùng trong pipeline so khớp CV-JD: nhận vào CV/JD đã được
+parse có cấu trúc (từ parser.py) cùng embedding của chúng (từ embedder.py),
+rồi tính ra 1 điểm số tổng hợp 0-100 dựa trên 5 chiều (dimension) độc lập:
 
-final_score = Σ(Di × Wi) × 100
+D1 Semantic   : cosine_sim(cv_embedding, jd_embedding), normalize về 0–1
+D2 Skills     : so khớp trọng số kỹ năng (weighted skill overlap), có hỗ
+                trợ alias/suy luận (implied)/gần đúng (fuzzy)/cùng nhóm
+                (category)
+D3 Experience : tỷ lệ số năm kinh nghiệm cơ bản + các hệ số điều chỉnh theo
+                độ liên quan/độ mới/over-qualification
+D4 Education  : cv_degree_level / jd_required_degree_level, chặn trần ở 1.0
+D5 Location   : ước tính thời gian di chuyển (route OSRM dựa trên lat/lng
+                đã geocode lúc parse) × mức độ phù hợp hình thức làm việc
+
+final_score = Σ(Di × Wi) × 100   (Wi là trọng số từng chiều, cấu hình trong settings)
 """
 
 from __future__ import annotations
@@ -24,28 +32,35 @@ import numpy as np
 from app.config import settings
 from app.schemas import ParsedCV, ParsedJD, parse_month
 from app.services import location_service
-from app.services.skill_data import (
-    ALIASES, CATEGORIES, IMPLIES_ALL, PENALTY_SKIP_CATEGORIES,
-)
+from app.services.skill_data import ALIASES, CATEGORIES, IMPLIES_ALL
 
 
 # ---------------------------------------------------------------------------
 # SkillMatcher — alias normalization, fuzzy match, category fallback
+# Lớp chịu trách nhiệm toàn bộ logic so khớp kỹ năng (dùng cho cả D2 ở đây
+# lẫn evaluator.py khi phân tích chi tiết cho HR).
 # ---------------------------------------------------------------------------
 
 class SkillMatcher:
     """
-    Normalize variants of the same skill, fuzzy-match misspellings, and
-    grant partial credit for skills in the same broad category.
+    Chuẩn hóa các biến thể cách viết của cùng 1 kỹ năng, so khớp gần đúng
+    (fuzzy) khi viết sai chính tả, và cho điểm một phần (partial credit)
+    khi 2 kỹ năng cùng thuộc 1 nhóm lĩnh vực rộng (category) dù không khớp
+    chính xác.
     """
 
     # Data tables live in skill_data.py; bound here as class attributes so
     # `matcher.ALIASES` / `SkillMatcher.CATEGORIES` keep working as before.
     ALIASES = ALIASES
     CATEGORIES = CATEGORIES
-    PENALTY_SKIP_CATEGORIES = PENALTY_SKIP_CATEGORIES
 
     def normalize_skill(self, skill: str) -> str:
+        """
+        Chuẩn hóa 1 chuỗi kỹ năng thô về tên kỹ năng chuẩn (canonical) qua
+        bảng ALIASES. Nếu không có trong bảng, thử bỏ phần trong ngoặc đơn
+        (ví dụ "JavaScript (ES6+)" → "javascript") rồi tra lại ALIASES;
+        nếu vẫn không khớp, trả về chính chuỗi đã lowercase/strip.
+        """
         if not skill:
             return ""
         key = skill.lower().strip()
@@ -58,12 +73,19 @@ class SkillMatcher:
         return key
 
     def fuzzy_match(self, skill1: str, skill2: str, threshold: float = 0.85) -> bool:
+        """
+        So khớp gần đúng (fuzzy) 2 chuỗi kỹ năng bằng tỷ lệ tương đồng ký
+        tự (difflib.SequenceMatcher). Trả về True nếu tỷ lệ >= threshold
+        (mặc định 0.85) — dùng để bắt các trường hợp viết khác 1 chút
+        (ví dụ lỗi chính tả) mà không khớp qua ALIASES.
+        """
         if not skill1 or not skill2:
             return False
         ratio = difflib.SequenceMatcher(None, skill1, skill2).ratio()
         return ratio >= threshold
 
     def _category_of(self, skill: str) -> Optional[str]:
+        """Trả về tên nhóm lĩnh vực (trong CATEGORIES) mà `skill` thuộc về, hoặc None nếu không thuộc nhóm nào."""
         for cat, members in self.CATEGORIES.items():
             if skill in members:
                 return cat
@@ -71,9 +93,9 @@ class SkillMatcher:
 
     def category_match(self, cv_skills: set[str], jd_skill: str) -> float:
         """
-        Partial credit when JD skill belongs to a category that the CV
-        already covers via other skills. Score scales with how many
-        same-category skills the CV has.
+        Cho điểm một phần (partial credit) khi kỹ năng JD yêu cầu thuộc 1
+        nhóm lĩnh vực mà CV đã có kỹ năng khác cùng nhóm đó bao phủ. Điểm
+        tăng dần theo số lượng kỹ năng cùng nhóm mà CV có.
         """
         cat = self._category_of(jd_skill)
         if not cat:
@@ -86,8 +108,11 @@ class SkillMatcher:
 
     def implied_skills(self, skill: str) -> set[str]:
         """
-        One-way transitive closure over IMPLIES (e.g. nextjs → react → javascript).
-        "Knowing X guarantees knowing Y" — sourced from Wikidata P277, not a guess.
+        Bao đóng bắc cầu một chiều (one-way transitive closure) trên đồ thị
+        IMPLIES (ví dụ: nextjs → react → javascript — biết nextjs thì suy
+        ra biết cả react lẫn javascript).
+        "Biết X thì chắc chắn biết Y" — dữ liệu lấy từ Wikidata P277, không
+        phải suy đoán.
         """
         seen: set[str] = set()
         stack = [skill]
@@ -99,46 +124,47 @@ class SkillMatcher:
         return seen
 
     def expand_implied(self, skills: set[str]) -> set[str]:
-        """Add every skill logically guaranteed by the given skill set."""
+        """Thêm vào tập skills mọi kỹ năng được đảm bảo (suy luận) một cách logic từ các kỹ năng đã có."""
         expanded = set(skills)
         for s in skills:
             expanded |= self.implied_skills(s)
         return expanded
 
     def normalized_cv_skills(self, cv: ParsedCV) -> tuple[set[str], set[str]]:
-        """Return (normalized CV skills, same set expanded with implied skills)."""
+        """Trả về (tập kỹ năng CV đã chuẩn hóa, tập đó được mở rộng thêm các kỹ năng suy luận được)."""
         cv_skills = {self.normalize_skill(s) for s in _collect_cv_skills(cv) if s}
         return cv_skills, self.expand_implied(cv_skills)
 
     def is_fuzzy(self, jd_skill: str, cv_skills: set[str]) -> bool:
-        """True if any CV skill fuzzy-matches the (normalized) JD skill."""
+        """True nếu có bất kỳ kỹ năng nào trong CV so khớp gần đúng (fuzzy) với kỹ năng JD (đã chuẩn hóa)."""
         return any(self.fuzzy_match(jd_skill, cv_s) for cv_s in cv_skills)
 
     # -- OR-group (alternatives) aware matching --------------------------------
     #
     # A RequiredSkill may carry `alternatives`: the requirement is satisfied by
     # ANY of {skill} ∪ alternatives. All group logic funnels through here so the
-    # scorer, penalty rules, and evaluator agree.
+    # scorer and evaluator agree.
 
     # status priority for picking the best alternative in a group
     _STATUS_RANK = {"matched": 2, "matched_implied": 1, "missing": 0}
 
     def group_names(self, req) -> list[str]:
-        """Normalized skill names in a requirement's OR-group."""
+        """Danh sách tên kỹ năng đã chuẩn hóa trong 1 nhóm OR (requirement + alternatives)."""
         return [self.normalize_skill(n) for n in [req.skill, *req.alternatives] if n]
 
     def group_label(self, req) -> str:
-        """Human-readable label for a requirement — 'A / B / C' for OR-groups."""
+        """Nhãn hiển thị dễ đọc cho 1 requirement — dạng 'A / B / C' cho các nhóm OR (OR-group)."""
         names = [n for n in [req.skill, *req.alternatives] if n]
         return " / ".join(dict.fromkeys(names))
 
     def evaluate_skill(self, jd_norm: str, cv_skills: set[str],
                        cv_skills_expanded: set[str]) -> tuple[str, float]:
         """
-        Classify one normalized JD skill against the CV.
-        Returns (status, credit) where status ∈ matched|matched_implied|missing
-        and credit ∈ [0,1] mirrors score_skills tiers (exact/implied=1.0,
-        fuzzy=0.9, else category partial credit).
+        Phân loại 1 kỹ năng JD (đã chuẩn hóa) so với CV.
+        Trả về (status, credit) với status ∈ matched|matched_implied|missing
+        và credit ∈ [0,1] tương ứng các bậc trong score_skills (khớp chính
+        xác/suy luận = 1.0, khớp gần đúng = 0.9, còn lại là điểm một phần
+        theo nhóm lĩnh vực).
         """
         if jd_norm in cv_skills:
             return "matched", 1.0
@@ -157,9 +183,11 @@ class SkillMatcher:
     def _match_proficiency(self, jd_norm: str,
                            cv_skills: set[str]) -> Optional[tuple[str, float]]:
         """
-        Ordinal language-proficiency match. Returns a (status, credit) verdict
-        when the JD skill is a standardized proficiency AND the CV carries a
-        credential in the same framework; otherwise None (defer to fuzzy/category).
+        So khớp trình độ ngôn ngữ theo thứ bậc (ordinal). Trả về verdict
+        (status, credit) khi kỹ năng JD yêu cầu là 1 chứng chỉ trình độ
+        chuẩn hóa (ví dụ JLPT, TOEIC...) VÀ CV có chứng chỉ cùng hệ khung
+        (framework) đó; ngược lại trả về None (để nhường cho fuzzy/category
+        xử lý tiếp).
         """
         req = _parse_proficiency(jd_norm)
         if req is None:
@@ -176,7 +204,7 @@ class SkillMatcher:
 
     def evaluate_group(self, req, cv_skills: set[str],
                        cv_skills_expanded: set[str]) -> tuple[str, float]:
-        """Best (status, credit) over every alternative in the requirement."""
+        """Trả về (status, credit) tốt nhất trong số mọi lựa chọn thay thế (alternative) của 1 requirement."""
         best: tuple[str, float] = ("missing", 0.0)
         for jd_norm in self.group_names(req):
             status, credit = self.evaluate_skill(jd_norm, cv_skills, cv_skills_expanded)
@@ -184,26 +212,11 @@ class SkillMatcher:
                 best = (status, credit)
         return best
 
-    def is_group_hard_missing(self, req, cv_skills: set[str],
-                              cv_skills_expanded: set[str]) -> bool:
-        """
-        A requirement is 'hard missing' only when NO alternative matches
-        (exact/implied/fuzzy) AND no alternative has strong same-category
-        coverage in a penalty-skip category. Mirrors the single-skill rule but
-        satisfied by any one option in the group.
-        """
-        status, _ = self.evaluate_group(req, cv_skills, cv_skills_expanded)
-        if status != "missing":
-            return False
-        for jd_norm in self.group_names(req):
-            cat = self._category_of(jd_norm)
-            if cat in self.PENALTY_SKIP_CATEGORIES and self.category_match(cv_skills, jd_norm) >= 0.4:
-                return False
-        return True
-
 
 # ---------------------------------------------------------------------------
 # Language-proficiency frameworks — ordinal, language-agnostic
+# Các hệ khung (framework) chứng chỉ trình độ ngôn ngữ — có thứ bậc, không
+# phụ thuộc ngôn ngữ cụ thể.
 # ---------------------------------------------------------------------------
 #
 # Standardized language certificates are ordered: a required level is satisfied
@@ -211,6 +224,14 @@ class SkillMatcher:
 # JLPT (Japanese), HSK (Chinese), TOPIK (Korean), TOEIC/TOEFL/IELTS (English),
 # CEFR (language-neutral). This replaces fuzzy-matching on level codes, which
 # can't tell direction apart ("N4" looks 86% similar to "N3" yet is BELOW it).
+#
+# Các chứng chỉ ngôn ngữ chuẩn hóa được xếp theo thứ bậc: một mức yêu cầu
+# được thỏa mãn bởi BẤT KỲ mức nào bằng hoặc cao hơn trong CÙNG 1 hệ khung,
+# áp dụng cho mọi ngôn ngữ — JLPT (tiếng Nhật), HSK (tiếng Trung), TOPIK
+# (tiếng Hàn), TOEIC/TOEFL/IELTS (tiếng Anh), CEFR (không phân biệt ngôn
+# ngữ). Cách này thay thế cho so khớp gần đúng (fuzzy) trên mã trình độ —
+# vốn không phân biệt được chiều hơn/kém (ví dụ "N4" giống 86% với "N3"
+# nhưng thực chất THẤP HƠN).
 
 _CEFR_RANK = {"a1": 1, "a2": 2, "b1": 3, "b2": 4, "c1": 5, "c2": 6}
 
@@ -229,8 +250,10 @@ _PROFICIENCY_PATTERNS: list[tuple[re.Pattern, str, "callable"]] = [
 
 def _parse_proficiency(token: str) -> Optional[tuple[str, float]]:
     """
-    (framework, rank) for a standardized language-proficiency token, else None.
-    Rank is comparable only within the same framework (higher = better).
+    Trích ra (framework, rank) cho 1 token trình độ ngôn ngữ chuẩn hóa
+    (ví dụ "JLPT N3", "TOEIC 835"), trả về None nếu token không khớp
+    framework nào. Rank chỉ so sánh được trong CÙNG 1 framework (số càng
+    cao càng giỏi).
     """
     t = token.lower()
     for pattern, framework, rank_of in _PROFICIENCY_PATTERNS:
@@ -244,11 +267,11 @@ _skill_matcher = SkillMatcher()
 
 
 # ---------------------------------------------------------------------------
-# D1: Semantic
+# D1: Semantic — điểm ngữ nghĩa dựa trên cosine similarity giữa 2 embedding
 # ---------------------------------------------------------------------------
 
 def cosine_sim(v1: list[float], v2: list[float]) -> float:
-    """Cosine similarity between two vectors. Returns [-1, 1] (typically [0, 1] for text)."""
+    """Tính cosine similarity giữa 2 vector. Trả về [-1, 1] (thường nằm trong [0, 1] với văn bản)."""
     a, b = np.asarray(v1, dtype=np.float32), np.asarray(v2, dtype=np.float32)
     denom = float(np.linalg.norm(a) * np.linalg.norm(b))
     return float(np.dot(a, b) / denom) if denom > 0 else 0.0
@@ -256,14 +279,17 @@ def cosine_sim(v1: list[float], v2: list[float]) -> float:
 
 def normalize_cosine(raw: float, min_val: float = 0.55, max_val: float = 0.90) -> float:
     """
-    Stretch [min_val, max_val] → [0, 1] so D1 scoring uses the full range.
-    Calibrated for gemini-embedding-001: floor ~0.55 (unrelated fields), ceiling ~0.90 (same-stack).
+    Kéo giãn (stretch) khoảng [min_val, max_val] → [0, 1] để điểm D1 tận
+    dụng hết toàn bộ thang điểm. Đã hiệu chỉnh (calibrate) riêng cho model
+    gemini-embedding-001: sàn ~0.55 (2 lĩnh vực không liên quan), trần ~0.90
+    (cùng 1 stack công nghệ).
     """
     return max(0.0, min((raw - min_val) / (max_val - min_val), 1.0))
 
 
 # ---------------------------------------------------------------------------
 # D2: Skills — alias + fuzzy + category
+# Điểm kỹ năng — so khớp qua alias, rồi gần đúng (fuzzy), rồi cùng nhóm (category)
 # ---------------------------------------------------------------------------
 
 # Separators inside a credential string: "Japanese - JLPT N3", "English: TOEIC 835".
@@ -272,9 +298,10 @@ _CREDENTIAL_SPLIT_RE = re.compile(r"[-–—:,/()]+")
 
 def _expand_credential(text: str) -> set[str]:
     """
-    A language/certification entry carries the qualification as a sub-token,
-    e.g. "Japanese - JLPT N3". Yield the whole string AND its parts
-    ("japanese", "jlpt n3") so a JD skill like "JLPT N3" can match exactly.
+    Một mục ngôn ngữ/chứng chỉ thường mang theo trình độ như 1 sub-token,
+    ví dụ "Japanese - JLPT N3". Trả về cả chuỗi nguyên bản LẪN các phần
+    tách ra ("japanese", "jlpt n3") để 1 kỹ năng JD như "JLPT N3" có thể
+    khớp chính xác với sub-token đó.
     """
     out: set[str] = set()
     whole = text.strip().lower()
@@ -290,9 +317,10 @@ def _expand_credential(text: str) -> set[str]:
 
 def _collect_cv_skills(cv: ParsedCV) -> set[str]:
     """
-    Aggregate skills from cv.skills + work_experience.tech_stack +
-    projects.tech_stack, plus languages/certifications (split into sub-tokens so
-    credentials like "JLPT N3" inside "Japanese - JLPT N3" become matchable).
+    Gộp toàn bộ kỹ năng từ cv.skills + work_experience.tech_stack +
+    projects.tech_stack, cộng thêm languages/certifications (được tách
+    thành sub-token để các chứng chỉ như "JLPT N3" nằm trong "Japanese -
+    JLPT N3" cũng trở thành kỹ năng có thể so khớp được).
     """
     skills: set[str] = {s.lower() for s in cv.skills}
     for exp in cv.work_experience:
@@ -312,13 +340,15 @@ def score_skills(
     matcher: Optional[SkillMatcher] = None,
 ) -> float:
     """
-    Tiered skill matching (per requirement, satisfied by any OR-alternative):
-      1. Normalize CV + JD skills via alias map
-      2. Exact match   → full weight
-      3. Implied match → full weight (e.g. CV has "react" → JD "javascript" is
-         logically guaranteed, sourced from IMPLIES / Wikidata P277)
-      4. Fuzzy match   → 0.9 × weight
-      5. Category match (same domain) → 0.3–0.5 × weight
+    So khớp kỹ năng theo từng bậc (tiered), mỗi requirement được thỏa mãn
+    bởi bất kỳ lựa chọn thay thế nào trong OR-group của nó:
+      1. Chuẩn hóa kỹ năng CV + JD qua bảng alias
+      2. Khớp chính xác     → tính đủ trọng số
+      3. Khớp suy luận      → tính đủ trọng số (ví dụ CV có "react" → JD
+         cần "javascript" thì coi như đã đảm bảo có, theo dữ liệu
+         IMPLIES / Wikidata P277)
+      4. Khớp gần đúng (fuzzy) → 0.9 × trọng số
+      5. Khớp cùng nhóm lĩnh vực (category) → 0.3–0.5 × trọng số
     """
     if not jd.required_skills:
         return 1.0
@@ -338,17 +368,20 @@ def score_skills(
 
 # ---------------------------------------------------------------------------
 # D3: Experience — relevance + recency + over-qualification
+# Điểm kinh nghiệm — tỷ lệ cơ bản + điều chỉnh theo độ liên quan/độ mới/over-qualification
 # ---------------------------------------------------------------------------
 
 def _months_since(dt: datetime.date) -> int:
+    """Số tháng tròn tính từ ngày `dt` đến hôm nay."""
     today = datetime.date.today()
     return (today.year - dt.year) * 12 + (today.month - dt.month)
 
 
 def _jd_domain_tokens(jd: ParsedJD) -> list[str]:
     """
-    Derive domain hints from JD title + keywords.
-    Filter to longer tokens to avoid generic noise.
+    Suy ra các từ khóa gợi ý lĩnh vực (domain hints) từ title + keywords
+    của JD. Chỉ lấy các từ đủ dài (>3 ký tự) để tránh nhiễu bởi các từ
+    chung chung, ít mang thông tin.
     """
     tokens: set[str] = set()
     if jd.title:
@@ -364,13 +397,13 @@ def _jd_domain_tokens(jd: ParsedJD) -> list[str]:
 
 def score_experience(cv: ParsedCV, jd: ParsedJD) -> float:
     """
-    Base: min(cv_years / jd_min_years, 1.0).
+    Điểm cơ bản: min(cv_years / jd_min_years, 1.0).
 
-    Modifiers (clamped final to [0, 1]):
-      + up to 0.20 if work history overlaps JD domain tokens
-      + 0.10 if latest job ended < 3 months ago (or is current)
-      - 0.10 if latest job ended > 12 months ago
-      - 0.05 if cv_years > 2 × jd_min_years (over-qualification)
+    Các hệ số điều chỉnh (modifier, kết quả cuối được chặn trong [0, 1]):
+      + tối đa 0.20 nếu lịch sử làm việc trùng với các từ khóa lĩnh vực của JD
+      + 0.10 nếu công việc gần nhất kết thúc < 3 tháng trước (hoặc đang làm)
+      - 0.10 nếu công việc gần nhất kết thúc > 12 tháng trước
+      - 0.05 nếu cv_years > 2 × jd_min_years (over-qualification — thừa kinh nghiệm)
     """
     if not jd.min_experience_years:
         return 1.0
@@ -411,11 +444,17 @@ def score_experience(cv: ParsedCV, jd: ParsedJD) -> float:
 
 
 # ---------------------------------------------------------------------------
-# D4: Education
+# D4: Education — điểm học vấn
 # ---------------------------------------------------------------------------
 
 def score_education(cv: ParsedCV, jd: ParsedJD) -> float:
-    """cv_degree_level / jd_required_degree_level, capped at 1.0."""
+    """
+    Tỷ lệ cv_degree_level / jd_required_degree_level, chặn trần ở 1.0
+    (bằng cấp cao hơn yêu cầu vẫn chỉ được tối đa điểm tuyệt đối, không
+    được cộng thêm). Nếu JD không yêu cầu bằng cấp cụ thể → 1.0. Nếu CV
+    không có thông tin bằng cấp → 0.5 (điểm trung lập, không phạt nặng vì
+    thiếu dữ liệu).
+    """
     jd_level = jd.required_degree_level
     if not jd_level:
         return 1.0
@@ -427,6 +466,8 @@ def score_education(cv: ParsedCV, jd: ParsedJD) -> float:
 
 # ---------------------------------------------------------------------------
 # D5: Location + Work Mode — driving-time estimate × work-mode compatibility
+# Điểm vị trí + hình thức làm việc — ước tính thời gian lái xe × mức độ phù
+# hợp hình thức làm việc (onsite/hybrid/remote)
 # ---------------------------------------------------------------------------
 
 _ROUTE_RETRY_DELAY_SECONDS = 0.5
@@ -434,19 +475,19 @@ _ROUTE_RETRY_DELAY_SECONDS = 0.5
 
 def score_location(parsed_jd: ParsedJD, parsed_cv: ParsedCV) -> float:
     """
-    D5 replacement for keyword matching. Formula:
-      1. JD is remote                       → 1.0
-      2. CV explicitly willing to relocate  → 1.0
-      3. lat/lng missing on either side (geocoding already ran at parse-time
-         — see parser.parse_jd/parse_cv — and either failed or there was no
-         address to geocode) → 0.5 (neutral, don't penalize missing data)
-      4. t = driving minutes via OSRM route; on failure, retry once after
-         0.5s; if it fails again → 0.5 (same neutral contract as missing
-         lat/lng — no distance fallback is computed)
-      5. T_max = 45 (onsite) or 75 (hybrid)
+    D5 thay thế cho cách so khớp bằng từ khóa (keyword) trước đây. Công thức:
+      1. JD là remote                          → 1.0
+      2. CV nói rõ sẵn sàng chuyển chỗ ở (relocate) → 1.0
+      3. Thiếu lat/lng ở 1 trong 2 bên (việc geocode đã chạy lúc parse —
+         xem parser.parse_jd/parse_cv — và bị lỗi hoặc không có địa chỉ để
+         geocode) → 0.5 (điểm trung lập, không phạt vì thiếu dữ liệu)
+      4. t = số phút lái xe qua route OSRM; nếu lỗi thì thử lại 1 lần sau
+         0.5s; nếu vẫn lỗi → 0.5 (cùng quy tắc trung lập như thiếu lat/lng —
+         không tính fallback theo khoảng cách đường chim bay)
+      5. T_max = 45 phút (onsite) hoặc 75 phút (hybrid)
       6. S_loc = max(0, 1 - t / T_max)
-      7. M = work-mode compatibility multiplier (see table below)
-      return round(S_loc * M, 3)
+      7. M = hệ số phù hợp hình thức làm việc (xem bảng bên dưới trong code)
+      trả về round(S_loc * M, 3)
     """
     work_mode = parsed_jd.work_location.work_mode
     if work_mode == "remote":
@@ -493,22 +534,28 @@ def score_location(parsed_jd: ParsedJD, parsed_cv: ParsedCV) -> float:
 
 # ---------------------------------------------------------------------------
 # D5 (deprecated) — Keywords: exact / word-boundary / multi-word
+# Cách chấm D5 cũ bằng từ khóa — ĐÃ NGƯNG DÙNG
 #
 # Superseded by score_location() above. Kept unused, not deleted, in case of
 # rollback. Not called anywhere in calculate_score() / calculate_score_with_rules().
+#
+# Đã được thay thế bởi score_location() ở trên. Vẫn giữ lại (không xóa)
+# phòng khi cần rollback. Không được gọi ở bất kỳ đâu trong
+# calculate_score() / calculate_score_with_rules().
 # ---------------------------------------------------------------------------
 
 def _clean_text_for_match(text: str) -> str:
+    """Lowercase văn bản và thay mọi ký tự không phải chữ/số/khoảng trắng bằng khoảng trắng, chuẩn bị cho so khớp từ khóa."""
     return re.sub(r"[^\w\s]", " ", text.lower())
 
 
 def score_keywords(cv_raw_text: str, jd: ParsedJD) -> float:
     """
-    Per-keyword score:
-      - exact substring or word-boundary match → 1.0
-      - multi-word phrase, all subwords present → 0.7
-      - otherwise → 0.0
-    Final = mean of keyword scores.
+    Điểm cho từng từ khóa (keyword):
+      - khớp chuỗi con hoặc khớp theo ranh giới từ (word-boundary) → 1.0
+      - cụm nhiều từ, tất cả các từ con đều xuất hiện → 0.7
+      - còn lại → 0.0
+    Điểm cuối = trung bình cộng điểm của tất cả từ khóa.
     """
     if not jd.keywords:
         return 1.0
@@ -550,6 +597,8 @@ def score_keywords(cv_raw_text: str, jd: ParsedJD) -> float:
 
 # ---------------------------------------------------------------------------
 # Seniority detection — shared with the evaluator's seniority analysis
+# Nhận diện cấp bậc (seniority) — dùng chung với phần phân tích seniority
+# trong evaluator.py, đảm bảo 2 nơi luôn tính ra kết quả nhất quán.
 # ---------------------------------------------------------------------------
 
 # Explicit seniority words. Generic role nouns (developer/engineer/...) carry
@@ -574,8 +623,7 @@ _LEVEL_KEYWORDS: list[tuple[str, int]] = [
 
 
 def _explicit_title_level(title: str) -> Optional[int]:
-    """Seniority level from an explicit keyword in the title, or None when the
-    title carries no seniority word (e.g. a bare 'Software Engineer')."""
+    """Xác định cấp bậc từ 1 từ khóa tường minh trong title, hoặc None nếu title không chứa từ khóa cấp bậc nào (ví dụ 'Software Engineer' trơn)."""
     if not title:
         return None
     t = title.lower()
@@ -584,17 +632,18 @@ def _explicit_title_level(title: str) -> Optional[int]:
 
 
 def _detect_level(title: str) -> int:
-    """Seniority level 0–4 from a job title. Defaults to mid-level (2)."""
+    """Cấp bậc (0–4) suy ra từ 1 job title. Mặc định là mid-level (2) nếu không có từ khóa cấp bậc rõ ràng."""
     lvl = _explicit_title_level(title)
     return lvl if lvl is not None else 2
 
 
 def jd_seniority_level(jd: ParsedJD) -> int:
     """
-    Seniority a JD is actually hiring for. An explicit title keyword wins
-    ('Senior Engineer' → 3); otherwise infer from required experience, because a
-    role open to fresh graduates with zero required years is entry-level, NOT the
-    mid-level default a bare title would fall back to.
+    Cấp bậc thực sự mà JD đang tuyển. Từ khóa tường minh trong title được
+    ưu tiên trước ('Senior Engineer' → 3); nếu không có, suy ra từ số năm
+    kinh nghiệm yêu cầu — vì một vị trí mở cho sinh viên mới ra trường (0
+    năm yêu cầu) là entry-level thực sự, KHÔNG nên mặc định về mid-level
+    như khi chỉ dựa vào title trơn.
     """
     explicit = _explicit_title_level(jd.title)
     if explicit is not None:
@@ -613,6 +662,7 @@ def jd_seniority_level(jd: ParsedJD) -> int:
 
 # ---------------------------------------------------------------------------
 # Aggregate — calculate_score
+# Tổng hợp — hàm chính tính ra điểm cuối cùng từ 5 chiều
 # ---------------------------------------------------------------------------
 
 def calculate_score(
@@ -625,7 +675,17 @@ def calculate_score(
     cosine_min:   float | None = None,
     cosine_max:   float | None = None,
 ) -> dict:
-    """Compute all 5 dimensions + final weighted score (0-100)."""
+    """
+    Tính toàn bộ 5 chiều (D1-D5) + điểm tổng hợp cuối cùng (0-100), có trọng
+    số theo cấu hình.
+
+    Nếu không truyền `weights`, dùng settings.default_weights; tương tự với
+    cosine_min/cosine_max dùng để normalize D1. Nếu không truyền
+    cv_raw_text, tự build từ parsed_cv (dùng để tính score_keywords nếu cần).
+
+    Trả về dict {"final_score": điểm tổng 0-100 (làm tròn 1 chữ số thập
+    phân), "scores": {tên chiều: điểm 0-100 của chiều đó}}.
+    """
     w = weights or settings.default_weights
     cosine_min = settings.cosine_min if cosine_min is None else cosine_min
     cosine_max = settings.cosine_max if cosine_max is None else cosine_max
@@ -646,64 +706,3 @@ def calculate_score(
         "final_score": round(final, 1),
         "scores":      {name: round(value * 100, 1) for name, value in dims.items()},
     }
-
-
-# ---------------------------------------------------------------------------
-# Business rules — must-have skills + minimum experience floor
-# ---------------------------------------------------------------------------
-
-def calculate_score_with_rules(
-    parsed_cv:         ParsedCV,
-    parsed_jd:         ParsedJD,
-    cv_embedding:      list[float],
-    jd_embedding:      list[float],
-    cv_raw_text:       str = "",
-    weights:           dict[str, float] | None = None,
-    cosine_min:        float | None = None,
-    cosine_max:        float | None = None,
-    enforce_must_have: bool = True,
-) -> dict:
-    """
-    Wrap calculate_score and apply hard-rule penalties:
-      - Each hard-missing must-have skill (weight ≥ 3): 0.15 penalty, cap 0.55.
-      - cv_years < 0.8 × jd.min_experience_years: 0.20 penalty.
-      - Total penalty capped at 0.70 (never crush a candidate to near-zero).
-    Adds `penalty_applied` and `penalty_reasons` to the result.
-    """
-    result = calculate_score(
-        parsed_cv, parsed_jd, cv_embedding, jd_embedding, cv_raw_text,
-        weights=weights, cosine_min=cosine_min, cosine_max=cosine_max,
-    )
-    if not enforce_must_have:
-        result["penalty_applied"] = 0.0
-        result["penalty_reasons"] = []
-        return result
-
-    matcher = _skill_matcher
-    cv_skills, cv_skills_expanded = matcher.normalized_cv_skills(parsed_cv)
-
-    penalty = 0.0
-    reasons: list[str] = []
-
-    hard_missing = [
-        matcher.group_label(req) for req in parsed_jd.required_skills
-        if req.weight >= 3
-        and matcher.is_group_hard_missing(req, cv_skills, cv_skills_expanded)
-    ]
-    if hard_missing:
-        penalty += min(0.15 * len(hard_missing), 0.55)
-        reasons.append(f"missing must-have skills: {hard_missing}")
-
-    if parsed_jd.min_experience_years:
-        cv_years = parsed_cv.total_exp_months / 12.0
-        min_required = 0.8 * parsed_jd.min_experience_years
-        if cv_years < min_required:
-            penalty += 0.20
-            reasons.append(f"insufficient experience: {cv_years:.1f}y < {min_required:.1f}y")
-
-    penalty = min(penalty, 0.70)
-    result["final_score"]     = round(result["final_score"] * (1 - penalty), 1)
-    result["penalty_applied"] = round(penalty, 3)
-    result["penalty_reasons"] = reasons
-    return result
-

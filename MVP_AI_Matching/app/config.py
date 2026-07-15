@@ -1,15 +1,22 @@
 """
 Application configuration — loads from .env via pydantic-settings.
 
-Two LLM providers + two embedding providers are supported. Switch via
-.env (LLM_PROVIDER, EMBED_PROVIDER) without code changes.
+Three LLM providers are supported, switchable via .env (LLM_PROVIDER).
+Embedding is Gemini-only (gemini-embedding-001).
 """
 
 from __future__ import annotations
 
 from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Single source of truth for which scoring dimensions exist. Anything that
+# needs to know "what are the 5 D's" (HR weight-override validation in
+# app/api/score.py, the defaults below) reads this instead of repeating the
+# name list.
+SCORE_DIMENSIONS: tuple[str, ...] = ("semantic", "skills", "experience", "education", "location")
 
 
 class Settings(BaseSettings):
@@ -30,14 +37,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model:   str = "gemini-2.5-flash"
 
-    # ---- Embedding provider ----
-    embed_provider: Literal["openai", "sentence_transformer", "gemini"] = "gemini"
-
-    openai_api_key:     str = ""
-    openai_embed_model: str = "text-embedding-3-small"     # 1536-dim
-
-    st_embed_model: str = "all-MiniLM-L6-v2"               # 384-dim, local
-
+    # ---- Embedding provider (Gemini only) ----
     gemini_embed_model: str = "gemini-embedding-001"          # 3072-dim
 
     # ---- Scoring ----
@@ -58,13 +58,17 @@ class Settings(BaseSettings):
 
     @property
     def default_weights(self) -> dict[str, float]:
-        return {
-            "semantic":   self.default_weight_semantic,
-            "skills":     self.default_weight_skills,
-            "experience": self.default_weight_experience,
-            "education":  self.default_weight_education,
-            "location":   self.default_weight_location,
-        }
+        return {name: getattr(self, f"default_weight_{name}") for name in SCORE_DIMENSIONS}
+
+    @model_validator(mode="after")
+    def _check_default_weights_sum_to_one(self) -> "Settings":
+        total = sum(self.default_weights.values())
+        if abs(total - 1.0) > 1e-6:
+            raise ValueError(
+                f"DEFAULT_WEIGHT_* must sum to 1.0, got {total:.4f} — check .env "
+                f"({self.default_weights})"
+            )
+        return self
 
 
 settings = Settings()

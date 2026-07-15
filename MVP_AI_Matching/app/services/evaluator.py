@@ -30,6 +30,22 @@ _DEFAULT_RECOMMENDATION = "possible_fit"
 # ---------------------------------------------------------------------------
 
 def _analyze_skills(cv: ParsedCV, jd: ParsedJD) -> dict:
+    """
+    Phân tích chi tiết mức độ khớp kỹ năng giữa CV và JD (bản mở rộng của
+    scorer.score_skills — ở đây cần trả về chi tiết từng skill để hiển thị
+    cho HR, không chỉ 1 con số tổng).
+
+    Với mỗi required_skill của JD (kể cả OR-group/alternatives), phân loại
+    thành: đã khớp (matched/matched_implied), thiếu skill bắt buộc
+    (missing_must_have, khi weight >= 3), hoặc thiếu skill không bắt buộc
+    lắm (missing_preferred, weight < 3). Sau đó phân tích thêm
+    preferred_skills của JD (chỉ để hiển thị, không ảnh hưởng điểm số).
+    Cuối cùng tính thêm "bonus_skills" — kỹ năng CV có mà JD không yêu cầu.
+
+    Trả về dict gồm: skill_details (danh sách SkillMatchDetail),
+    missing_must_have, missing_preferred, bonus_skills, và skill_match_rate
+    (tỷ lệ % trọng số đã khớp trên tổng trọng số required_skills).
+    """
     cv_skills, cv_skills_expanded = _matcher.normalized_cv_skills(cv)
 
     skill_details: list[SkillMatchDetail] = []
@@ -101,6 +117,19 @@ def _analyze_skills(cv: ParsedCV, jd: ParsedJD) -> dict:
 # ---------------------------------------------------------------------------
 
 def _analyze_experience(cv: ParsedCV, jd: ParsedJD) -> dict:
+    """
+    So sánh tổng số năm kinh nghiệm của candidate (cv.total_exp_years) với
+    số năm JD yêu cầu tối thiểu (jd.min_experience_years), trả về verdict
+    định tính cho HR đọc (không chỉ là con số):
+
+      - "not_required"   : JD không yêu cầu số năm kinh nghiệm cụ thể
+      - "over_qualified"  : CV có số năm >= gấp đôi yêu cầu
+      - "sufficient"      : CV có số năm >= 80% yêu cầu (coi là đủ)
+      - "insufficient"    : CV có số năm ít hơn 80% yêu cầu (thiếu kinh nghiệm)
+
+    Trả về dict {"verdict": ..., "detail": chuỗi mô tả tiếng Việt để hiển
+    thị trực tiếp cho HR}.
+    """
     if not jd.min_experience_years:
         return {
             "verdict": "not_required",
@@ -132,6 +161,16 @@ def _analyze_experience(cv: ParsedCV, jd: ParsedJD) -> dict:
 # ---------------------------------------------------------------------------
 
 def _analyze_education(cv: ParsedCV, jd: ParsedJD) -> str:
+    """
+    So sánh bằng cấp cao nhất của CV (cv.highest_degree_level) với bằng cấp
+    JD yêu cầu (jd.required_degree_level, đã quy đổi thành số thứ tự — level).
+
+    Trả về 1 trong 4 verdict dạng string:
+      - "not_required" : JD không yêu cầu bằng cấp cụ thể
+      - "exceeds"       : CV có bằng cấp cao hơn yêu cầu
+      - "meets"         : CV có bằng cấp đúng bằng yêu cầu
+      - "below"         : CV có bằng cấp thấp hơn yêu cầu
+    """
     jd_level = jd.required_degree_level
     if not jd_level:
         return "not_required"
@@ -151,6 +190,18 @@ _LEVEL_LABELS = {0: "Intern", 1: "Junior/Fresher", 2: "Mid-level", 3: "Senior/Le
 
 
 def _analyze_seniority(cv: ParsedCV, jd: ParsedJD) -> dict:
+    """
+    So sánh cấp bậc (seniority) hiện tại của candidate với cấp bậc mà JD
+    đang tuyển (tái sử dụng _detect_level / jd_seniority_level từ scorer.py
+    để đảm bảo 2 nơi tính seniority luôn nhất quán với nhau).
+
+    Role hiện tại của candidate lấy từ cv.current_role, nếu trống thì lấy
+    role của công việc gần nhất trong work_experience.
+
+    Trả về dict {"match": ..., "detail": ...} với match ∈ {"unknown",
+    "match", "over_qualified", "under_qualified"} tùy vào chênh lệch cấp
+    bậc (diff = cv_level - jd_level).
+    """
     if not jd.title:
         return {"match": "unknown", "detail": ""}
 
@@ -176,6 +227,13 @@ def _analyze_seniority(cv: ParsedCV, jd: ParsedJD) -> dict:
 # Step 5 — LLM narrative (1 call)
 # ---------------------------------------------------------------------------
 
+# Prompt sinh đoạn nhận xét (narrative) bằng tiếng Việt cho HR, dựa trên kết
+# quả phân tích Python ở 4 bước trên (skill/experience/education/seniority).
+# LLM chỉ đóng vai trò "viết văn" tự nhiên từ dữ liệu đã có sẵn — mọi con số
+# (tỷ lệ khớp skill, số năm kinh nghiệm...) đều do Python tính trước, LLM
+# không tự suy luận số liệu. Cuối prompt yêu cầu LLM tự chấm 1 trong 4 mức
+# recommendation theo quy tắc rõ ràng (dựa trên skill_match_rate + số
+# must-have skill còn thiếu) để đảm bảo tính nhất quán.
 _NARRATIVE_PROMPT = """\
 Bạn là chuyên viên tuyển dụng cấp cao. Hãy viết một đoạn đánh giá ứng viên \
 bằng tiếng Việt, theo phong cách nhận xét chuyên nghiệp như người thật viết cho người thật — \
@@ -219,6 +277,20 @@ Quy tắc chọn recommendation:
 
 
 async def _llm_narrative(cv: ParsedCV, jd: ParsedJD, analysis: dict) -> dict:
+    """
+    Gọi LLM đúng 1 lần để sinh đoạn nhận xét (narrative) + recommendation,
+    dựa trên kết quả phân tích Python (skill/experience/education/seniority)
+    đã gộp sẵn trong `analysis`.
+
+    Sau khi nhận raw_text từ LLM, tách riêng phần narrative (đoạn văn) và
+    phần "RECOMMENDATION: ..." (dòng cuối). Nếu LLM trả về nhãn
+    recommendation không hợp lệ (không nằm trong VALID_RECOMMENDATIONS) hoặc
+    quên không kèm dòng RECOMMENDATION, sẽ dùng _DEFAULT_RECOMMENDATION
+    ("possible_fit") làm giá trị an toàn thay vì để lỗi.
+
+    Trả về dict {"narrative": đoạn văn tiếng Việt, "recommendation": nhãn
+    khuyến nghị}.
+    """
     matched = [d.skill for d in analysis["skill_details"] if d.status == "matched"]
 
     edu_map = {

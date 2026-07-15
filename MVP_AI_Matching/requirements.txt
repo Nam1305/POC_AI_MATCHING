@@ -18,12 +18,8 @@ pillow>=10.0.0                    # image processing for OCR
 python-docx>=1.1.0                # DOCX text extraction
 
 # --- LLM Providers (Stage 2 + 5 + 10) ---
-# Option A: Paid providers (production)
 anthropic>=0.40.0                 # Claude Sonnet 4.6
-openai>=1.30.0                    # text-embedding-3-small (1536-dim) + Groq compat
-
-# Option B: Free providers (dev / fallback)
-sentence-transformers>=2.7.0      # local embedding (all-MiniLM-L6-v2, 384-dim)
+openai>=1.30.0                    # OpenAI-compatible client for Gemini + Groq (chat + gemini-embedding-001)
 
 # --- Numerical Computing (Stage 4) ---
 numpy>=1.26.0                     # cosine similarity, vector ops

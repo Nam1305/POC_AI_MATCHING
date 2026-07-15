@@ -1,24 +1,34 @@
 """
-Static skill taxonomy — the hand-maintained data tables the SkillMatcher runs on.
+Bảng dữ liệu kỹ năng (skill taxonomy) — các bảng dữ liệu tĩnh, được duy trì
+thủ công, mà SkillMatcher (trong scorer.py) dùng để so khớp kỹ năng.
 
-Kept separate from scorer.py (the matching logic) so the vocabulary can grow
-without touching algorithms, and so tools can import the data cheaply:
+File này được tách riêng khỏi scorer.py (nơi chứa logic so khớp) để:
+  - Vốn từ vựng (vocabulary) kỹ năng có thể mở rộng dần mà không phải đụng
+    vào code thuật toán
+  - Các công cụ khác (ví dụ script generate_implies_llm.py) có thể import
+    dữ liệu này với chi phí thấp, không cần kéo theo logic scoring
 
-  ALIASES                 variant spelling → canonical token  (reactjs → react)
-  CATEGORIES              canonical token → broad domain bucket (partial-credit)
-  PENALTY_SKIP_CATEGORIES categories where same-domain coverage waives the hard
-                          must-have penalty
-  MANUAL_IMPLIES          concept edges the generated IMPLIES graph must always
-                          contain
-  IMPLIES                 the generated implication graph (re-exported)
-  IMPLIES_ALL             the effective graph the matcher runs on
+Các bảng dữ liệu:
+  ALIASES                 ánh xạ từ biến thể cách viết → tên kỹ năng chuẩn
+                          (canonical token), ví dụ "reactjs" → "react"
+  CATEGORIES              tên kỹ năng chuẩn → nhóm lĩnh vực lớn (dùng để
+                          chấm điểm "partial credit" khi cùng nhóm nhưng
+                          không khớp chính xác)
+  MANUAL_IMPLIES          các cạnh (edge) quan hệ "biết X thì chắc chắn biết
+                          Y" mà đồ thị IMPLIES sinh tự động BẮT BUỘC phải
+                          luôn chứa (đảm bảo không bị mất khi regenerate)
+  IMPLIES                 đồ thị suy luận (implication graph) được sinh tự
+                          động (re-export từ skill_implies.py)
+  IMPLIES_ALL             đồ thị suy luận thực sự mà matcher sử dụng
                           = IMPLIES ∪ MANUAL_IMPLIES
 
-This module is the single import surface for all skill data. The raw generated
-graph physically lives in skill_implies.py — a machine-written file that
-scripts/generate_implies_llm.py OVERWRITES wholesale, which is exactly why it
-stays a separate file from this hand-maintained one. Here it is only re-exported
-and merged, so consumers import everything from skill_data.
+File này là điểm import duy nhất cho toàn bộ dữ liệu kỹ năng. Đồ thị sinh
+tự động (raw generated graph) thực sự nằm trong skill_implies.py — một file
+do máy ghi ra (machine-written), bị scripts/generate_implies_llm.py GHI ĐÈ
+TOÀN BỘ mỗi lần chạy lại — đó chính là lý do nó phải tách riêng khỏi file
+này (file được duy trì thủ công). Ở đây, IMPLIES chỉ được re-export và gộp
+(merge) lại, để mọi nơi khác trong code chỉ cần import từ skill_data, không
+cần biết đến skill_implies.py.
 """
 
 from __future__ import annotations
@@ -28,6 +38,9 @@ from app.services.skill_implies import IMPLIES  # generated graph — see genera
 
 # ---------------------------------------------------------------------------
 # ALIASES — variant spelling → canonical skill token
+# ánh xạ biến thể cách viết (viết tắt, có version, có ký tự đặc biệt...)
+# về một tên kỹ năng chuẩn duy nhất, để SkillMatcher.normalize_skill() so
+# khớp được dù CV/JD viết khác nhau (vd "JS", "Javascript", "ES6+" đều → "javascript")
 # ---------------------------------------------------------------------------
 
 ALIASES: dict[str, str] = {
@@ -150,6 +163,10 @@ ALIASES: dict[str, str] = {
 
 # ---------------------------------------------------------------------------
 # CATEGORIES — canonical token → broad domain bucket (drives partial credit)
+# Nhóm các kỹ năng chuẩn hóa vào từng lĩnh vực lớn. Dùng để chấm điểm
+# "partial credit" (category_match trong scorer.py): nếu JD cần 1 kỹ năng
+# CV không có chính xác, nhưng CV có nhiều kỹ năng khác cùng nhóm lĩnh vực
+# thì vẫn được cộng một phần điểm (0.3–0.5) thay vì 0.
 # ---------------------------------------------------------------------------
 
 CATEGORIES: dict[str, set[str]] = {
@@ -176,24 +193,17 @@ CATEGORIES: dict[str, set[str]] = {
 }
 
 
-# Categories where having related tools at category_match ≥ 0.4 justifies
-# skipping the hard penalty (D2 already reflects the skill gap via partial credit).
-# "frontend" is included because TypeScript+ReactJS strongly implies JavaScript.
-# "language" is excluded — knowing Python does NOT cover Java, Go, etc.
-PENALTY_SKIP_CATEGORIES: set[str] = {
-    "ml_frameworks", "ml_domain", "dotnet", "devops", "cloud", "frontend",
-    "dataviz",
-}
-
 
 # ---------------------------------------------------------------------------
 # MANUAL_IMPLIES — concept edges the generated IMPLIES graph must always contain
+# Các cạnh "neo" (anchor edges) mà file skill_implies.py sinh tự động bằng
+# LLM luôn phải chứa, và scorer.py sẽ gộp (merge) đè lên trên đồ thị sinh tự
+# động: một thư viện cụ thể thì chắc chắn đảm bảo khả năng mà nó sinh ra để
+# phục vụ (Chart.js → data visualization) hoặc giao thức nó bọc quanh
+# (axios → REST). Được giữ riêng ở đây để mỗi lần regenerate skill_implies.py
+# không bao giờ vô tình làm mất các cạnh quan trọng này.
 # ---------------------------------------------------------------------------
 
-# Anchor edges that the LLM-generated skill_implies.py is seeded with and that
-# scorer.py merges on top of it: a concrete library guarantees the capability it
-# exists to provide (Chart.js → data visualization) or the transport it wraps
-# (axios → REST). Kept here so a regeneration can never silently drop them.
 MANUAL_IMPLIES: dict[str, set[str]] = {
     "chartjs":    {"data_visualization", "javascript"},
     "d3js":       {"data_visualization", "javascript"},
@@ -206,10 +216,13 @@ MANUAL_IMPLIES: dict[str, set[str]] = {
 
 # ---------------------------------------------------------------------------
 # IMPLIES_ALL — effective implication graph the matcher runs on
+# Đồ thị suy luận thực sự mà SkillMatcher sử dụng
+# = đồ thị sinh tự động (IMPLIES) ∪ các cạnh neo thủ công (MANUAL_IMPLIES).
+# Được dựng đúng 1 lần lúc import module; phép bao đóng bắc cầu (transitive
+# closure — ví dụ nextjs → react → javascript) được áp dụng mỗi lần tra cứu,
+# nằm trong SkillMatcher.implied_skills() ở scorer.py.
 # ---------------------------------------------------------------------------
 
-# = generated graph (IMPLIES) ∪ hand-anchored concept edges (MANUAL_IMPLIES).
-# Built once at import; the transitive closure is applied per-lookup in scorer.
 IMPLIES_ALL: dict[str, set[str]] = {k: set(v) for k, v in IMPLIES.items()}
 for _src, _targets in MANUAL_IMPLIES.items():
     IMPLIES_ALL.setdefault(_src, set()).update(_targets)

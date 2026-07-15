@@ -1,15 +1,14 @@
 """
-Stage 3 — Dense Embedding
+Stage 3 — Dense Embedding (Tạo vector nhúng cho văn bản)
 
-Converts text into a dense vector for D1 semantic scoring.
-Provider selected via .env EMBED_PROVIDER:
+File này chịu trách nhiệm chuyển văn bản (CV hoặc JD) thành một vector số
+thực (dense vector) để dùng cho D1 — điểm số ngữ nghĩa (semantic score) khi
+so khớp CV với JD bằng cosine similarity (xem scorer.py::cosine_sim).
 
-  - openai                : text-embedding-3-small   (1536-dim, paid)
-  - sentence_transformer  : all-MiniLM-L6-v2         (384-dim,  local, free)
-  - gemini                : gemini-embedding-001       (3072-dim, paid)
-
-Both providers run in a thread executor so FastAPI's event loop stays responsive.
-The vector dim is consistent across CV/JD as long as the provider doesn't change.
+Provider embedding duy nhất được hỗ trợ: Gemini (model gemini-embedding-001,
+3072 chiều, trả phí). Client được chạy trong thread executor (asyncio
+run_in_executor) để không làm nghẽn event loop của FastAPI (vì SDK là hàm
+đồng bộ/blocking).
 """
 
 from __future__ import annotations
@@ -22,34 +21,21 @@ from app.config import settings
 
 
 # ---------------------------------------------------------------------------
-# Lazy singletons
+# Lazy singleton — chỉ khởi tạo client khi thực sự cần dùng lần đầu
 # ---------------------------------------------------------------------------
 
-_openai_client = None
-_st_model = None
 _gemini_embed_client = None
 
 
-def _get_openai() -> OpenAI:
-    global _openai_client
-    if _openai_client is None:
-        if not settings.openai_api_key:
-            raise RuntimeError("OPENAI_API_KEY not set in .env")
-        _openai_client = OpenAI(api_key=settings.openai_api_key)
-    return _openai_client
-
-
-def _get_sentence_transformer():
-    """Lazy import to avoid loading heavy torch deps when using OpenAI."""
-    global _st_model
-    if _st_model is None:
-        from sentence_transformers import SentenceTransformer
-        print(f"Loading embedding model: {settings.st_embed_model} ...")
-        _st_model = SentenceTransformer(settings.st_embed_model)
-    return _st_model
-
-
 def _get_gemini_embed() -> OpenAI:
+    """
+    Trả về client gọi Gemini dùng chung (singleton), tạo mới nếu chưa có.
+
+    Gemini không có SDK embedding riêng ở đây — ta tận dụng client OpenAI
+    trỏ vào endpoint tương thích OpenAI của Google
+    (generativelanguage.googleapis.com/v1beta/openai/) để tái sử dụng cùng
+    một interface .embeddings.create(...). Nếu thiếu GEMINI_API_KEY sẽ raise lỗi.
+    """
     global _gemini_embed_client
     if _gemini_embed_client is None:
         if not settings.gemini_api_key:
@@ -61,25 +47,8 @@ def _get_gemini_embed() -> OpenAI:
     return _gemini_embed_client
 
 
-# ---------------------------------------------------------------------------
-# Provider-specific embed (sync)
-# ---------------------------------------------------------------------------
-
-def _embed_openai(text: str) -> list[float]:
-    client = _get_openai()
-    response = client.embeddings.create(
-        model=settings.openai_embed_model,
-        input=text,
-    )
-    return response.data[0].embedding
-
-
-def _embed_st(text: str) -> list[float]:
-    model = _get_sentence_transformer()
-    return model.encode(text, normalize_embeddings=True).tolist()
-
-
-def _embed_gemini(text: str) -> list[float]:
+def _embed_sync(text: str) -> list[float]:
+    """Gọi API embeddings của Gemini cho 1 đoạn text, trả về vector 3072 chiều."""
     client = _get_gemini_embed()
     response = client.embeddings.create(
         model=settings.gemini_embed_model,
@@ -88,24 +57,17 @@ def _embed_gemini(text: str) -> list[float]:
     return response.data[0].embedding
 
 
-def _embed_sync(text: str) -> list[float]:
-    if settings.embed_provider == "openai":
-        return _embed_openai(text)
-    if settings.embed_provider == "gemini":
-        return _embed_gemini(text)
-    return _embed_st(text)
-
-
 # ---------------------------------------------------------------------------
-# Public async API
+# Public async API — hàm public để các module khác (parser, main, ...) gọi
 # ---------------------------------------------------------------------------
 
 async def embed(text: str) -> list[float]:
     """
-    Compute embedding for a single text. Returns:
-      - 1536-dim list[float] if EMBED_PROVIDER=openai
-      - 384-dim  list[float] if EMBED_PROVIDER=sentence_transformer
-      - 3072-dim list[float] if EMBED_PROVIDER=gemini
+    Tính embedding cho một đoạn text (bất đồng bộ), trả về vector 3072 chiều.
+
+    Vì SDK embedding là hàm đồng bộ (blocking), hàm này đẩy việc gọi thực sự
+    (_embed_sync) sang một thread executor để không chặn event loop của
+    FastAPI, cho phép server tiếp tục xử lý các request khác song song.
     """
     if not text or not text.strip():
         raise ValueError("Cannot embed empty text")
@@ -113,9 +75,5 @@ async def embed(text: str) -> list[float]:
 
 
 def embedding_dim() -> int:
-    """Return the dimension produced by the active provider."""
-    if settings.embed_provider == "openai":
-        return 1536
-    if settings.embed_provider == "gemini":
-        return 3072
-    return 384
+    """Trả về số chiều (dimension) của vector do gemini-embedding-001 tạo ra."""
+    return 3072

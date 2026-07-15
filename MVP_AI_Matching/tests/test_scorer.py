@@ -13,7 +13,7 @@ from app.services.scorer import (
     cosine_sim, normalize_cosine,
     score_skills, score_experience, score_education, score_keywords,
     score_location,
-    calculate_score, calculate_score_with_rules,
+    calculate_score,
 )
 
 
@@ -133,21 +133,6 @@ def test_score_skills_or_group_satisfied_by_one_alternative():
     assert score_skills(cv, jd) == pytest.approx(1.0)
 
 
-def test_or_group_not_flagged_hard_missing():
-    # A candidate with one option of an OR-group must not be penalized for
-    # lacking the redundant alternatives.
-    cv = ParsedCV(skills=["React.js", "TypeScript"])
-    jd = ParsedJD(
-        title="Frontend",
-        required_skills=[
-            RequiredSkill(skill="React.js", weight=3, alternatives=["Vue.js"]),
-        ],
-    )
-    res = calculate_score_with_rules(cv, jd, [1.0, 0.0], [1.0, 0.0], "react")
-    assert res["penalty_applied"] == 0.0
-    assert res["penalty_reasons"] == []
-
-
 def test_chartjs_implies_data_visualization():
     # Chart.js is a data-visualization library; a JD asking for "Data
     # Visualization" must count it as matched (concept implication), not missing.
@@ -157,8 +142,6 @@ def test_chartjs_implies_data_visualization():
         required_skills=[RequiredSkill(skill="Data Visualization", weight=3)],
     )
     assert score_skills(cv, jd) == pytest.approx(1.0)
-    res = calculate_score_with_rules(cv, jd, [1.0, 0.0], [1.0, 0.0], "chart.js")
-    assert res["penalty_applied"] == 0.0
 
 
 def test_rest_apis_plural_alias():
@@ -280,42 +263,6 @@ def test_calculate_score_returns_full_breakdown():
     assert 0 <= out["final_score"] <= 100
     for dim in ("semantic", "skills", "experience", "education", "location"):
         assert 0 <= out["scores"][dim] <= 100
-
-
-def test_calculate_score_with_rules_must_have_and_exp():
-    cv = ParsedCV(skills=["python"])  # missing Java
-    jd = ParsedJD(
-        title="Backend",
-        required_skills=[
-            RequiredSkill(skill="Python", weight=1),
-            RequiredSkill(skill="Java", weight=3),  # must-have
-        ],
-        min_experience_years=1,
-    )
-    cv_vec = [1.0, 0.0]
-    jd_vec = [1.0, 0.0]
-    # 1 hard missing must-have → 0.15 penalty; 0 yrs < 0.8*1 → 0.20 penalty; total=0.35
-    res = calculate_score_with_rules(cv, jd, cv_vec, jd_vec, "python")
-    assert res["penalty_applied"] == pytest.approx(0.35)
-    assert "missing must-have skills" in res["penalty_reasons"][0]
-    assert "insufficient experience" in res["penalty_reasons"][1]
-
-
-def test_calculate_score_with_rules_implied_skill_no_penalty():
-    # Regression test for the original reported bug: JD requires "JavaScript"
-    # as a must-have, CV only lists "ReactJS" (no explicit JavaScript entry).
-    # Before IMPLIES, this incurred a 0.15 hard-missing penalty even though
-    # knowing React logically guarantees knowing JavaScript.
-    cv = ParsedCV(skills=["reactjs"])
-    jd = ParsedJD(
-        title="Frontend",
-        required_skills=[RequiredSkill(skill="JavaScript", weight=3)],
-    )
-    cv_vec = [1.0, 0.0]
-    jd_vec = [1.0, 0.0]
-    res = calculate_score_with_rules(cv, jd, cv_vec, jd_vec, "reactjs")
-    assert res["penalty_applied"] == 0.0
-    assert res["penalty_reasons"] == []
 
 
 # ---------------------------------------------------------------------------

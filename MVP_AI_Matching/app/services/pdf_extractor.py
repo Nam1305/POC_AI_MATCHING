@@ -1,13 +1,17 @@
 """
-Stage 1 — Document Processing
+Stage 1 — Document Processing (Trích xuất văn bản từ file CV)
 
-Extract clean text from PDF/DOCX files (received as bytes from FastAPI UploadFile).
+File này chịu trách nhiệm trích xuất văn bản sạch (clean text) từ file
+PDF/DOCX nhận vào dưới dạng bytes (từ FastAPI UploadFile), để văn bản này
+được đưa tiếp sang Stage 2 (parser.py) trích xuất thông tin có cấu trúc.
 
-Pipeline:
-  1. PyMuPDF smart layout extraction (1-col vs 2-col detection)
-  2. Quality scoring (0–100 heuristic)
-  3. If PDF quality < 60 → OCR fallback (Tesseract)
-  4. DOCX → python-docx paragraph extraction
+Pipeline xử lý:
+  1. Trích xuất bằng PyMuPDF với logic nhận diện layout thông minh
+     (phát hiện 1 cột hay 2 cột)
+  2. Chấm điểm chất lượng văn bản trích xuất được (thang 0–100, theo heuristic)
+  3. Nếu là PDF và điểm chất lượng < 60 → fallback sang OCR (Tesseract),
+     thường xảy ra với PDF dạng scan/ảnh (không có text layer)
+  4. Nếu là DOCX → trích xuất bằng python-docx (đọc từng đoạn văn/paragraph)
 """
 
 from __future__ import annotations
@@ -22,13 +26,22 @@ from docx import Document           # python-docx
 
 
 # ---------------------------------------------------------------------------
-# Public entry point
+# Public entry point — hàm duy nhất mà các module khác cần gọi
 # ---------------------------------------------------------------------------
 
 def extract_text(file_bytes: bytes, filename: str) -> str:
     """
-    Dispatch based on file extension.
-    Returns clean text (whitespace normalized, control chars removed).
+    Điểm vào chính của module: nhận bytes của file + tên file, tự động phân
+    loại theo phần mở rộng (.pdf / .docx) rồi gọi hàm trích xuất tương ứng.
+
+    Với PDF: trích xuất bằng smart layout trước, nếu chất lượng quá thấp
+    (score < 60, khả năng cao là PDF dạng scan) thì tự động fallback sang OCR.
+
+    Trả về text đã được làm sạch (chuẩn hóa khoảng trắng, loại bỏ ký tự
+    điều khiển — control characters).
+
+    Raise ValueError nếu phần mở rộng file không được hỗ trợ (chỉ nhận
+    .pdf / .docx).
     """
     ext = filename.lower().rsplit(".", 1)[-1]
 
@@ -52,9 +65,18 @@ def extract_text(file_bytes: bytes, filename: str) -> str:
 
 def extract_text_smart_layout(file_bytes: bytes) -> str:
     """
-    PyMuPDF block-level extraction with 1-column vs 2-column detection.
-    For 2-col layouts, reads header → right column → left column to preserve
-    reading order in CVs that put the timeline on the left and content on right.
+    Trích xuất text từ PDF ở cấp độ block bằng PyMuPDF, có nhận diện layout
+    1 cột hay 2 cột cho từng trang.
+
+    Vì sao cần: nhiều mẫu CV có layout 2 cột (ví dụ cột trái là timeline/kỹ
+    năng, cột phải là nội dung chi tiết) — nếu đọc theo thứ tự tọa độ y
+    thông thường (top-to-bottom) sẽ bị trộn lẫn nội dung 2 cột, sai thứ tự
+    đọc. Hàm này xử lý bằng cách: đọc phần header trước, rồi đọc cột phải,
+    rồi mới đến cột trái — để giữ đúng thứ tự đọc tự nhiên của CV.
+
+    Cách phát hiện 2 cột: đếm số block có tâm (center_x) nằm bên trái 45%
+    chiều rộng trang và số block nằm bên phải 55% chiều rộng trang; nếu cả
+    2 phía đều có ít nhất 2 block thì coi là layout 2 cột.
     """
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     all_pages: list[str] = []
@@ -113,18 +135,24 @@ def extract_text_smart_layout(file_bytes: bytes) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Quality heuristic
+# Quality heuristic — ước lượng độ tin cậy của text vừa trích xuất
 # ---------------------------------------------------------------------------
 
 def evaluate_extracted_text_quality(text: str) -> dict:
     """
-    Heuristic 0–100 score. Low score = likely scanned/image PDF → need OCR.
+    Chấm điểm heuristic 0–100 cho chất lượng text vừa trích xuất được.
+    Điểm càng thấp thì khả năng đây là PDF dạng scan/ảnh (không có text
+    layer thật) càng cao → cần OCR fallback.
 
-    Signals:
-      - Length (very short text → poor extraction)
-      - Word count (raw chars vs. tokens)
-      - Garbage chars ratio (replacement chars, weird symbols)
-      - Average word length (sane words are 4–8 chars)
+    Các tín hiệu (signal) được dùng để trừ điểm:
+      - Độ dài text quá ngắn (< 100 ký tự) → trích xuất kém
+      - Số lượng từ quá ít (< 30 từ)       → nội dung không đáng kể
+      - Tỷ lệ ký tự rác (garbage char, ví dụ ký tự thay thế "�") quá cao
+      - Độ dài từ trung bình bất thường (từ có nghĩa thường dài 4–8 ký tự;
+        quá ngắn hoặc quá dài gợi ý lỗi encode/OCR)
+
+    Trả về dict {"score": điểm cuối (đã clamp >= 0), "reasons": danh sách lý
+    do bị trừ điểm, "word_count": số từ đếm được}.
     """
     score = 100
     reasons: list[str] = []
@@ -154,13 +182,17 @@ def evaluate_extracted_text_quality(text: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# OCR fallback
+# OCR fallback — dùng khi PDF là bản scan/ảnh, không có text layer tốt
 # ---------------------------------------------------------------------------
 
 def ocr_pdf_with_tesseract(file_bytes: bytes, dpi: int = 200, lang: str = "eng+vie") -> str:
     """
-    Rasterize each page at `dpi`, run Tesseract OCR.
-    Requires Tesseract binary installed (Docker: tesseract-ocr + tesseract-ocr-vie).
+    Render (rasterize) từng trang PDF thành ảnh PNG ở độ phân giải `dpi`,
+    sau đó chạy Tesseract OCR để đọc chữ từ ảnh (dùng khi PDF không có text
+    layer đáng tin cậy — ví dụ file scan).
+
+    Yêu cầu: máy chạy phải cài binary Tesseract (trong Docker: cần cài gói
+    tesseract-ocr + tesseract-ocr-vie để đọc được cả tiếng Anh và tiếng Việt).
     """
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     pages_text: list[str] = []
@@ -181,11 +213,14 @@ def ocr_pdf_with_tesseract(file_bytes: bytes, dpi: int = 200, lang: str = "eng+v
 
 
 # ---------------------------------------------------------------------------
-# DOCX
+# DOCX — trích xuất text từ file Word
 # ---------------------------------------------------------------------------
 
 def extract_text_from_docx(file_bytes: bytes) -> str:
-    """Read all paragraphs + table cells from a .docx file."""
+    """
+    Đọc toàn bộ đoạn văn (paragraphs) và nội dung ô bảng (table cells) từ
+    file .docx, nối lại thành 1 chuỗi text (mỗi phần tử 1 dòng).
+    """
     doc = Document(io.BytesIO(file_bytes))
     parts: list[str] = []
 
@@ -205,11 +240,17 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Text cleaning
+# Text cleaning — chuẩn hóa text trước khi trả về cho tầng sau
 # ---------------------------------------------------------------------------
 
 def clean_text(text: str) -> str:
-    """Normalize whitespace, strip control characters."""
+    """
+    Chuẩn hóa khoảng trắng và loại bỏ ký tự điều khiển (control characters):
+      - Thay ký tự null (\\x00) bằng khoảng trắng
+      - Gộp nhiều space/tab liên tiếp thành 1 space
+      - Gộp 3+ dòng trống liên tiếp thành tối đa 2 dòng trống (1 dòng trắng phân cách)
+      - Cắt khoảng trắng thừa ở đầu/cuối chuỗi
+    """
     text = text.replace("\x00", " ")
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text)

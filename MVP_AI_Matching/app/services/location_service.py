@@ -1,15 +1,21 @@
 """
-Location + travel-time estimation for D5 (Location + Work Mode) scoring.
+Location Service — ước tính khoảng cách/thời gian di chuyển cho D5 (Location + Work Mode).
 
-Uses two free, no-key public APIs:
-  - Nominatim (OpenStreetMap) for geocoding — https://nominatim.org/
-  - OSRM public demo server for driving routes — http://project-osrm.org/
+File này cung cấp 2 chức năng lõi phục vụ D5 (điểm số vị trí + hình thức
+làm việc) trong scorer.py:
+  1. Geocode địa chỉ (text) → tọa độ (lat/lng)
+  2. Tính khoảng cách/thời gian lái xe giữa 2 tọa độ
 
-Stateless by design (no caching, no DB) to match this service's existing
-architecture (see docs/Overview.md: "AI service is stateless, no DB, no auth").
-Every HTTP call is wrapped in try/except with a timeout; failures return None
-so callers (scorer.py) can fall back gracefully, mirroring the per-item error
-handling already used elsewhere in this service (e.g. /ai/parse-cv).
+Dùng 2 API công khai, miễn phí, không cần key:
+  - Nominatim (OpenStreetMap) để geocode — https://nominatim.org/
+  - OSRM public demo server để tính route lái xe — http://project-osrm.org/
+
+Thiết kế stateless (không cache, không lưu DB) để khớp với kiến trúc chung
+của service này (xem docs/Overview.md: "AI service is stateless, no DB, no
+auth"). Mỗi lời gọi HTTP đều được bọc trong try/except kèm timeout; nếu lỗi
+sẽ trả về None để nơi gọi (scorer.py) có thể fallback về điểm trung lập,
+theo đúng cách xử lý lỗi từng-phần-tử (per-item error handling) đã dùng ở
+những chỗ khác trong service (ví dụ /ai/parse-cv).
 """
 
 from __future__ import annotations
@@ -30,13 +36,15 @@ _TIMEOUT_SECONDS = 5.0
 
 def geocode(address_text: str) -> dict | None:
     """
-    Geocode a Vietnamese address via Nominatim.
+    Geocode một địa chỉ tiếng Việt (chuyển từ text sang tọa độ) qua Nominatim.
 
-    Appends ", Vietnam" to the query. If the full-address query returns no
-    result, falls back to just the last comma-separated segment (usually the
-    city) + ", Vietnam".
+    Cách làm:
+      1. Thêm ", Vietnam" vào cuối chuỗi query để tăng độ chính xác.
+      2. Nếu query đầy đủ không ra kết quả, thử lại chỉ với đoạn cuối cùng
+         (phân tách bởi dấu phẩy — thường là tên thành phố) + ", Vietnam".
 
-    Returns {"lat": float, "lng": float, "display_name": str} or None.
+    Trả về {"lat": float, "lng": float, "display_name": str} nếu thành công,
+    hoặc None nếu không tìm được / lỗi.
     """
     if not address_text or not address_text.strip():
         return None
@@ -56,6 +64,11 @@ def geocode(address_text: str) -> dict | None:
 
 
 def _geocode_query(query: str) -> dict | None:
+    """
+    Gọi thực API Nominatim cho 1 chuỗi query cụ thể, lấy kết quả khớp đầu
+    tiên (limit=1). Mọi lỗi (timeout, HTTP lỗi, không có kết quả) đều được
+    nuốt và trả về None — geocode() sẽ tự thử candidate tiếp theo.
+    """
     try:
         resp = httpx.get(
             NOMINATIM_URL,
@@ -79,11 +92,12 @@ def _geocode_query(query: str) -> dict | None:
 
 def get_route(coord1: dict, coord2: dict) -> dict | None:
     """
-    Get driving distance/duration between two coords via the OSRM public
-    demo server. coord1/coord2: {"lat": float, "lng": float}.
+    Lấy khoảng cách/thời gian lái xe giữa 2 tọa độ qua OSRM public demo
+    server. coord1/coord2 có dạng {"lat": float, "lng": float}.
 
-    Returns {"distance_km": float, "duration_min": float} or None on any
-    failure (timeout, non-2xx, non-"Ok" route status).
+    Trả về {"distance_km": float, "duration_min": float} nếu thành công,
+    hoặc None nếu có bất kỳ lỗi nào (timeout, HTTP không phải 2xx, hoặc
+    route status trả về không phải "Ok").
     """
     try:
         url = OSRM_URL_TEMPLATE.format(
@@ -106,13 +120,15 @@ def get_route(coord1: dict, coord2: dict) -> dict | None:
 
 def haversine_fallback_minutes(coord1: dict, coord2: dict, avg_speed_kmh: float = 20) -> float:
     """
-    DEPRECATED / unused — kept for rollback. score_location() in scorer.py no
-    longer falls back to this; a failed get_route() (after one retry) now
-    returns the neutral score directly instead of estimating from straight-
-    line distance. Not called anywhere.
+    ĐÃ NGƯNG DÙNG / không còn được gọi — giữ lại phòng khi cần rollback.
+    score_location() trong scorer.py không còn fallback về hàm này nữa; khi
+    get_route() thất bại (sau 1 lần retry) sẽ trả thẳng về điểm trung lập
+    thay vì ước tính theo khoảng cách đường chim bay. Không được gọi ở bất
+    kỳ đâu trong codebase hiện tại.
 
-    Pure-Python straight-line distance fallback (no external call). Estimates
-    driving time assuming a constant average speed.
+    Tính khoảng cách đường chim bay (haversine, thuần Python, không gọi API
+    ngoài) rồi ước tính thời gian di chuyển với giả định tốc độ trung bình
+    cố định (avg_speed_kmh).
     """
     lat1, lng1 = math.radians(coord1["lat"]), math.radians(coord1["lng"])
     lat2, lng2 = math.radians(coord2["lat"]), math.radians(coord2["lng"])

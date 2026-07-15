@@ -1,18 +1,25 @@
 """
-Stage 2 — Structured Extraction via LLM
+Stage 2 — Structured Extraction via LLM (Trích xuất thông tin có cấu trúc)
 
-Parses raw CV/JD text into Pydantic models (ParsedCV / ParsedJD) using either:
-  - Anthropic Claude (production)
-  - Groq Llama (free dev/fallback)
+File này nhận văn bản thô của CV/JD (đã được pdf_extractor.py làm sạch) và
+dùng LLM để trích xuất thành các model Pydantic có cấu trúc (ParsedCV /
+ParsedJD), phục vụ cho scorer.py (chấm điểm) và evaluator.py (nhận xét).
 
-Provider is selected via .env LLM_PROVIDER. The functions are async so FastAPI
-endpoints don't block; sync SDK calls are wrapped in a thread executor.
+LLM dùng để trích xuất được chọn qua .env LLM_PROVIDER (xem llm_client.py):
+  - Anthropic Claude (dùng cho production, chất lượng cao)
+  - Groq Llama       (miễn phí, dùng cho dev/fallback)
 
-Robustness improvements:
-  - WorkExperience.start extracted → Python calculates months (not LLM)
-  - Completeness check after first parse: auto-retry null work_experience / skills
-  - Retry prompts are focused (shorter context → higher accuracy)
-  - Retries run in parallel via asyncio.gather
+Các hàm ở đây đều là async để không chặn FastAPI; lời gọi SDK đồng bộ được
+đẩy sang thread executor (bên trong llm_client.py).
+
+Các cải tiến giúp kết quả trích xuất đáng tin cậy hơn:
+  - Trường WorkExperience.start được LLM trích xuất dạng chuỗi, sau đó
+    Python tự tính số tháng (không giao việc tính toán cho LLM, tránh sai số)
+  - Sau lần parse đầu tiên có bước kiểm tra tính đầy đủ (completeness
+    check): nếu work_experience hoặc skills bị rỗng, tự động gọi lại với
+    prompt tập trung hơn (retry prompt)
+  - Retry prompt ngắn gọn, tập trung vào đúng phần bị thiếu → độ chính xác cao hơn
+  - Các lượt retry chạy song song qua asyncio.gather để không tốn thêm thời gian
 """
 
 from __future__ import annotations
@@ -25,9 +32,13 @@ from app.services.llm_client import call_llm_json
 
 
 # ---------------------------------------------------------------------------
-# Prompts
+# Prompts — các mẫu prompt gửi cho LLM (giữ nguyên tiếng Anh vì đây là chỉ
+# thị gửi thẳng cho model, không phải nội dung hiển thị cho người dùng)
 # ---------------------------------------------------------------------------
 
+# Prompt chính để trích xuất toàn bộ thông tin từ CV: tên, tóm tắt, kỹ năng,
+# kinh nghiệm làm việc, học vấn, dự án, chứng chỉ, ngôn ngữ, và địa chỉ liên
+# hệ (candidate_location) — kèm quy tắc chuyển đổi định dạng ngày tháng.
 CV_EXTRACT_PROMPT = """Extract information from the CV text below.
 Return ONLY valid JSON. No explanation, no markdown fences.
 
@@ -106,6 +117,8 @@ CV text:
 """
 
 
+# Prompt retry tập trung: chỉ trích xuất lại work_experience khi lần parse
+# đầu tiên trả về rỗng (CV_EXTRACT_PROMPT có thể bỏ sót nếu CV dài/phức tạp).
 WORK_EXP_RETRY_PROMPT = """The CV below contains work experience that needs to be extracted.
 Focus ONLY on the employment / work history section.
 Return ONLY valid JSON — no explanation, no markdown.
@@ -139,6 +152,8 @@ CV text:
 """
 
 
+# Prompt retry tập trung: chỉ trích xuất lại danh sách skills khi lần parse
+# đầu tiên trả về rỗng.
 SKILLS_RETRY_PROMPT = """Extract ALL technical skills from the CV below.
 Scan every section: skills/technologies section, work experience, projects, summary.
 Return ONLY valid JSON — no explanation, no markdown.
@@ -154,6 +169,9 @@ CV text:
 """
 
 
+# Prompt chính để trích xuất toàn bộ thông tin từ JD: tiêu đề công việc, kỹ
+# năng bắt buộc/ưu tiên (kèm trọng số và nhóm OR-alternatives), số năm kinh
+# nghiệm tối thiểu, bằng cấp yêu cầu, từ khóa, và địa điểm/hình thức làm việc.
 JD_EXTRACT_PROMPT = """Extract structured information from the Job Description below.
 Return ONLY valid JSON. No explanation, no markdown.
 
@@ -215,11 +233,16 @@ JD text:
 
 
 # ---------------------------------------------------------------------------
-# Retry helpers
+# Retry helpers — gọi lại LLM với prompt tập trung khi lần parse đầu thiếu dữ liệu
 # ---------------------------------------------------------------------------
 
 async def _retry_work_experience(cv_text: str) -> list[WorkExperience]:
-    """Focused re-extraction of work experience when the full parse missed it."""
+    """
+    Trích xuất lại riêng phần work_experience khi lần parse đầy đủ ban đầu
+    bị thiếu (trả về rỗng). Mọi lỗi (LLM lỗi, JSON không hợp lệ, item không
+    validate được theo schema WorkExperience) đều bị nuốt và bỏ qua item đó
+    — không làm fail toàn bộ quá trình parse CV.
+    """
     try:
         raw   = await call_llm_json(WORK_EXP_RETRY_PROMPT, cv_text)
         items = raw.get("work_experience", []) if isinstance(raw, dict) else []
@@ -235,7 +258,10 @@ async def _retry_work_experience(cv_text: str) -> list[WorkExperience]:
 
 
 async def _retry_skills(cv_text: str) -> list[str]:
-    """Focused re-extraction of skills when the full parse missed them."""
+    """
+    Trích xuất lại riêng danh sách skills khi lần parse đầy đủ ban đầu bị
+    thiếu (trả về rỗng). Mọi lỗi đều bị nuốt, trả về [] thay vì raise.
+    """
     try:
         raw   = await call_llm_json(SKILLS_RETRY_PROMPT, cv_text)
         items = raw.get("skills", []) if isinstance(raw, dict) else []
@@ -246,11 +272,16 @@ async def _retry_skills(cv_text: str) -> list[str]:
 
 async def _geocode(address: str) -> tuple[float, float] | tuple[None, None]:
     """
-    Geocode once at parse-time (lat/lng is a property of the JD/CV itself,
-    like its embedding — not recomputed per score call). location_service
-    is a blocking/sync HTTP call, so it runs in a thread to not block the
-    event loop. Any failure (network, no match) yields (None, None) —
-    never fails the parse call, same per-item error tolerance used elsewhere.
+    Geocode một địa chỉ (candidate_location của CV hoặc work_location của
+    JD) đúng 1 lần tại thời điểm parse — vì lat/lng là thuộc tính gắn liền
+    với chính CV/JD đó (giống như embedding), không cần tính lại mỗi lần
+    chấm điểm (score).
+
+    location_service.geocode là hàm đồng bộ/blocking (gọi HTTP ra ngoài),
+    nên được chạy trong 1 thread riêng (asyncio.to_thread) để không chặn
+    event loop. Nếu thất bại (lỗi mạng, không tìm thấy địa chỉ) trả về
+    (None, None) — không bao giờ làm fail lời gọi parse, theo đúng cách xử
+    lý lỗi từng-phần-tử (per-item error tolerance) đã dùng ở những chỗ khác.
     """
     if not address or not address.strip():
         return None, None
@@ -264,20 +295,23 @@ async def _geocode(address: str) -> tuple[float, float] | tuple[None, None]:
 
 
 # ---------------------------------------------------------------------------
-# Public API — CV / JD parsing
+# Public API — CV / JD parsing (hàm public để main.py / các module khác gọi)
 # ---------------------------------------------------------------------------
 
 async def parse_cv(cv_text: str) -> ParsedCV:
     """
-    Extract structured CV from raw text.
+    Trích xuất CV có cấu trúc (ParsedCV) từ văn bản thô.
 
-    Flow:
-      1. Full extraction via LLM
-      2. Completeness check — work_experience and skills are critical
-      3. If either is empty, run focused retry prompts in parallel
-      4. Merge retry results into the CV object
-      5. Geocode candidate_location.raw_address once (lat/lng persisted with
-         the CV, same as cv_embedding — not recomputed at score-time)
+    Luồng xử lý:
+      1. Gọi LLM trích xuất đầy đủ (CV_EXTRACT_PROMPT)
+      2. Kiểm tra tính đầy đủ — work_experience và skills là 2 trường quan
+         trọng nhất, không được để rỗng
+      3. Nếu 1 trong 2 (hoặc cả 2) bị rỗng, chạy song song các prompt retry
+         tập trung tương ứng
+      4. Gộp kết quả retry vào object CV (chỉ ghi đè nếu retry ra kết quả
+         khác rỗng, tránh mất dữ liệu nếu retry cũng thất bại)
+      5. Geocode candidate_location.raw_address đúng 1 lần (lat/lng được
+         lưu lại cùng CV, giống cv_embedding — không tính lại lúc chấm điểm)
     """
     raw = await call_llm_json(CV_EXTRACT_PROMPT, cv_text)
     cv  = ParsedCV.model_validate(raw)
@@ -314,9 +348,12 @@ async def parse_cv(cv_text: str) -> ParsedCV:
 
 async def parse_jd(jd_text: str) -> ParsedJD:
     """
-    Extract structured JD from raw text, then geocode work_location once
-    (lat/lng persisted with the JD, same as jd_embedding — not recomputed
-    at score-time).
+    Trích xuất JD có cấu trúc (ParsedJD) từ văn bản thô, sau đó geocode
+    work_location đúng 1 lần (lat/lng được lưu lại cùng JD, giống
+    jd_embedding — không tính lại lúc chấm điểm).
+
+    Địa chỉ dùng để geocode ưu tiên raw_address (địa chỉ cụ thể JD nêu),
+    nếu JD không nêu địa chỉ cụ thể thì dùng city làm địa chỉ dự phòng.
     """
     raw = await call_llm_json(JD_EXTRACT_PROMPT, jd_text)
     jd  = ParsedJD.model_validate(raw)
