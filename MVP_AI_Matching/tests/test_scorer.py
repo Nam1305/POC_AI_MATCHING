@@ -197,34 +197,10 @@ def test_score_experience_ratio_and_cap():
     assert score_experience(cv, jd4) == pytest.approx(0.5)
 
 
-def test_score_experience_relevance_bonus():
-    cv = ParsedCV(
-        work_experience=[WorkExperience(
-            company="Company A", role=".NET Developer",
-            start=_months_ago(30), end=_months_ago(6), tech_stack=[".NET"],
-        )]
-    )
-    jd = ParsedJD(title=".NET Developer", min_experience_years=2)
-    # base=1.0 + relevance bonus → capped at 1.0
+def test_score_experience_no_requirement_returns_neutral():
+    cv = ParsedCV(work_experience=[])
+    jd = ParsedJD(title="x", min_experience_years=0)
     assert score_experience(cv, jd) == 1.0
-
-
-def test_score_experience_recency_bonus():
-    cv = ParsedCV(work_experience=[WorkExperience(
-        company="Company A", role="Dev", start=_months_ago(12), is_current=True,
-    )])
-    jd = ParsedJD(title="Dev", min_experience_years=2)
-    # base=0.5, recency bonus=+0.1 → 0.6
-    assert score_experience(cv, jd) == pytest.approx(0.6)
-
-
-def test_score_experience_over_qualification_penalty():
-    cv = ParsedCV(work_experience=[
-        WorkExperience(company="Company A", start=_months_ago(126), end=_months_ago(6))
-    ])
-    jd = ParsedJD(title="Dev", min_experience_years=2)
-    # base=1.0, over-qual penalty=-0.05 → 0.95
-    assert score_experience(cv, jd) == pytest.approx(0.95)
 
 
 def test_total_exp_months_merges_overlapping_jobs():

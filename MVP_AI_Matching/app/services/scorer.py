@@ -10,8 +10,9 @@ D1 Semantic   : cosine_sim(cv_embedding, jd_embedding), normalize về 0–1
 D2 Skills     : so khớp trọng số kỹ năng (weighted skill overlap), có hỗ
                 trợ alias/suy luận (implied)/gần đúng (fuzzy)/cùng nhóm
                 (category)
-D3 Experience : tỷ lệ số năm kinh nghiệm cơ bản + các hệ số điều chỉnh theo
-                độ liên quan/độ mới/over-qualification
+D3 Experience : tỷ lệ số năm kinh nghiệm (cv_years / jd_min_years), chặn
+                trần ở 1.0 — không đánh giá độ liên quan lĩnh vực (D1/D2
+                đã đảm nhiệm phần đó)
 D4 Education  : cv_degree_level / jd_required_degree_level, chặn trần ở 1.0
 D5 Location   : ước tính thời gian di chuyển (route OSRM dựa trên lat/lng
                 đã geocode lúc parse) × mức độ phù hợp hình thức làm việc
@@ -21,7 +22,6 @@ final_score = Σ(Di × Wi) × 100   (Wi là trọng số từng chiều, cấu h
 
 from __future__ import annotations
 
-import datetime
 import difflib
 import re
 import time
@@ -30,7 +30,7 @@ from typing import Optional
 import numpy as np
 
 from app.config import settings
-from app.schemas import ParsedCV, ParsedJD, merge_month_intervals, parse_month
+from app.schemas import ParsedCV, ParsedJD
 from app.services import location_service
 from app.services.skill_data import ALIASES, CATEGORIES, IMPLIES_ALL
 
@@ -367,89 +367,22 @@ def score_skills(
 
 
 # ---------------------------------------------------------------------------
-# D3: Experience — relevance + recency + over-qualification
-# Điểm kinh nghiệm — tỷ lệ cơ bản + điều chỉnh theo độ liên quan/độ mới/over-qualification
+# D3: Experience — years ratio
+# Điểm kinh nghiệm — tỷ lệ số năm kinh nghiệm so với yêu cầu JD
 # ---------------------------------------------------------------------------
-
-def _months_since(dt: datetime.date) -> int:
-    """Số tháng tròn tính từ ngày `dt` đến hôm nay."""
-    today = datetime.date.today()
-    return (today.year - dt.year) * 12 + (today.month - dt.month)
-
-
-def _jd_domain_tokens(jd: ParsedJD) -> list[str]:
-    """
-    Suy ra các từ khóa gợi ý lĩnh vực (domain hints) từ title + keywords
-    của JD. Chỉ lấy các từ đủ dài (>3 ký tự) để tránh nhiễu bởi các từ
-    chung chung, ít mang thông tin.
-    """
-    tokens: set[str] = set()
-    if jd.title:
-        for t in re.findall(r"\w+", jd.title):
-            if len(t) > 3:
-                tokens.add(t.lower())
-    for kw in jd.keywords or []:
-        for t in re.findall(r"\w+", kw):
-            if len(t) > 3:
-                tokens.add(t.lower())
-    return list(tokens)
-
 
 def score_experience(cv: ParsedCV, jd: ParsedJD) -> float:
     """
-    Điểm cơ bản: min(cv_years / jd_min_years, 1.0).
+    D3 = min(cv_years / jd_min_years, 1.0). Không JD yêu cầu → 1.0 (neutral).
 
-    Các hệ số điều chỉnh (modifier, kết quả cuối được chặn trong [0, 1]):
-      + tối đa 0.20 nếu lịch sử làm việc trùng với các từ khóa lĩnh vực của JD
-      + 0.10 nếu công việc gần nhất kết thúc < 3 tháng trước (hoặc đang làm)
-      - 0.10 nếu công việc gần nhất kết thúc > 12 tháng trước
-      - 0.05 nếu cv_years > 2 × jd_min_years (over-qualification — thừa kinh nghiệm)
+    Chỉ đo SỐ LƯỢNG năm kinh nghiệm; việc năm kinh nghiệm đó có đúng lĩnh
+    vực/kỹ năng hay không đã do D1 (semantic) và D2 (skills) đảm nhiệm —
+    tránh D3 đếm trùng cùng một tín hiệu "liên quan" theo cách khác.
     """
     if not jd.min_experience_years:
         return 1.0
-
     cv_years = cv.total_exp_months / 12.0
-    base = min(cv_years / jd.min_experience_years, 1.0)
-    modifiers = 0.0
-
-    domain_tokens = _jd_domain_tokens(jd)
-    if domain_tokens and cv.work_experience:
-        today = datetime.date.today().replace(day=1)
-        relevant_intervals: list[tuple[datetime.date, datetime.date]] = []
-        for exp in cv.work_experience:
-            haystack = " ".join(filter(None, [exp.role or "", exp.description or ""])).lower()
-            if not any(tok in haystack for tok in domain_tokens):
-                continue
-            s = parse_month(exp.start)
-            if not s:
-                continue
-            e = parse_month(exp.end) or today
-            if e < s:
-                e = s
-            relevant_intervals.append((s, e))
-        relevant_months = merge_month_intervals(relevant_intervals)
-        if relevant_months > 0:
-            relevant_years = relevant_months / 12.0
-            relevance_ratio = min(relevant_years / jd.min_experience_years, 1.0)
-            modifiers += 0.20 * relevance_ratio
-
-    if cv.work_experience:
-        latest = cv.work_experience[0]
-        if latest.is_current:
-            modifiers += 0.10
-        else:
-            end_dt = parse_month(latest.end)
-            if end_dt:
-                months_ago = _months_since(end_dt)
-                if months_ago < 3:
-                    modifiers += 0.10
-                elif months_ago > 12:
-                    modifiers -= 0.10
-
-    if cv_years > 2 * jd.min_experience_years:
-        modifiers -= 0.05
-
-    return max(0.0, min(base + modifiers, 1.0))
+    return min(cv_years / jd.min_experience_years, 1.0)
 
 
 # ---------------------------------------------------------------------------
