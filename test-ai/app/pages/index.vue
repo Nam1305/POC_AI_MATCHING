@@ -14,17 +14,38 @@
             prepend-inner-icon="mdi-text-box-outline" rows="8" auto-grow :disabled="loading" required />
 
           <div class="text-subtitle-2 mb-2">CV URLs</div>
-          <div v-for="(url, i) in cvUrls" :key="i" class="d-flex align-center mb-1">
-            <v-text-field v-model="cvUrls[i]" :label="`CV URL #${i + 1}`" prepend-inner-icon="mdi-file-pdf-box"
-              density="comfortable" hide-details :disabled="loading" />
-            <v-btn icon="mdi-close" variant="text" class="ml-1" :disabled="loading || cvUrls.length === 1"
-              @click="cvUrls.splice(i, 1)" />
-          </div>
-          <div class="d-flex mb-4">
-            <v-btn variant="tonal" prepend-icon="mdi-plus" :disabled="loading" @click="cvUrls.push('')">
-              Add CV URL
-            </v-btn>
-          </div>
+
+          <template v-if="bulkPasteMode">
+            <v-textarea v-model="bulkPasteText" label="Paste CV URLs, one per line"
+              placeholder="https://example.com/cv1.pdf&#10;https://example.com/cv2.pdf" prepend-inner-icon="mdi-file-pdf-box"
+              rows="6" auto-grow :disabled="loading" />
+            <div class="d-flex ga-2 mb-4">
+              <v-btn variant="flat" color="primary" prepend-icon="mdi-check" :disabled="loading"
+                @click="applyBulkPaste">
+                Confirm links
+              </v-btn>
+              <v-btn variant="text" :disabled="loading" @click="bulkPasteMode = false">
+                Cancel
+              </v-btn>
+            </div>
+          </template>
+
+          <template v-else>
+            <div v-for="(url, i) in cvUrls" :key="i" class="d-flex align-center mb-1">
+              <v-text-field v-model="cvUrls[i]" :label="`CV URL #${i + 1}`" prepend-inner-icon="mdi-file-pdf-box"
+                density="comfortable" hide-details :disabled="loading" />
+              <v-btn icon="mdi-close" variant="text" class="ml-1" :disabled="loading || cvUrls.length === 1"
+                @click="cvUrls.splice(i, 1)" />
+            </div>
+            <div class="d-flex flex-wrap ga-2 mb-4">
+              <v-btn variant="tonal" prepend-icon="mdi-plus" :disabled="loading" @click="cvUrls.push('')">
+                Add CV URL
+              </v-btn>
+              <v-btn variant="tonal" prepend-icon="mdi-content-paste" :disabled="loading" @click="openBulkPaste">
+                Paste multiple links
+              </v-btn>
+            </div>
+          </template>
 
           <div class="text-subtitle-2 mb-2">
             Dimension weights (Wi)
@@ -141,6 +162,8 @@ const weightDims = [
 const name = ref('')
 const jdText = ref('')
 const cvUrls = ref<string[]>([''])
+const bulkPasteMode = ref(false)
+const bulkPasteText = ref('')
 const weights = reactive<Record<string, number>>({ ...DEFAULT_WEIGHTS })
 const weightPercents = reactive<Record<string, number>>(
   Object.fromEntries(weightDims.map(d => [d.key, Math.round((DEFAULT_WEIGHTS[d.key] ?? 0) * 100)])),
@@ -171,6 +194,20 @@ const canSubmit = computed(() =>
   && cvUrls.value.some(u => u.trim().length > 0)
   && weightSumValid.value,
 )
+
+function openBulkPaste() {
+  bulkPasteText.value = cvUrls.value.filter(u => u.trim().length > 0).join('\n')
+  bulkPasteMode.value = true
+}
+
+function applyBulkPaste() {
+  const urls = bulkPasteText.value
+    .split('\n')
+    .map(u => u.trim())
+    .filter(Boolean)
+  cvUrls.value = urls.length > 0 ? urls : ['']
+  bulkPasteMode.value = false
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString()
