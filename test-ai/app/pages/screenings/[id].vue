@@ -76,7 +76,6 @@
               <th class="text-right">Edu</th>
               <th class="text-right">Semantic</th>
               <th class="text-right">Location</th>
-              <th>Recommendation</th>
             </tr>
           </thead>
           <tbody>
@@ -89,11 +88,6 @@
               <td class="text-right">{{ r.aiResult.scores.education?.toFixed(1) }}</td>
               <td class="text-right">{{ r.aiResult.scores.semantic?.toFixed(1) }}</td>
               <td class="text-right">{{ r.aiResult.scores.location?.toFixed(1) }}</td>
-              <td>
-                <v-chip :color="recommendationColor(r.aiResult.evaluation.recommendation)" size="small" variant="flat">
-                  {{ recommendationLabel(r.aiResult.evaluation.recommendation) }}
-                </v-chip>
-              </td>
             </tr>
           </tbody>
         </v-table>
@@ -110,9 +104,8 @@
                 <div class="font-weight-medium">{{ r.parsedCv.name || cvFileName(r.cvUrl) }}</div>
                 <div class="text-caption text-medium-emphasis">{{ cvFileName(r.cvUrl) }}</div>
               </div>
-              <v-chip :color="recommendationColor(r.aiResult.evaluation.recommendation)" variant="flat">
-                {{ r.aiResult.final_score.toFixed(1) }} · {{ recommendationLabel(r.aiResult.evaluation.recommendation)
-                }}
+              <v-chip :color="scoreColor(r.aiResult.final_score)" variant="flat">
+                {{ r.aiResult.final_score.toFixed(1) }}
               </v-chip>
             </div>
           </v-expansion-panel-title>
@@ -364,6 +357,12 @@ function formatDate(iso: string): string {
 
 function skillGroupLabel(s: { skill: string, alternatives?: string[] }): string {
   return [s.skill, ...(s.alternatives ?? [])].join('/')
+}
+
+function scoreColor(score: number): string {
+  if (score >= 80) return 'success'
+  if (score >= 60) return 'warning'
+  return 'error'
 }
 
 function scrollTo(id: string) {
