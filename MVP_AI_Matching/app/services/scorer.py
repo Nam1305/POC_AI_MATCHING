@@ -154,8 +154,7 @@ def score_location(parsed_jd: ParsedJD, parsed_cv: ParsedCV) -> float:
          không tính fallback theo khoảng cách đường chim bay)
       5. T_max = 45 phút (onsite) hoặc 75 phút (hybrid)
       6. S_loc = max(0, 1 - t / T_max)
-      7. M = hệ số phù hợp hình thức làm việc (xem bảng bên dưới trong code)
-      trả về round(S_loc * M, 3)
+      trả về round(S_loc, 3)
     """
     work_mode = parsed_jd.work_location.work_mode
     if work_mode == "remote":
@@ -186,18 +185,7 @@ def score_location(parsed_jd: ParsedJD, parsed_cv: ParsedCV) -> float:
     t_max = 45.0 if work_mode == "onsite" else 75.0
     s_loc = max(0.0, 1 - t / t_max)
 
-    cv_pref = parsed_cv.candidate_location.work_mode_preference
-    if work_mode == "onsite":
-        m = 0.3 if cv_pref == "remote" else 1.0
-    else:  # hybrid
-        if cv_pref == "onsite":
-            m = 0.7
-        elif cv_pref == "remote":
-            m = 0.3
-        else:
-            m = 1.0
-
-    return round(s_loc * m, 3)
+    return round(s_loc, 3)
 
 
 # ---------------------------------------------------------------------------

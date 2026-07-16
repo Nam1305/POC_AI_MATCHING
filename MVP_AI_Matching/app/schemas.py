@@ -176,7 +176,6 @@ class CandidateLocation(BaseModel):
     lng:                  Optional[float]                            = None
     # True only if the CV explicitly states willingness to relocate; never inferred.
     willing_to_relocate:  Optional[bool]                              = None
-    work_mode_preference: Optional[Literal["onsite", "hybrid", "remote"]] = None
 
     @field_validator("raw_address", mode="before")
     @classmethod
@@ -184,14 +183,6 @@ class CandidateLocation(BaseModel):
         if not isinstance(v, str) or not v.strip():
             return None
         return v
-
-    @field_validator("work_mode_preference", mode="before")
-    @classmethod
-    def _normalize_work_mode(cls, v: object) -> Optional[str]:
-        if not isinstance(v, str):
-            return None
-        s = v.lower().strip()
-        return s if s in {"onsite", "hybrid", "remote"} else None
 
 
 class Project(BaseModel):

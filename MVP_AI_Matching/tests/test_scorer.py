@@ -418,20 +418,3 @@ def test_score_location_route_failure_after_retry_returns_neutral(monkeypatch):
 
     assert score_location(jd, cv) == 0.5
     assert call_count == 2
-
-
-def test_score_location_hybrid_onsite_preference_multiplier(monkeypatch):
-    jd = ParsedJD(
-        title="Backend",
-        work_location=WorkLocation(work_mode="hybrid", lat=21.0, lng=105.8),
-    )
-    cv = ParsedCV(candidate_location=CandidateLocation(
-        lat=21.0, lng=105.8, work_mode_preference="onsite",
-    ))
-
-    monkeypatch.setattr(
-        scorer_module.location_service, "get_route",
-        lambda c1, c2: {"distance_km": 0.0, "duration_min": 0.0},
-    )
-    # S_loc = 1.0 (0 minutes), M = 0.7 (hybrid JD, CV prefers onsite)
-    assert score_location(jd, cv) == pytest.approx(0.7)

@@ -424,8 +424,7 @@ Response: {
       "raw_address": "45 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
       "lat": 10.7757,
       "lng": 106.7004,
-      "willing_to_relocate": null,
-      "work_mode_preference": null
+      "willing_to_relocate": null
     }
   },
   "embedding": [0.456, ...]

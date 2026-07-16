@@ -116,28 +116,3 @@ def get_route(coord1: dict, coord2: dict) -> dict | None:
         }
     except Exception:
         return None
-
-
-def haversine_fallback_minutes(coord1: dict, coord2: dict, avg_speed_kmh: float = 20) -> float:
-    """
-    ĐÃ NGƯNG DÙNG / không còn được gọi — giữ lại phòng khi cần rollback.
-    score_location() trong scorer.py không còn fallback về hàm này nữa; khi
-    get_route() thất bại (sau 1 lần retry) sẽ trả thẳng về điểm trung lập
-    thay vì ước tính theo khoảng cách đường chim bay. Không được gọi ở bất
-    kỳ đâu trong codebase hiện tại.
-
-    Tính khoảng cách đường chim bay (haversine, thuần Python, không gọi API
-    ngoài) rồi ước tính thời gian di chuyển với giả định tốc độ trung bình
-    cố định (avg_speed_kmh).
-    """
-    lat1, lng1 = math.radians(coord1["lat"]), math.radians(coord1["lng"])
-    lat2, lng2 = math.radians(coord2["lat"]), math.radians(coord2["lng"])
-
-    dlat = lat2 - lat1
-    dlng = lng2 - lng1
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
-    c = 2 * math.asin(math.sqrt(a))
-    earth_radius_km = 6371.0
-    distance_km = earth_radius_km * c
-
-    return (distance_km / avg_speed_kmh) * 60.0

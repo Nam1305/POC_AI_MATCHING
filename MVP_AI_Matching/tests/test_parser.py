@@ -34,7 +34,6 @@ async def test_parse_cv_with_explicit_address(monkeypatch):
         "candidate_location": {
             "raw_address": "123 Nguyen Trai, Thanh Xuan, Ha Noi",
             "willing_to_relocate": None,
-            "work_mode_preference": None,
         },
     }
     _stub_llm(monkeypatch, raw)
@@ -46,7 +45,6 @@ async def test_parse_cv_with_explicit_address(monkeypatch):
     assert cv.candidate_location.lat == pytest.approx(21.03)
     assert cv.candidate_location.lng == pytest.approx(105.8)
     assert cv.candidate_location.willing_to_relocate is None
-    assert cv.candidate_location.work_mode_preference is None
 
 
 @pytest.mark.asyncio
@@ -58,7 +56,6 @@ async def test_parse_cv_with_no_address(monkeypatch):
         "candidate_location": {
             "raw_address": None,
             "willing_to_relocate": None,
-            "work_mode_preference": None,
         },
     }
     _stub_llm(monkeypatch, raw)
@@ -74,7 +71,6 @@ async def test_parse_cv_with_no_address(monkeypatch):
     assert cv.candidate_location.lat is None
     assert cv.candidate_location.lng is None
     assert cv.candidate_location.willing_to_relocate is None
-    assert cv.candidate_location.work_mode_preference is None
 
 
 @pytest.mark.asyncio
@@ -86,7 +82,6 @@ async def test_parse_cv_with_relocate_phrase(monkeypatch):
         "candidate_location": {
             "raw_address": "45 Le Loi, Da Nang",
             "willing_to_relocate": True,
-            "work_mode_preference": None,
         },
     }
     _stub_llm(monkeypatch, raw)
