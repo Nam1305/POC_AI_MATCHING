@@ -46,7 +46,7 @@ JSON structure:
 {
   "name": "candidate full name or empty string",
   "summary": "professional summary / objective or empty string",
-  "skills": ["flat list of all technical skill names found anywhere in the CV"],
+  "skills": ["flat list of all technical skill names, normalized and split (e.g. extract 'React' and 'CSS' instead of 'ReactJS/CSS3')"],
   "work_experience": [
     {
       "company": "company name",
@@ -113,6 +113,24 @@ GENERAL RULES:
 - Do NOT calculate months — only provide start and end date strings.
 - If a field has no data, use [] for arrays or "" for strings.
 
+SKILL NORMALIZATION & EXTRACTION RULES (applies to "skills" and every "tech_stack"):
+- Normalize technology names to their standard canonical spelling and casing
+  (e.g. "React" not "ReactJS", "Node.js" not "NodeJS", "JavaScript" not "JS",
+  "TypeScript" not "TS", "PostgreSQL" not "Postgres", "Kubernetes" not "K8s",
+  "AWS" not "Amazon Web Services").
+- Remove version numbers and minor release suffixes unless they name a
+  distinct tool (e.g. "Python 3.10" -> "Python", "Java 17" -> "Java",
+  "Vue 3" -> "Vue", "React v18" -> "React").
+- Split compound or slash-separated skills into separate list items (e.g.
+  "HTML/CSS" -> "HTML", "CSS"; "C#/.NET" -> "C#", ".NET";
+  "CI/CD (Jenkins, GitLab)" -> "CI/CD", "Jenkins", "GitLab").
+- When a specific sub-service or sub-tool is mentioned, also include its
+  base/parent technology (e.g. "AWS S3" or "AWS EC2" -> also include "AWS";
+  "Docker Compose" -> also include "Docker").
+- Emit ONLY concrete, matchable technical skills. Do NOT extract generic
+  soft skills or competencies ("programming", "teamwork", "problem solving",
+  "communication", "quick learner").
+
 CV text:
 """
 
@@ -164,6 +182,14 @@ Return ONLY valid JSON — no explanation, no markdown.
 
 Include: programming languages, frameworks, libraries, databases, tools, cloud platforms, DevOps tools.
 Each skill should be a single clean string (e.g. "Python", "React", "PostgreSQL").
+
+SKILL NORMALIZATION RULES:
+- Normalize to standard canonical spelling/casing (e.g. "React" not "ReactJS",
+  "Node.js" not "NodeJS", "JavaScript" not "JS", "PostgreSQL" not "Postgres").
+- Strip version numbers unless they name a distinct tool ("Python 3.10" -> "Python").
+- Split compound/slash-separated skills into separate items ("HTML/CSS" -> "HTML", "CSS").
+- For sub-services/sub-tools, also include the base technology ("AWS S3" -> also "AWS").
+- Do NOT extract generic soft skills (e.g. "teamwork", "problem solving").
 
 CV text:
 """
@@ -217,6 +243,17 @@ A skill that stands on its own (not an option) has "alternatives": [].
 
 Weight guide (required_skills only): 3 = must-have / core, 2 = important, 1 = minor.
 Reserve weight 3 for skills the JD truly mandates; do not mark everything as 3.
+
+SKILL NORMALIZATION & STRUCTURE RULES:
+- Standardize skill names to their canonical form (e.g. "React", "Node.js",
+  "JavaScript", "TypeScript", "Python", "Kubernetes", "Docker", "PostgreSQL", "AWS").
+- Strip version constraints from the skill name itself (e.g. "Python 3.x" ->
+  skill "Python"; "Java 8+" -> skill "Java"; "Vue 3" -> skill "Vue").
+- Split compound or slash-separated skills. If the options are interchangeable,
+  represent them via "alternatives" rather than as one compound string
+  (e.g. "React/Vue" -> {"skill": "React", "weight": 3, "alternatives": ["Vue"]}).
+- For a sub-service/sub-tool, also ensure the base technology is extractable
+  (e.g. "AWS S3" -> extract "AWS").
 
 Emit ONLY concrete, matchable skills (languages, frameworks, tools, platforms,
 certifications, standardized language levels like "JLPT N3"). Do NOT emit generic
