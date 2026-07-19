@@ -112,7 +112,7 @@ FLOW 3 — SCORE (AI Matching)
     ├─ D2 Skills     : alias → fuzzy → category matching
     ├─ D3 Experience : base ratio + modifiers
     ├─ D4 Education  : degree level ratio
-    ├─ D5 Location   : OSRM driving-time(lat/lng đã geocode) × work-mode fit
+    ├─ D5 Location   : OSRM driving-time(lat/lng đã geocode)
     └─ Hard rules    : must-have penalties
     │
     return { final_score: 78.5, scores: { D1..D5 } }
@@ -339,7 +339,7 @@ Lưu ý: cv_embedding và jd_embedding phải cùng model/dimension
 │  lat/lng thiếu (geocode fail ở parse-time) → 0.5 (neutral)  │
 │  OSRM route(lat/lng) → t phút; fail → retry 1 lần (0.5s)    │
 │  fail lần 2 → 0.5;  else S_loc = max(0, 1 - t/T_max)        │
-│  T_max = 45 (onsite) / 75 (hybrid);  ×M (work-mode fit)      │
+│  T_max = 45 (onsite) / 75 (hybrid);  D5 = round(S_loc, 3)    │
 └──────────────────────────────────────────────────────────────┘
                     │
                     ▼
@@ -527,7 +527,7 @@ Default weights:
 | $W_2$ Skills | 0.35 | Quan trọng nhất trong tuyển dụng IT |
 | $W_3$ Experience | 0.20 | Số năm + relevance |
 | $W_4$ Education | 0.10 | Thường là threshold, không phải differentiator |
-| $W_5$ Location | 0.05 | Tín hiệu phụ — khoảng cách di chuyển + work-mode fit |
+| $W_5$ Location | 0.05 | Tín hiệu phụ — khoảng cách/thời gian di chuyển |
 | **Tổng** | **1.00** | |
 
 ### 4.11 Hard Rule Penalties

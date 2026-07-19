@@ -77,8 +77,7 @@ JSON structure:
   "languages": ["English - TOEIC 835", "Vietnamese - Native"],
   "candidate_location": {
     "raw_address": "address exactly as written in the CV header/contact info block (near name, email, phone), or null if no address is present anywhere",
-    "willing_to_relocate": "true ONLY if the CV explicitly states something like 'open to relocate' / 'sẵn sàng chuyển nơi làm việc', otherwise null",
-    "work_mode_preference": "onsite, hybrid, or remote ONLY if the CV explicitly states a preference, otherwise null"
+    "willing_to_relocate": "true ONLY if the CV explicitly states something like 'open to relocate' / 'sẵn sàng chuyển nơi làm việc', otherwise null"
   }
 }
 
@@ -91,8 +90,6 @@ CANDIDATE_LOCATION RULES (critical — do not hallucinate):
 - willing_to_relocate: null unless the CV explicitly states willingness to
   relocate. Never infer this from context (e.g. don't assume "true" just
   because the candidate lists an out-of-city address).
-- work_mode_preference: null unless the CV explicitly states a work mode
-  preference (e.g. "seeking remote work", "open to hybrid").
 
 DATE CONVERSION RULES (apply to every start/end field):
 Convert any date format found in the CV to YYYY-MM. Examples:

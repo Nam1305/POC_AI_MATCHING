@@ -21,7 +21,7 @@ from app.services.embedder import embed
 
 router = APIRouter()
 
-_MAX_CVS_PER_REQUEST = 10
+_MAX_CVS_PER_REQUEST = 50
 
 
 # ---------------------------------------------------------------------------

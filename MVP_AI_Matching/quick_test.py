@@ -184,14 +184,13 @@ def format_location(work_location: dict, candidate_location: dict) -> str:
         else "(not geocoded)"
     )
     relocate = candidate_location.get("willing_to_relocate")
-    pref = candidate_location.get("work_mode_preference")
 
     lines = [
         f"  JD location:    {jd_addr}  [{jd_mode}]  {jd_coords}",
         f"  CV location:    {cv_addr}  {cv_coords}",
     ]
-    if relocate is not None or pref is not None:
-        lines.append(f"  CV preference:  willing_to_relocate={relocate}  work_mode_preference={pref}")
+    if relocate is not None:
+        lines.append(f"  CV preference:  willing_to_relocate={relocate}")
     return "\n".join(lines)
 
 
