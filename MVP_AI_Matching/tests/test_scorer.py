@@ -14,7 +14,7 @@ from app.schemas import (
 from app.services import scorer as scorer_module
 from app.services.scorer import (
     cosine_sim, normalize_cosine,
-    score_skills, score_experience, score_education, score_keywords,
+    score_skills, score_experience, score_education,
     score_location,
     calculate_score,
 )
@@ -311,29 +311,6 @@ def test_score_education_meets_requirement():
 
 
 # ---------------------------------------------------------------------------
-# D5: Keywords
-# ---------------------------------------------------------------------------
-
-def test_score_keywords_overlap():
-    text = "Worked with Docker, Kubernetes and PostgreSQL."
-    jd = ParsedJD(title="x", keywords=["Docker", "Redis", "PostgreSQL"])
-    assert score_keywords(text, jd) == pytest.approx(2 / 3)
-
-
-def test_score_keywords_word_boundary():
-    text = "Expert in React and Node.js development."
-    jd = ParsedJD(title="x", keywords=["React", "Node"])
-    assert score_keywords(text, jd) == 1.0
-
-
-def test_score_keywords_multiword_partial():
-    jd = ParsedJD(title="x", keywords=["Cloud Computing"])
-    text = "Worked with Cloud and Computing systems."
-    # both words present individually → 0.7
-    assert score_keywords(text, jd) == pytest.approx(0.7)
-
-
-# ---------------------------------------------------------------------------
 # Aggregate
 # ---------------------------------------------------------------------------
 
@@ -343,7 +320,6 @@ def test_calculate_score_returns_full_breakdown():
         title="Backend",
         required_skills=[RequiredSkill(skill="Python", weight=1)],
         min_experience_years=2,
-        keywords=["Python"],
     )
     cv_vec = [1.0, 0.0]
     jd_vec = [1.0, 0.0]

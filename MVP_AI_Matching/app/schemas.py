@@ -479,7 +479,6 @@ class ParsedJD(BaseModel):
     preferred_skills:     list[str]           = Field(default_factory=list)
     min_experience_years: int                 = 0
     education_degree:     Optional[DegreeLevel] = None
-    keywords:             list[str]           = Field(default_factory=list)
     work_location:        WorkLocation        = Field(default_factory=WorkLocation)
 
     @field_validator("education_degree", mode="before")
@@ -556,8 +555,5 @@ class ParsedJD(BaseModel):
         if self.education_degree:
             label = self.education_degree.value.replace("_", " ").title()
             parts.append(f"Education: {label} or above")
-
-        if self.keywords:
-            parts.append("Keywords: " + ", ".join(self.keywords))
 
         return "\n".join(parts)

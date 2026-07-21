@@ -22,7 +22,6 @@ final_score = Σ(Di × Wi) × 100   (Wi là trọng số từng chiều, cấu h
 
 from __future__ import annotations
 
-import re
 import time
 from typing import Optional
 
@@ -189,69 +188,6 @@ def score_location(parsed_jd: ParsedJD, parsed_cv: ParsedCV) -> float:
 
 
 # ---------------------------------------------------------------------------
-# D5 (deprecated) — Keywords: exact / word-boundary / multi-word
-# Cách chấm D5 cũ bằng từ khóa — ĐÃ NGƯNG DÙNG
-#
-# Superseded by score_location() above. Kept unused, not deleted, in case of
-# rollback. Not called anywhere in calculate_score() / calculate_score_with_rules().
-#
-# Đã được thay thế bởi score_location() ở trên. Vẫn giữ lại (không xóa)
-# phòng khi cần rollback. Không được gọi ở bất kỳ đâu trong
-# calculate_score() / calculate_score_with_rules().
-# ---------------------------------------------------------------------------
-
-def _clean_text_for_match(text: str) -> str:
-    """Lowercase văn bản và thay mọi ký tự không phải chữ/số/khoảng trắng bằng khoảng trắng, chuẩn bị cho so khớp từ khóa."""
-    return re.sub(r"[^\w\s]", " ", text.lower())
-
-
-def score_keywords(cv_raw_text: str, jd: ParsedJD) -> float:
-    """
-    Điểm cho từng từ khóa (keyword):
-      - khớp chuỗi con hoặc khớp theo ranh giới từ (word-boundary) → 1.0
-      - cụm nhiều từ, tất cả các từ con đều xuất hiện → 0.7
-      - còn lại → 0.0
-    Điểm cuối = trung bình cộng điểm của tất cả từ khóa.
-    """
-    if not jd.keywords:
-        return 1.0
-
-    text_cleaned = _clean_text_for_match(cv_raw_text)
-
-    keyword_scores: list[float] = []
-    for kw in jd.keywords:
-        if not kw or not kw.strip():
-            continue
-        kw_clean = _clean_text_for_match(kw).strip()
-        if not kw_clean:
-            continue
-
-        if kw_clean in text_cleaned:
-            keyword_scores.append(1.0)
-            continue
-
-        try:
-            if re.search(rf"\b{re.escape(kw_clean)}\b", text_cleaned):
-                keyword_scores.append(1.0)
-                continue
-        except re.error:
-            pass
-
-        words = kw_clean.split()
-        if len(words) > 1 and all(
-            re.search(rf"\b{re.escape(w)}\b", text_cleaned) for w in words
-        ):
-            keyword_scores.append(0.7)
-            continue
-
-        keyword_scores.append(0.0)
-
-    if not keyword_scores:
-        return 1.0
-    return sum(keyword_scores) / len(keyword_scores)
-
-
-# ---------------------------------------------------------------------------
 # Seniority detection — shared with the evaluator's seniority analysis
 # Nhận diện cấp bậc (seniority) — dùng chung với phần phân tích seniority
 # trong evaluator.py, đảm bảo 2 nơi luôn tính ra kết quả nhất quán.
@@ -336,8 +272,7 @@ def calculate_score(
     số theo cấu hình.
 
     Nếu không truyền `weights`, dùng settings.default_weights; tương tự với
-    cosine_min/cosine_max dùng để normalize D1. Nếu không truyền
-    cv_raw_text, tự build từ parsed_cv (dùng để tính score_keywords nếu cần).
+    cosine_min/cosine_max dùng để normalize D1.
 
     Trả về dict {"final_score": điểm tổng 0-100 (làm tròn 1 chữ số thập
     phân), "scores": {tên chiều: điểm 0-100 của chiều đó}}.

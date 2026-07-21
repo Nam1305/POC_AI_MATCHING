@@ -194,7 +194,7 @@ CV text:
 
 # Prompt chính để trích xuất toàn bộ thông tin từ JD: tiêu đề công việc, kỹ
 # năng bắt buộc/ưu tiên (kèm trọng số và nhóm OR-alternatives), số năm kinh
-# nghiệm tối thiểu, bằng cấp yêu cầu, từ khóa, và địa điểm/hình thức làm việc.
+# nghiệm tối thiểu, bằng cấp yêu cầu, và địa điểm/hình thức làm việc.
 JD_EXTRACT_PROMPT = """Extract structured information from the Job Description below.
 Return ONLY valid JSON. No explanation, no markdown.
 
@@ -207,7 +207,6 @@ JSON structure:
   "preferred_skills": ["nice-to-have skill names"],
   "min_experience_years": integer (0 if not specified),
   "education_degree": "bachelor or master or phd or associate or high_school or other or null",
-  "keywords": ["important technical keywords from the JD"],
   "work_location": {
     "city": "MUST be exactly one of: Ha Noi, Ho Chi Minh, Da Nang (pick the closest match; default Ha Noi if unclear)",
     "raw_address": "the exact address/location text as written in the JD (street, district, building — whatever is present), empty string if none stated",
@@ -228,6 +227,19 @@ REQUIRED vs PREFERRED (critical — do not mix):
   or states as mandatory. Only these.
 - preferred_skills = skills under "Preferred", "Nice to have", "Plus", "Bonus",
   "Desirable", "Advantage". Put them ONLY in preferred_skills, NEVER in required_skills.
+
+WHAT COUNTS AS A SKILL (critical — the #1 source of inconsistent extraction):
+- Testing-activity nouns and other named disciplines/practices ("API testing",
+  "manual testing", "regression testing", "UI/UX testing", "code review",
+  "unit testing") ARE valid skill entries — they name a matchable discipline.
+- Process/methodology words alone ("SDLC", "STLC", "Agile", "Scrum", "defect
+  lifecycle") and category-level nouns without a named product ("relational
+  databases", "cloud platform", "version control") are NOT valid skill
+  entries, even under a "Required" heading — they're too generic to match
+  against a CV skill list.
+- Ability/duty sentences ("ability to design test cases", "good knowledge of
+  X", "understanding of Y") are never a skill entry themselves — extract
+  only an embedded concrete noun (discipline, tool, technology), if any.
 
 ALTERNATIVES / OR-GROUPS (critical):
 When a requirement lists skills as interchangeable options — "A, B, or C",
@@ -258,9 +270,6 @@ competencies or soft skills — "programming fundamentals", "problem solving",
 "teamwork", "communication", "self-learning", "responsibility" — in either
 required_skills or preferred_skills; a concrete language/tool requirement already
 implies them.
-
-keywords: the core technical keywords a matching CV would contain. Keep it focused —
-do not pad with preferred-only tools or non-technical phrases.
 
 JD text:
 """
