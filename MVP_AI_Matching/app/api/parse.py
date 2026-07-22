@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 
 import httpx
@@ -215,6 +216,7 @@ async def _process_one(url: str, client: httpx.AsyncClient) -> ParseCVResult:
         parsed = await parse_cv_text(raw_text)
         cv_embedding = await embed(parsed.build_embed_text())
     except Exception as e:
+        logging.exception(f"Parse/embed failed for {url}")
         return ParseCVResult(url=url, error=f"Parse/embed failed: {e}")
 
     return ParseCVResult(

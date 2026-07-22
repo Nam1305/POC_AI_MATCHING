@@ -23,11 +23,45 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import re
 
 import anthropic
+import json_repair
 from openai import OpenAI
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+# LLMs occasionally emit a trailing comma before a closing `}`/`]`, which is
+# invalid JSON. Strip it as a best-effort repair before giving up.
+_TRAILING_COMMA_RE = re.compile(r",(\s*[}\]])")
+
+
+def _parse_llm_json(content: str) -> dict:
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError as e:
+        repaired = _TRAILING_COMMA_RE.sub(r"\1", content)
+        if repaired != content:
+            try:
+                return json.loads(repaired)
+            except json.JSONDecodeError:
+                pass
+
+        # Falls back to json_repair for structural glitches the simple regex
+        # can't fix (e.g. a dropped closing brace between array items).
+        try:
+            result = json_repair.loads(content)
+        except Exception:
+            result = None
+        if isinstance(result, dict):
+            logger.warning("LLM returned invalid JSON (%s), recovered via json_repair.", e)
+            return result
+
+        logger.error("LLM returned invalid JSON (%s). Raw content:\n%s", e, content)
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +151,7 @@ def call_llm_json_sync(prompt: str, text: str) -> dict:
             if content.startswith("json"):
                 content = content[4:]
             content = content.strip()
-        return json.loads(content)
+        return _parse_llm_json(content)
 
     if settings.llm_provider == "gemini":
         client = get_gemini()
@@ -127,7 +161,7 @@ def call_llm_json_sync(prompt: str, text: str) -> dict:
             response_format={"type": "json_object"},
             temperature=0,
         )
-        return json.loads(response.choices[0].message.content)
+        return _parse_llm_json(response.choices[0].message.content)
 
     client = get_groq()
     response = client.chat.completions.create(
@@ -136,7 +170,7 @@ def call_llm_json_sync(prompt: str, text: str) -> dict:
         response_format={"type": "json_object"},
         temperature=0,
     )
-    return json.loads(response.choices[0].message.content)
+    return _parse_llm_json(response.choices[0].message.content)
 
 
 def call_llm_text_sync(
