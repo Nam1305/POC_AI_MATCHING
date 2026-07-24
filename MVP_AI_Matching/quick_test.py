@@ -226,7 +226,6 @@ def print_result(index: int, url: str, score_result: dict,
     print()
     print(f"  {'Experience':<15}  {ev['experience_verdict']}  —  {ev['experience_detail']}")
     print(f"  {'Education':<15}  {ev['education_verdict']}")
-    print(f"  {'Seniority':<15}  {ev['seniority_match']}  —  {ev['seniority_detail']}")
 
     print()
     print(f"  {'Skill match rate':<20} {ev['skill_match_rate']}%")

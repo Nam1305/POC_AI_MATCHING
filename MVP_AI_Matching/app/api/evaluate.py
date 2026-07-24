@@ -26,7 +26,7 @@ async def evaluate_endpoint(req: EvaluateRequest) -> CVJobEvaluation:
     """
     Qualitative evaluation of a CV against a JD.
 
-    Runs 4 Python analyses (skills, experience, education, seniority) then
+    Runs 3 Python analyses (skills, experience, education) then
     a single LLM call to produce an HR-readable narrative. There is no
     recommendation/fit label — HR reads the narrative alongside final_score
     from /score and judges fit themselves.

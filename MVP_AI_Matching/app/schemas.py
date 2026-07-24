@@ -218,8 +218,6 @@ class CVJobEvaluation(BaseModel):
     experience_verdict: str = ""   # sufficient | insufficient | over_qualified | not_required
     experience_detail:  str = ""
     education_verdict:  str = ""   # exceeds | meets | below | not_required
-    seniority_match:    str = ""   # match | over_qualified | under_qualified | unknown
-    seniority_detail:   str = ""
 
     # Narrative — HR đọc như người viết
     narrative:          str = ""

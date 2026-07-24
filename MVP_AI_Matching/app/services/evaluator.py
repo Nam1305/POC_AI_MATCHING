@@ -8,8 +8,7 @@ Flow:
   1. Skill analysis    — Python, reuse SkillMatcher từ skill_matcher.py
   2. Experience check  — Python, so sánh cv_years vs jd.min_experience_years
   3. Education check   — Python, so sánh degree level
-  4. Seniority check   — Python, reuse _detect_level từ scorer
-  5. LLM narrative     — 1 call duy nhất: hr_summary + strengths + weaknesses
+  4. LLM narrative     — 1 call duy nhất: hr_summary + strengths + weaknesses
 
 Không có "recommendation" (strong_fit/possible_fit/...) — nhãn phù hợp do
 final_score + penalty (scorer.py) quyết định, HR tự đọc điểm số. Narrative
@@ -20,7 +19,6 @@ from __future__ import annotations
 
 from app.schemas import CVJobEvaluation, ParsedCV, ParsedJD, SkillMatchDetail
 from app.services.llm_client import call_llm_text
-from app.services.scorer import _detect_level, jd_seniority_level
 from app.services.skill_matcher import _skill_matcher
 
 _matcher = _skill_matcher
@@ -184,52 +182,11 @@ def _analyze_education(cv: ParsedCV, jd: ParsedJD) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Step 4 — Seniority analysis
-# ---------------------------------------------------------------------------
-
-_LEVEL_LABELS = {0: "Intern", 1: "Junior/Fresher", 2: "Mid-level", 3: "Senior/Lead", 4: "Principal/Architect"}
-
-
-def _analyze_seniority(cv: ParsedCV, jd: ParsedJD) -> dict:
-    """
-    So sánh cấp bậc (seniority) hiện tại của candidate với cấp bậc mà JD
-    đang tuyển (tái sử dụng _detect_level / jd_seniority_level từ scorer.py
-    để đảm bảo 2 nơi tính seniority luôn nhất quán với nhau).
-
-    Role hiện tại của candidate lấy từ cv.current_role, nếu trống thì lấy
-    role của công việc gần nhất trong work_experience.
-
-    Trả về dict {"match": ..., "detail": ...} với match ∈ {"unknown",
-    "match", "over_qualified", "under_qualified"} tùy vào chênh lệch cấp
-    bậc (diff = cv_level - jd_level).
-    """
-    if not jd.title:
-        return {"match": "unknown", "detail": ""}
-
-    jd_level = jd_seniority_level(jd)
-    cv_role  = cv.current_role or (cv.work_experience[0].role if cv.work_experience else "")
-
-    if not cv_role:
-        return {"match": "unknown", "detail": "Không xác định được role hiện tại của candidate"}
-
-    cv_level = _detect_level(cv_role)
-    diff     = cv_level - jd_level
-    jd_label = _LEVEL_LABELS.get(jd_level, "Unknown")
-    cv_label = _LEVEL_LABELS.get(cv_level, "Unknown")
-
-    if diff == 0:
-        return {"match": "match",           "detail": f"Candidate ở cấp {cv_label}, phù hợp với JD yêu cầu {jd_label}"}
-    if diff > 0:
-        return {"match": "over_qualified",  "detail": f"Candidate ở cấp {cv_label}, JD chỉ yêu cầu {jd_label}"}
-    return     {"match": "under_qualified", "detail": f"Candidate ở cấp {cv_label}, JD yêu cầu {jd_label}"}
-
-
-# ---------------------------------------------------------------------------
-# Step 5 — LLM narrative (1 call)
+# Step 4 — LLM narrative (1 call)
 # ---------------------------------------------------------------------------
 
 # Prompt sinh đoạn nhận xét (narrative) bằng tiếng Việt cho HR, dựa trên kết
-# quả phân tích Python ở 4 bước trên (skill/experience/education/seniority).
+# quả phân tích Python ở 3 bước trên (skill/experience/education).
 # LLM chỉ đóng vai trò "viết văn" tự nhiên từ dữ liệu đã có sẵn — mọi con số
 # (tỷ lệ khớp skill, số năm kinh nghiệm...) đều do Python tính trước, LLM
 # không tự suy luận số liệu và không tự đưa ra kết luận phù hợp/không phù hợp
@@ -251,14 +208,13 @@ Kỹ năng ưu tiên còn thiếu  : {missing_pref}
 Kỹ năng thêm (bonus)       : {bonus}
 Kinh nghiệm       : {exp_detail}
 Học vấn           : {edu_verdict}
-Cấp bậc           : {seniority_detail}
 
 === YÊU CẦU OUTPUT ===
 Viết 1 đoạn văn khoảng 10 câu. Đoạn văn phải:
 - Mở đầu bằng tổng quan về ứng viên (background, định hướng nghề nghiệp)
 - Đánh giá chi tiết mức độ phù hợp về kỹ năng kỹ thuật (nêu cụ thể từng nhóm skill matched/missing)
 - Nhận xét về kinh nghiệm thực tế (project, work experience) so với yêu cầu JD
-- Đánh giá học vấn và cấp bậc seniority
+- Đánh giá học vấn
 - Nêu rõ điểm mạnh nổi bật của ứng viên so với JD
 - Nêu rõ những điểm còn thiếu hoặc cần cải thiện
 - Đánh giá tiềm năng phát triển và khả năng onboard nhanh
@@ -272,7 +228,7 @@ Viết 1 đoạn văn khoảng 10 câu. Đoạn văn phải:
 async def _llm_narrative(cv: ParsedCV, jd: ParsedJD, analysis: dict) -> str:
     """
     Gọi LLM đúng 1 lần để sinh đoạn nhận xét (narrative) bằng tiếng Việt,
-    dựa trên kết quả phân tích Python (skill/experience/education/seniority)
+    dựa trên kết quả phân tích Python (skill/experience/education)
     đã gộp sẵn trong `analysis`. Trả về đoạn văn narrative, không kèm nhãn
     phân loại (recommendation) — HR tự đánh giá dựa trên final_score/scores.
     """
@@ -297,7 +253,6 @@ async def _llm_narrative(cv: ParsedCV, jd: ParsedJD, analysis: dict) -> str:
         bonus            = ", ".join(analysis["bonus_skills"]) if analysis["bonus_skills"] else "không có",
         exp_detail       = analysis["exp_detail"],
         edu_verdict      = edu_map.get(analysis["edu_verdict"], analysis["edu_verdict"]),
-        seniority_detail = analysis["seniority_detail"],
     )
 
     raw_text = await call_llm_text(prompt, temperature=0.4, max_tokens=1200)
@@ -319,7 +274,6 @@ async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD, *, include_narrative: 
     skill_data   = _analyze_skills(cv, jd)
     exp_data     = _analyze_experience(cv, jd)
     edu_verdict  = _analyze_education(cv, jd)
-    sen_data     = _analyze_seniority(cv, jd)
 
     narrative = ""
     if include_narrative:
@@ -328,7 +282,6 @@ async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD, *, include_narrative: 
             **skill_data,
             "exp_detail":      exp_data["detail"],
             "edu_verdict":     edu_verdict,
-            "seniority_detail": sen_data["detail"],
         }
         narrative = await _llm_narrative(cv, jd, combined)
 
@@ -343,9 +296,6 @@ async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD, *, include_narrative: 
         experience_detail  = exp_data["detail"],
 
         education_verdict  = edu_verdict,
-
-        seniority_match    = sen_data["match"],
-        seniority_detail   = sen_data["detail"],
 
         narrative          = narrative,
     )
