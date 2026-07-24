@@ -201,8 +201,6 @@ Compute the 5-dimension weighted match score plus a qualitative evaluation.
     "experience_verdict": "sufficient",
     "experience_detail": "3.5 years vs. 2 years required",
     "education_verdict": "meets",
-    "seniority_match": "match",
-    "seniority_detail": "...",
     "narrative": ""
   }
 }
@@ -219,7 +217,7 @@ Compute the 5-dimension weighted match score plus a qualitative evaluation.
 
 ## `POST /ai/evaluate`
 
-Qualitative CV-JD evaluation (skills/experience/education/seniority analysis +
+Qualitative CV-JD evaluation (skills/experience/education analysis +
 narrative). No numeric score.
 
 **Request body:**
@@ -244,8 +242,6 @@ field of `/ai/score`, but always with `narrative` populated):
   "experience_verdict": "sufficient",
   "experience_detail": "3.5 years vs. 2 years required",
   "education_verdict": "meets",
-  "seniority_match": "match",
-  "seniority_detail": "...",
   "narrative": "Ứng viên phù hợp tốt với vị trí..."
 }
 ```
@@ -255,8 +251,6 @@ field of `/ai/score`, but always with `narrative` populated):
 `experience_verdict` is one of `sufficient`, `insufficient`,
 `over_qualified`, `not_required`.
 `education_verdict` is one of `exceeds`, `meets`, `below`, `not_required`.
-`seniority_match` is one of `match`, `over_qualified`, `under_qualified`,
-`unknown`.
 
 ---
 
