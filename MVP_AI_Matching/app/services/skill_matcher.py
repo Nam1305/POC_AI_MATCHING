@@ -109,6 +109,7 @@ def _expand_credential(text: str) -> set[str]:
     return out
 
 
+#gom skill thô từ CV trước khi chuẩn hóa (lowercase, strip, alias)
 def _collect_cv_skills(cv: ParsedCV) -> set[str]:
     """
     Gộp toàn bộ kỹ năng từ cv.skills + work_experience.tech_stack +
