@@ -41,8 +41,8 @@ class Settings(BaseSettings):
     gemini_embed_model: str = "gemini-embedding-001"          # 3072-dim
 
     # ---- Scoring ----
-    cosine_min: float = 0.55    # gemini-embedding-001 real-world floor (unrelated fields)
-    cosine_max: float = 0.90    # gemini-embedding-001 real-world ceiling (same-stack match)
+    cosine_min: float = 0.0    # no stretch — raw cosine used as-is (override via COSINE_MIN)
+    cosine_max: float = 1.0    # no stretch — raw cosine used as-is (override via COSINE_MAX)
 
     default_weight_semantic:   float = 0.30
     default_weight_skills:     float = 0.35

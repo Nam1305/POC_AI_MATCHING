@@ -201,6 +201,7 @@ Return ONLY valid JSON. No explanation, no markdown.
 JSON structure:
 {
   "title": "job title",
+  "responsibilities": "role summary and key responsibilities/business context (2-5 sentences) — scope of the role, what the person will own/do, team or domain context. Do NOT list specific skills, tools, or technologies here (those go in required_skills/preferred_skills). Empty string if the JD gives nothing beyond a skills list.",
   "required_skills": [
     {"skill": "skill name", "weight": 1 or 2 or 3, "alternatives": ["interchangeable skill names"]}
   ],

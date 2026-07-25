@@ -279,6 +279,18 @@ def is_generic_non_skill(name: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Embed text version — bump whenever build_embed_text() changes what content
+# it includes, so a vector computed from an old text shape is never silently
+# compared (cosine_sim) against one computed from a new shape. This repo
+# doesn't persist embeddings itself (see api/parse.py docstrings — the .NET
+# side stores them), so this is a code-level marker only; not wired into any
+# API response.
+# ---------------------------------------------------------------------------
+
+EMBED_TEXT_VERSION = "v2-no-skills"
+
+
+# ---------------------------------------------------------------------------
 # ParsedCV
 # ---------------------------------------------------------------------------
 
@@ -378,28 +390,33 @@ class ParsedCV(BaseModel):
     # --- Embed text ---
 
     def build_embed_text(self) -> str:
+        """
+        D1 narrative-fit text — role, scope of responsibility, and business
+        context. Deliberately excludes skills[] and every work_experience/
+        project's tech_stack[]: skill matching is D2's job (skill_matcher.py),
+        and embedding skill tokens here too would double-count the same
+        signal across two scoring dimensions. See EMBED_TEXT_VERSION.
+        """
         parts: list[str] = []
 
         if self.summary:
             parts.append(self.summary)
 
-        if self.skills:
-            parts.append("Skills: " + ", ".join(self.skills))
-
-        for exp in self.work_experience:
-            tokens = [f"{exp.role} at {exp.company}"]
-            if exp.months:
-                tokens.append(f"({exp.months} months)")
-            if exp.tech_stack:
-                tokens.append("Tech: " + ", ".join(exp.tech_stack))
+        # Most recent job first (current role, or latest end date) so the
+        # embedding leans on recent narrative context over older jobs.
+        sorted_exp = sorted(
+            self.work_experience,
+            key=lambda e: (e.is_current, parse_month(e.end) or datetime.date.min),
+            reverse=True,
+        )
+        for exp in sorted_exp:
             if exp.description:
-                tokens.append(exp.description)
-            parts.append(" ".join(tokens))
+                parts.append(f"{exp.role} at {exp.company}: {exp.description}")
+            else:
+                parts.append(f"{exp.role} at {exp.company}")
 
         for proj in self.projects:
             tokens = [f"Project: {proj.name}"]
-            if proj.tech_stack:
-                tokens.append("Tech: " + ", ".join(proj.tech_stack))
             if proj.description:
                 tokens.append(proj.description)
             parts.append(" ".join(tokens))
@@ -473,11 +490,21 @@ class WorkLocation(BaseModel):
 
 class ParsedJD(BaseModel):
     title:                str
+    # Role narrative / business context — key responsibilities and scope,
+    # WITHOUT specific skill/tool names (those live in required_skills /
+    # preferred_skills). Used by D1 (build_embed_text) for narrative-fit
+    # embedding; empty string if the JD parse found none.
+    responsibilities:     str                 = ""
     required_skills:      list[RequiredSkill] = Field(default_factory=list)
     preferred_skills:     list[str]           = Field(default_factory=list)
     min_experience_years: int                 = 0
     education_degree:     Optional[DegreeLevel] = None
     work_location:        WorkLocation        = Field(default_factory=WorkLocation)
+
+    @field_validator("responsibilities", mode="before")
+    @classmethod
+    def _coerce_responsibilities(cls, v: object) -> str:
+        return v if isinstance(v, str) else ""
 
     @field_validator("education_degree", mode="before")
     @classmethod
@@ -535,17 +562,17 @@ class ParsedJD(BaseModel):
     # --- Embed text ---
 
     def build_embed_text(self) -> str:
+        """
+        D1 narrative-fit text — title + responsibilities/business context.
+        Deliberately excludes required_skills[]/preferred_skills[]: skill
+        matching is D2's job (skill_matcher.py), and embedding skill tokens
+        here too would double-count the same signal across two scoring
+        dimensions. See EMBED_TEXT_VERSION.
+        """
         parts = [self.title]
 
-        if self.required_skills:
-            skill_strs = []
-            for s in self.required_skills:
-                label = " or ".join([s.skill, *s.alternatives]) if s.alternatives else s.skill
-                skill_strs.append(f"{label} [required]" if s.weight == 3 else label)
-            parts.append("Required skills: " + ", ".join(skill_strs))
-
-        if self.preferred_skills:
-            parts.append("Preferred skills: " + ", ".join(self.preferred_skills))
+        if self.responsibilities:
+            parts.append(self.responsibilities)
 
         if self.min_experience_years:
             parts.append(f"Experience: minimum {self.min_experience_years} years")
