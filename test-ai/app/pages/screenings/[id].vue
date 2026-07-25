@@ -21,6 +21,10 @@
         <v-card-text>
           <div class="text-h6 mb-2">{{ jd.title }}</div>
 
+          <p v-if="jd.responsibilities" class="text-body-2 text-medium-emphasis mb-3">
+            {{ jd.responsibilities }}
+          </p>
+
           <div class="d-flex flex-wrap ga-2 mb-3">
             <v-chip v-for="s in jd.required_skills" :key="'req-' + s.skill" size="small" color="primary"
               variant="tonal">
