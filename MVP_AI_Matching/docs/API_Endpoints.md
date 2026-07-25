@@ -41,13 +41,13 @@ treated as `jd_text`.
 {
   "parsed_jd": {
     "title": "Junior .NET Backend Developer",
+    "responsibilities": "Own backend services for the internal CRM, working closely with the FE and QA teams.",
     "required_skills": [
       { "skill": "C#", "weight": 3, "alternatives": [] }
     ],
     "preferred_skills": ["Docker"],
     "min_experience_years": 1,
     "education_degree": "bachelor",
-    "keywords": ["backend", ".net"],
     "work_location": {
       "city": "Ha Noi",
       "raw_address": "",
