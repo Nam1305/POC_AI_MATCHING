@@ -37,8 +37,8 @@ _WEIGHT_DIMENSIONS = set(SCORE_DIMENSIONS)  # HR-customizable weights must cover
 class ScoreRequest(BaseModel):
     parsed_cv:    ParsedCV
     parsed_jd:    ParsedJD
-    cv_embedding: list[float]
-    jd_embedding: list[float]
+    cv_embedding: list[float] | None = None
+    jd_embedding: list[float] | None = None
     weights:      dict[str, float] | None = None  # Wi overrides; None → settings.default_weights
     include_narrative: bool = False  # True → also run the LLM narrative (same cost as calling /evaluate)
 

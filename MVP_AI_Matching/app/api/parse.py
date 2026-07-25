@@ -35,7 +35,7 @@ class ParseJDRequest(BaseModel):
 
 class ParseJDResponse(BaseModel):
     parsed_jd:    ParsedJD
-    jd_embedding: list[float]
+    jd_embedding: list[float] | None = None
     error:        str | None = None
 
 

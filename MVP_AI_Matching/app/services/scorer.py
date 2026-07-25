@@ -44,12 +44,16 @@ def cosine_sim(v1: list[float], v2: list[float]) -> float:
     return float(np.dot(a, b) / denom) if denom > 0 else 0.0
 
 
-def normalize_cosine(raw: float, min_val: float = 0.55, max_val: float = 0.90) -> float:
+def normalize_cosine(
+    raw: float,
+    min_val: float = settings.cosine_min,
+    max_val: float = settings.cosine_max,
+) -> float:
     """
     Kéo giãn (stretch) khoảng [min_val, max_val] → [0, 1] để điểm D1 tận
-    dụng hết toàn bộ thang điểm. Đã hiệu chỉnh (calibrate) riêng cho model
-    gemini-embedding-001: sàn ~0.55 (2 lĩnh vực không liên quan), trần ~0.90
-    (cùng 1 stack công nghệ).
+    dụng hết toàn bộ thang điểm. min_val/max_val mặc định lấy từ
+    settings.cosine_min / settings.cosine_max (env: COSINE_MIN / COSINE_MAX,
+    xem app/config.py).
     """
     return max(0.0, min((raw - min_val) / (max_val - min_val), 1.0))
 
@@ -195,8 +199,8 @@ def score_location(parsed_jd: ParsedJD, parsed_cv: ParsedCV) -> float:
 def calculate_score(
     parsed_cv:    ParsedCV,
     parsed_jd:    ParsedJD,
-    cv_embedding: list[float],
-    jd_embedding: list[float],
+    cv_embedding: list[float] | None,
+    jd_embedding: list[float] | None,
     cv_raw_text:  str = "",
     weights:      dict[str, float] | None = None,
     cosine_min:   float | None = None,
@@ -218,13 +222,18 @@ def calculate_score(
     if not cv_raw_text:
         cv_raw_text = parsed_cv.build_embed_text()
 
-    dims = {
-        "semantic":   normalize_cosine(cosine_sim(cv_embedding, jd_embedding), cosine_min, cosine_max),
+    dims = {}
+    if cv_embedding and jd_embedding:
+        dims["semantic"] = normalize_cosine(cosine_sim(cv_embedding, jd_embedding), cosine_min, cosine_max)
+    else:
+        dims["semantic"] = 0.5  # thiếu embedding → neutral, nhất quán với quy tắc "thiếu dữ liệu → 0.5" ở D4/D5
+
+    dims.update({
         "skills":     score_skills(parsed_cv, parsed_jd),
         "experience": score_experience(parsed_cv, parsed_jd),
         "education":  score_education(parsed_cv, parsed_jd),
         "location":   score_location(parsed_jd, parsed_cv),
-    }
+    })
 
     final = 100 * sum(value * w.get(name, 0.0) for name, value in dims.items())
 
