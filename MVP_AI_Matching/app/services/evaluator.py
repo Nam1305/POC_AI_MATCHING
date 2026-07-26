@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from app.schemas import CVJobEvaluation, ParsedCV, ParsedJD, SkillMatchDetail
 from app.services.llm_client import call_llm_text
-from app.services.skill_matcher import _skill_matcher
+from app.services.skill_matcher import _skill_matcher, resolve_canonical
 
 _matcher = _skill_matcher
 
@@ -45,7 +45,7 @@ def _analyze_skills(cv: ParsedCV, jd: ParsedJD) -> dict:
     missing_must_have, missing_preferred, bonus_skills, và skill_match_rate
     (tỷ lệ % trọng số đã khớp trên tổng trọng số required_skills).
     """
-    cv_skills, cv_skills_expanded = _matcher.normalized_cv_skills(cv)
+    ctx = _matcher.build_cv_context(cv)
 
     skill_details: list[SkillMatchDetail] = []
     missing_must: list[str] = []
@@ -56,11 +56,11 @@ def _analyze_skills(cv: ParsedCV, jd: ParsedJD) -> dict:
     for req in jd.required_skills:
         # OR-group aware: a requirement is satisfied by any of its alternatives.
         label = _matcher.group_label(req)
-        status, credit = _matcher.evaluate_group(req, cv_skills, cv_skills_expanded)
-        matched_weight += req.weight * credit
-        if status in ("matched", "matched_implied"):
+        match = _matcher.evaluate_group(req, ctx)
+        matched_weight += req.weight * match.credit
+        if match.status in ("matched", "matched_implied"):
             skill_details.append(SkillMatchDetail(
-                skill=label, status=status, weight=req.weight
+                skill=label, status=match.status, weight=req.weight
             ))
         elif req.weight >= 3:
             missing_must.append(label)
@@ -78,27 +78,29 @@ def _analyze_skills(cv: ParsedCV, jd: ParsedJD) -> dict:
     # required), but HR still wants to see which optional skills a candidate lacks.
     seen_pref: set[str] = set()
     for pref in jd.preferred_skills:
-        norm = _matcher.normalize_skill(pref)
+        norm = resolve_canonical(pref)
         if not norm or norm in seen_pref:
             continue
         seen_pref.add(norm)
-        status, _ = _matcher.evaluate_skill(norm, cv_skills, cv_skills_expanded)
-        if status == "missing":
+        match = _matcher.evaluate_name(pref, ctx)
+        if match.status == "missing":
             missing_pref.append(pref)
             skill_details.append(SkillMatchDetail(
                 skill=pref, status="missing_preferred", weight=1
             ))
         else:
             skill_details.append(SkillMatchDetail(
-                skill=pref, status=status, weight=1
+                skill=pref, status=match.status, weight=1
             ))
 
-    # Bonus: CV có nhưng JD không yêu cầu (kể cả các alternative của OR-group)
+    # Bonus: CV có nhưng JD không yêu cầu (kể cả các alternative của OR-group).
+    # So sánh trên dạng canonical để "React" trong CV không bị coi là bonus khi
+    # JD đã yêu cầu "React.js".
     jd_normalized: set[str] = set()
     for r in jd.required_skills:
-        jd_normalized |= set(_matcher.group_names(r))
-    jd_normalized |= {_matcher.normalize_skill(s) for s in jd.preferred_skills}
-    bonus = [s for s in cv.skills if _matcher.normalize_skill(s) not in jd_normalized][:8]
+        jd_normalized |= {resolve_canonical(n) for n in _matcher.group_names(r)}
+    jd_normalized |= {resolve_canonical(s) for s in jd.preferred_skills}
+    bonus = [s for s in cv.skills if resolve_canonical(s) not in jd_normalized][:8]
 
     rate = round(matched_weight / total_weight * 100, 1) if total_weight > 0 else 100.0
 

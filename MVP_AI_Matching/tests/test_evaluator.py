@@ -8,8 +8,8 @@ from app.services.evaluator import _analyze_skills
 
 def test_analyze_skills_implied_match_status():
     # Regression test: CV only lists "ReactJS", JD requires "JavaScript".
-    # Before IMPLIES, evaluator._analyze_skills had no category fallback at
-    # all, so this went straight to "missing_must_have".
+    # reactjs implies javascript (Layer 2, skill_implies.json), so the
+    # requirement is satisfied as "matched_implied", not "missing_must_have".
     cv = ParsedCV(skills=["reactjs"])
     jd = ParsedJD(
         title="Frontend",

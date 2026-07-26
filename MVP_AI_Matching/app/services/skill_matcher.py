@@ -1,78 +1,153 @@
 """
-Skill Matching — chuẩn hóa, so khớp gần đúng, suy luận bắc cầu, và cho điểm
-một phần theo nhóm lĩnh vực giữa 2 tập kỹ năng.
+Skill Matching — pipeline 3 tầng (layer) dựa trên 2 file dữ liệu tĩnh, thay
+cho cơ chế fuzzy/category cũ. Cho điểm NHỊ PHÂN: mỗi yêu cầu kỹ năng của JD
+hoặc được thỏa (full credit) hoặc thiếu (0), không còn partial credit.
 
-Tách riêng khỏi scorer.py (nơi chỉ còn công thức tổng hợp D2, xem
-score_skills()) để:
-  - evaluator.py (tường thuật chi tiết cho HR) tái sử dụng được logic so
-    khớp mà không phải import qua module tính điểm
-  - scripts/generate_implies*.py tái sử dụng được SkillMatcher.ALIASES mà
-    không kéo theo toàn bộ logic scoring — cùng lý do skill_data.py đã được
-    tách riêng khỏi logic so khớp
+Ba tầng chạy TUẦN TỰ, mỗi tầng chỉ xét phần requirement CHƯA thỏa từ tầng
+trước (ở đây gộp trong evaluate_group: mỗi requirement dừng ngay ở tầng sớm
+nhất thỏa nó):
 
-Các bậc so khớp (theo thứ tự ưu tiên khi chấm 1 yêu cầu kỹ năng của JD):
-  1. Chuẩn hóa (alias)         normalize_skill()
-  2. Khớp suy luận (implied)   implied_skills() / expand_implied()
-  3. Khớp gần đúng (fuzzy)     fuzzy_match() / is_fuzzy()
-  4. Khớp cùng nhóm (category) category_match()
-  5. Trình độ ngôn ngữ (ordinal) _match_proficiency()
-  → tổng hợp qua evaluate_skill() / evaluate_group() (hỗ trợ OR-group)
+  Layer 0 — Direct match: so trực tiếp (lowercase+strip) output LLM của CV và
+            JD, chưa cần canonicalize. Fast-path rẻ tiền cho các case hiển nhiên.
+  Layer 1 — Identity qua skill_data.json: chuẩn hóa cả CV lẫn JD về tên chuẩn
+            (canonical) rồi so exact. Bắc cầu giữa format Title-Case của LLM và
+            format Stack Overflow tag (lowercase, space→hyphen) của skill_data.
+  Layer 2 — Entailment qua skill_implies.json: "biết X thì biết Y". Dữ liệu đã
+            được flatten theo bao đóng bắc cầu sẵn nên chỉ cần tra list trực
+            tiếp, KHÔNG duyệt graph ở runtime.
+
+Ngoài 3 tầng còn 1 tầng phụ cho TRÌNH ĐỘ NGÔN NGỮ (JLPT/HSK/TOPIK/IELTS/
+TOEIC/TOEFL/CEFR) — so theo thứ bậc (ordinal) trong cùng framework, vì các
+chứng chỉ này không nằm trong skill_data/skill_implies và không thể so exact
+(N2 thỏa yêu cầu N3 dù chuỗi khác nhau).
+
+Tách riêng khỏi scorer.py để evaluator.py (tường thuật cho HR) tái sử dụng
+được logic so khớp — score_skills() chỉ cần con số 0-1, evaluator cần evidence
+chi tiết (matched_layer + matched_via) mà evaluate_all_skills() trả về.
 """
 
 from __future__ import annotations
 
-import difflib
+import json
 import re
-from typing import Optional
+from pathlib import Path
+from typing import NamedTuple, Optional
 
 from app.schemas import ParsedCV
-from app.services.skill_data import ALIASES, CATEGORIES, IMPLIES_ALL
+
+
+# ---------------------------------------------------------------------------
+# Nạp dữ liệu tĩnh: skill_data.json (Layer 1) + skill_implies.json (Layer 2)
+#
+# skill_data.json : dict phẳng {tag_raw: canonical | null}. value=null nghĩa là
+#   CHÍNH key đó đã là canonical (không có synonym trỏ vào), KHÔNG phải "bỏ qua".
+# skill_implies.json : dict {skill_canonical: [list skill_canonical bị kéo theo]},
+#   đã flatten bắc cầu sẵn — cả key lẫn value đều ở dạng canonical (SO tag style).
+# ---------------------------------------------------------------------------
+
+def _load_json(filename: str) -> dict:
+    """
+    Tra file dữ liệu ở thư mục data/ của repo (repo_root/data), có fallback
+    sang app/data/ để không phụ thuộc vị trí cố định. Trả về dict rỗng chỉ
+    khi thực sự không tìm thấy (để test/tooling không crash lúc import).
+    """
+    here = Path(__file__).resolve()
+    for base in (here.parents[2], here.parents[1]):  # repo_root/data, app/data
+        candidate = base / "data" / filename
+        if candidate.is_file():
+            with candidate.open(encoding="utf-8") as f:
+                return json.load(f)
+    return {}
+
+
+SKILL_DATA: dict[str, Optional[str]] = _load_json("skill_data.json")
+SKILL_IMPLIES: dict[str, list[str]] = _load_json("skill_implies.json")
+
+
+# ---------------------------------------------------------------------------
+# Chuẩn hóa format: bắc cầu giữa output LLM (Title Case, có space) và
+# skill_data.json (Stack Overflow tag style: lowercase, space→hyphen).
+# ---------------------------------------------------------------------------
+
+def to_stackoverflow_format(skill: str) -> list[str]:
+    """
+    Trả về danh sách CÁC BIẾN THỂ hợp lý để tra vào skill_data.json, theo thứ
+    tự ưu tiên (biến thể gần format SO nhất trước). Ví dụ:
+      "ASP.NET Core" -> ["asp.net core", "asp.net-core", "asp.netcore", ...]
+      "Node.js"      -> ["node.js", "nodejs", ...]
+      "React Native" -> ["react native", "react-native", ...]
+    Giữ nguyên dấu chấm (SO tag dùng dấu chấm: "asp.net-core", "node.js"); thử
+    thêm biến thể bỏ dấu chấm để bắt "node.js" -> "nodejs". Danh sách được dedup
+    giữ nguyên thứ tự; biến thể thừa (không có trong data) là vô hại vì
+    resolve_canonical chỉ dừng ở biến thể ĐẦU TIÊN khớp.
+    """
+    base = skill.strip().lower()
+    if not base:
+        return []
+    no_dot = base.replace(".", "")
+    variants = [
+        base,                       # "asp.net core", "node.js"
+        base.replace(" ", "-"),     # "asp.net-core", "react-native"
+        base.replace(" ", ""),      # "asp.netcore"
+        no_dot,                     # "nodejs", "aspnet core"
+        no_dot.replace(" ", "-"),   # "aspnet-core"
+        no_dot.replace(" ", ""),    # "nodejs" (đã có), "aspnetcore"
+    ]
+    # dedup giữ thứ tự
+    seen: set[str] = set()
+    out: list[str] = []
+    for v in variants:
+        if v and v not in seen:
+            seen.add(v)
+            out.append(v)
+    return out
+
+
+def resolve_canonical(skill: str, skill_data: dict = SKILL_DATA) -> str:
+    """
+    Chuẩn hóa 1 kỹ năng về tên chuẩn (canonical) qua skill_data.json:
+      - Thử từng biến thể (to_stackoverflow_format) cho tới khi tìm thấy 1 entry.
+      - Nếu entry có value khác null -> trả value đó (canonical thật sự).
+      - Nếu value là null -> CHÍNH key vừa tìm thấy đã là canonical -> trả key đó.
+      - Không tìm thấy ở bất kỳ biến thể nào -> fallback về input đã lowercase/
+        strip (coi như skill lạ, không có trong danh mục).
+    """
+    for variant in to_stackoverflow_format(skill):
+        if variant in skill_data:
+            value = skill_data[variant]
+            return value if value is not None else variant
+    return skill.strip().lower()
 
 
 # ---------------------------------------------------------------------------
 # Language-proficiency frameworks — ordinal, language-agnostic
-# Các hệ khung (framework) chứng chỉ trình độ ngôn ngữ — có thứ bậc, không
-# phụ thuộc ngôn ngữ cụ thể.
-#
-# Standardized language certificates are ordered: a required level is satisfied
-# by ANY equal-or-higher level in the SAME framework, for every language —
-# JLPT (Japanese), HSK (Chinese), TOPIK (Korean), TOEIC/TOEFL/IELTS (English),
-# CEFR (language-neutral). This replaces fuzzy-matching on level codes, which
-# can't tell direction apart ("N4" looks 86% similar to "N3" yet is BELOW it).
-#
-# Các chứng chỉ ngôn ngữ chuẩn hóa được xếp theo thứ bậc: một mức yêu cầu
-# được thỏa mãn bởi BẤT KỲ mức nào bằng hoặc cao hơn trong CÙNG 1 hệ khung,
-# áp dụng cho mọi ngôn ngữ — JLPT (tiếng Nhật), HSK (tiếng Trung), TOPIK
-# (tiếng Hàn), TOEIC/TOEFL/IELTS (tiếng Anh), CEFR (không phân biệt ngôn
-# ngữ). Cách này thay thế cho so khớp gần đúng (fuzzy) trên mã trình độ —
-# vốn không phân biệt được chiều hơn/kém (ví dụ "N4" giống 86% với "N3"
-# nhưng thực chất THẤP HƠN).
-#
-# Định nghĩa TRƯỚC class SkillMatcher vì _match_proficiency() (method của
-# class) phụ thuộc trực tiếp vào _parse_proficiency() ở đây.
+# Các hệ khung chứng chỉ trình độ ngôn ngữ — có thứ bậc, không phụ thuộc ngôn
+# ngữ cụ thể. Một mức yêu cầu được thỏa bởi BẤT KỲ mức nào bằng-hoặc-cao-hơn
+# trong CÙNG framework (JLPT/HSK/TOPIK/IELTS/TOEIC/TOEFL/CEFR). Đây là tầng phụ
+# nằm ngoài skill_data/skill_implies: "N4" giống 86% "N3" về ký tự nhưng thực
+# chất THẤP HƠN, nên không thể so exact/identity mà phải so theo thứ bậc.
 # ---------------------------------------------------------------------------
 
 _CEFR_RANK = {"a1": 1, "a2": 2, "b1": 3, "b2": 4, "c1": 5, "c2": 6}
 
-# (compiled pattern, framework, rank-from-match). Rank is monotonic within a
-# framework: higher = more proficient. Order matters — first match wins.
+# (compiled pattern, framework, rank-from-match). Rank đơn điệu trong 1
+# framework: càng cao = càng giỏi. Thứ tự quan trọng — khớp đầu tiên thắng.
 _PROFICIENCY_PATTERNS: list[tuple[re.Pattern, str, "callable"]] = [
-    (re.compile(r"\bjlpt\s*n\s*([1-5])\b"),          "jlpt",  lambda m: 6 - int(m.group(1))),  # N1 highest
-    (re.compile(r"\bhsk\s*([1-9])\b"),               "hsk",   lambda m: float(m.group(1))),
-    (re.compile(r"\btopik\s*([1-6])\b"),             "topik", lambda m: float(m.group(1))),
-    (re.compile(r"\bielts\s*([0-9](?:\.[05])?)\b"),  "ielts", lambda m: float(m.group(1))),
-    (re.compile(r"\btoeic\s*([0-9]{2,3})\b"),        "toeic", lambda m: float(m.group(1))),
+    (re.compile(r"\bjlpt\s*n\s*([1-5])\b"),              "jlpt",  lambda m: 6 - int(m.group(1))),  # N1 highest
+    (re.compile(r"\bhsk\s*([1-9])\b"),                   "hsk",   lambda m: float(m.group(1))),
+    (re.compile(r"\btopik\s*([1-6])\b"),                 "topik", lambda m: float(m.group(1))),
+    (re.compile(r"\bielts\s*([0-9](?:\.[05])?)\b"),      "ielts", lambda m: float(m.group(1))),
+    (re.compile(r"\btoeic\s*([0-9]{2,3})\b"),            "toeic", lambda m: float(m.group(1))),
     (re.compile(r"\btoefl(?:\s*ibt)?\s*([0-9]{2,3})\b"), "toefl", lambda m: float(m.group(1))),
-    (re.compile(r"\b([abc][12])\b"),                 "cefr",  lambda m: float(_CEFR_RANK[m.group(1)])),
+    (re.compile(r"\b([abc][12])\b"),                     "cefr",  lambda m: float(_CEFR_RANK[m.group(1)])),
 ]
 
 
 def _parse_proficiency(token: str) -> Optional[tuple[str, float]]:
     """
-    Trích ra (framework, rank) cho 1 token trình độ ngôn ngữ chuẩn hóa
-    (ví dụ "JLPT N3", "TOEIC 835"), trả về None nếu token không khớp
-    framework nào. Rank chỉ so sánh được trong CÙNG 1 framework (số càng
-    cao càng giỏi).
+    Trích (framework, rank) cho 1 token trình độ ngôn ngữ chuẩn hóa (ví dụ
+    "JLPT N3", "TOEIC 835"), trả None nếu không khớp framework nào. Rank chỉ so
+    sánh được trong CÙNG framework (số càng cao càng giỏi).
     """
     t = token.lower()
     for pattern, framework, rank_of in _PROFICIENCY_PATTERNS:
@@ -83,7 +158,7 @@ def _parse_proficiency(token: str) -> Optional[tuple[str, float]]:
 
 
 # ---------------------------------------------------------------------------
-# _collect_cv_skills — gom skill thô từ CV trước khi chuẩn hóa
+# _collect_cv_skills — gom skill thô từ CV (chưa canonicalize)
 # ---------------------------------------------------------------------------
 
 # Separators inside a credential string: "Japanese - JLPT N3", "English: TOEIC 835".
@@ -92,10 +167,9 @@ _CREDENTIAL_SPLIT_RE = re.compile(r"[-–—:,/()]+")
 
 def _expand_credential(text: str) -> set[str]:
     """
-    Một mục ngôn ngữ/chứng chỉ thường mang theo trình độ như 1 sub-token,
-    ví dụ "Japanese - JLPT N3". Trả về cả chuỗi nguyên bản LẪN các phần
-    tách ra ("japanese", "jlpt n3") để 1 kỹ năng JD như "JLPT N3" có thể
-    khớp chính xác với sub-token đó.
+    Một mục ngôn ngữ/chứng chỉ thường mang trình độ như 1 sub-token, ví dụ
+    "Japanese - JLPT N3". Trả cả chuỗi nguyên bản LẪN các phần tách ra
+    ("japanese", "jlpt n3") để 1 kỹ năng JD như "JLPT N3" khớp được sub-token đó.
     """
     out: set[str] = set()
     whole = text.strip().lower()
@@ -109,13 +183,13 @@ def _expand_credential(text: str) -> set[str]:
     return out
 
 
-#gom skill thô từ CV trước khi chuẩn hóa (lowercase, strip, alias)
 def _collect_cv_skills(cv: ParsedCV) -> set[str]:
     """
-    Gộp toàn bộ kỹ năng từ cv.skills + work_experience.tech_stack +
-    projects.tech_stack, cộng thêm languages/certifications (được tách
-    thành sub-token để các chứng chỉ như "JLPT N3" nằm trong "Japanese -
-    JLPT N3" cũng trở thành kỹ năng có thể so khớp được).
+    Gộp toàn bộ kỹ năng thô (đã lowercase) từ cv.skills + work_experience.
+    tech_stack + projects.tech_stack, cộng languages/certifications (tách thành
+    sub-token để chứng chỉ như "JLPT N3" trong "Japanese - JLPT N3" cũng trở
+    thành kỹ năng so khớp được). Đây là input cho cả Layer 0 (so trực tiếp) lẫn
+    Layer 1/2 (sau khi canonicalize).
     """
     skills: set[str] = {s.lower() for s in cv.skills}
     for exp in cv.work_experience:
@@ -130,192 +204,178 @@ def _collect_cv_skills(cv: ParsedCV) -> set[str]:
 
 
 # ---------------------------------------------------------------------------
-# SkillMatcher — alias normalization, fuzzy match, category fallback
-# Lớp chịu trách nhiệm toàn bộ logic so khớp kỹ năng (dùng cho cả D2 trong
-# scorer.py lẫn evaluator.py khi phân tích chi tiết cho HR).
+# CV context + Match — kết quả so khớp 1 requirement
+# ---------------------------------------------------------------------------
+
+class CVContext(NamedTuple):
+    """
+    Các tập kỹ năng CV đã tiền xử lý 1 lần cho cả pipeline (tránh
+    canonicalize/tra implies lặp lại cho từng requirement):
+
+      raw            : skill thô đã lowercase (Layer 0 + proficiency)
+      canonical      : skill đã canonical hóa (Layer 1)
+      canonical_src  : canonical -> 1 skill CV thô đại diện (để làm matched_via)
+      implied        : union mọi skill bị CV kéo theo, dạng canonical (Layer 2)
+      implied_src    : implied_skill -> skill CV thô đã kéo theo nó (matched_via)
+    """
+    raw: set[str]
+    canonical: set[str]
+    canonical_src: dict[str, str]
+    implied: set[str]
+    implied_src: dict[str, str]
+
+
+class Match(NamedTuple):
+    """
+    Kết quả so khớp 1 requirement (đã gộp OR-group).
+      status : "matched" | "matched_implied" | "missing"  (để evaluator phân loại)
+      credit : 1.0 nếu matched, 0.0 nếu missing (scoring nhị phân)
+      layer  : "layer0" | "layer1" | "layer2" | "proficiency" | "missing"
+      via    : chuỗi skill CV cụ thể đã thỏa requirement (để giải thích cho HR)
+    """
+    status: str
+    credit: float
+    layer: str
+    via: str
+
+
+# Ưu tiên khi chọn alternative tốt nhất trong 1 OR-group: tầng sớm hơn thắng,
+# matched luôn hơn missing. Proficiency-matched xếp sau các tầng identity/implied.
+_LAYER_RANK = {"layer0": 4, "layer1": 3, "layer2": 2, "proficiency": 1, "missing": 0}
+
+
+# ---------------------------------------------------------------------------
+# SkillMatcher — pipeline 3 tầng + proficiency
 # ---------------------------------------------------------------------------
 
 class SkillMatcher:
     """
-    Chuẩn hóa các biến thể cách viết của cùng 1 kỹ năng, so khớp gần đúng
-    (fuzzy) khi viết sai chính tả, và cho điểm một phần (partial credit)
-    khi 2 kỹ năng cùng thuộc 1 nhóm lĩnh vực rộng (category) dù không khớp
-    chính xác.
+    Toàn bộ logic so khớp kỹ năng dùng cho D2 (scorer.py) lẫn tường thuật chi
+    tiết (evaluator.py). Không còn fuzzy/category; scoring nhị phân theo pipeline
+    3 tầng + tầng phụ proficiency.
     """
 
-    # Data tables live in skill_data.py; bound here as class attributes so
-    # `matcher.ALIASES` / `SkillMatcher.CATEGORIES` keep working as before.
-    ALIASES = ALIASES
-    CATEGORIES = CATEGORIES
+    # -- Tiền xử lý CV 1 lần ---------------------------------------------------
 
-    # -- 1. Chuẩn hóa (alias) -------------------------------------------------
+    def build_cv_context(self, cv: ParsedCV) -> CVContext:
+        """Gom + canonical hóa + mở rộng implied cho CV, trả CVContext dùng lại."""
+        raw = _collect_cv_skills(cv)
+        canonical: set[str] = set()
+        canonical_src: dict[str, str] = {}
+        implied: set[str] = set()
+        implied_src: dict[str, str] = {}
+        for tok in raw:
+            c = resolve_canonical(tok)
+            canonical.add(c)
+            canonical_src.setdefault(c, tok)
+            # Dữ liệu đã flatten bắc cầu -> tra list trực tiếp, không duyệt graph.
+            for imp in SKILL_IMPLIES.get(c, ()):
+                implied.add(imp)
+                implied_src.setdefault(imp, tok)
+        return CVContext(raw, canonical, canonical_src, implied, implied_src)
 
-    def normalize_skill(self, skill: str) -> str:
+    # -- So khớp 1 tên kỹ năng đơn qua 3 tầng + proficiency --------------------
+
+    def evaluate_name(self, name: str, ctx: CVContext) -> Match:
         """
-        Chuẩn hóa 1 chuỗi kỹ năng thô về tên kỹ năng chuẩn (canonical) qua
-        bảng ALIASES. Nếu không có trong bảng, thử bỏ phần trong ngoặc đơn
-        (ví dụ "JavaScript (ES6+)" → "javascript") rồi tra lại ALIASES;
-        nếu vẫn không khớp, trả về chính chuỗi đã lowercase/strip.
+        So khớp 1 tên kỹ năng JD (chưa canonicalize) với CV qua các tầng theo
+        thứ tự; trả Match ngay ở tầng sớm nhất thỏa. Không tầng nào thỏa -> missing.
         """
-        if not skill:
-            return ""
-        key = skill.lower().strip()
-        if key in self.ALIASES:
-            return self.ALIASES[key]
-        # Strip parenthetical suffix: "JavaScript (ES6+)" → "javascript"
-        stripped = re.sub(r'\s*\([^)]*\)', '', key).strip()
-        if stripped and stripped != key:
-            return self.ALIASES.get(stripped, stripped)
-        return key
+        n = name.strip().lower()
+        if not n:
+            return Match("missing", 0.0, "missing", "")
 
-    # -- 2. Khớp suy luận (implied, bắc cầu) ----------------------------------
+        # Layer 0 — direct match trên output LLM thô
+        if n in ctx.raw:
+            return Match("matched", 1.0, "layer0", n)
 
-    def implied_skills(self, skill: str) -> set[str]:
+        # Layer 1 — identity qua skill_data.json (canonical hóa cả 2 phía)
+        canon = resolve_canonical(name)
+        if canon in ctx.canonical:
+            return Match("matched", 1.0, "layer1", ctx.canonical_src[canon])
+
+        # Layer 2 — entailment qua skill_implies.json (đã flatten sẵn)
+        if canon in ctx.implied:
+            return Match("matched_implied", 1.0, "layer2", ctx.implied_src[canon])
+
+        # Tầng phụ — trình độ ngôn ngữ (ordinal, cùng framework)
+        prof = self._match_proficiency(n, ctx.raw)
+        if prof is not None:
+            status, credit, via = prof
+            return Match(status, credit, "proficiency", via)
+
+        return Match("missing", 0.0, "missing", "")
+
+    def _match_proficiency(self, jd_token: str,
+                           cv_skills: set[str]) -> Optional[tuple[str, float, str]]:
         """
-        Bao đóng bắc cầu một chiều (one-way transitive closure) trên đồ thị
-        IMPLIES (ví dụ: nextjs → react → javascript — biết nextjs thì suy
-        ra biết cả react lẫn javascript).
-        "Biết X thì chắc chắn biết Y" — dữ liệu lấy từ Wikidata P277, không
-        phải suy đoán.
+        So khớp trình độ ngôn ngữ theo thứ bậc. Trả (status, credit, via) khi JD
+        yêu cầu 1 chứng chỉ chuẩn hóa VÀ CV có chứng chỉ cùng framework; None nếu
+        JD không phải token trình độ (để nhường tầng khác). Mức CV bằng-hoặc-cao-
+        hơn -> matched; thấp hơn -> missing (vẫn là verdict dứt điểm, không rơi
+        xuống tầng khác vì đã biết chắc cùng framework).
         """
-        seen: set[str] = set()
-        stack = [skill]
-        while stack:
-            for nxt in IMPLIES_ALL.get(stack.pop(), ()):
-                if nxt not in seen:
-                    seen.add(nxt)
-                    stack.append(nxt)
-        return seen
-
-    def expand_implied(self, skills: set[str]) -> set[str]:
-        """Thêm vào tập skills mọi kỹ năng được đảm bảo (suy luận) một cách logic từ các kỹ năng đã có."""
-        expanded = set(skills)
-        for s in skills:
-            expanded |= self.implied_skills(s)
-        return expanded
-
-    # -- 3. Khớp gần đúng (fuzzy) ----------------------------------------------
-
-    def fuzzy_match(self, skill1: str, skill2: str, threshold: float = 0.85) -> bool:
-        """
-        So khớp gần đúng (fuzzy) 2 chuỗi kỹ năng bằng tỷ lệ tương đồng ký
-        tự (difflib.SequenceMatcher — thuật toán Ratcliff/Obershelp, 1988).
-        Trả về True nếu tỷ lệ >= threshold (mặc định 0.85) — dùng để bắt các
-        trường hợp viết khác 1 chút (ví dụ lỗi chính tả) mà không khớp qua
-        ALIASES.
-        """
-        if not skill1 or not skill2:
-            return False
-        ratio = difflib.SequenceMatcher(None, skill1, skill2).ratio()
-        return ratio >= threshold
-
-    def is_fuzzy(self, jd_skill: str, cv_skills: set[str]) -> bool:
-        """True nếu có bất kỳ kỹ năng nào trong CV so khớp gần đúng (fuzzy) với kỹ năng JD (đã chuẩn hóa)."""
-        return any(self.fuzzy_match(jd_skill, cv_s) for cv_s in cv_skills)
-
-    # -- 4. Khớp cùng nhóm lĩnh vực (category) ---------------------------------
-
-    def _category_of(self, skill: str) -> Optional[str]:
-        """Trả về tên nhóm lĩnh vực (trong CATEGORIES) mà `skill` thuộc về, hoặc None nếu không thuộc nhóm nào."""
-        for cat, members in self.CATEGORIES.items():
-            if skill in members:
-                return cat
-        return None
-
-    def category_match(self, cv_skills: set[str], jd_skill: str) -> float:
-        """
-        Cho điểm một phần (partial credit) khi kỹ năng JD yêu cầu thuộc 1
-        nhóm lĩnh vực mà CV đã có kỹ năng khác cùng nhóm đó bao phủ. Điểm
-        tăng dần theo số lượng kỹ năng cùng nhóm mà CV có.
-        """
-        cat = self._category_of(jd_skill)
-        if not cat:
-            return 0.0
-        overlap = len(cv_skills & self.CATEGORIES[cat])
-        if overlap == 0:
-            return 0.0
-        # 1 overlap → 0.3, 2 → 0.4, ≥3 → 0.5
-        return min(0.3 + 0.1 * (overlap - 1), 0.5)
-
-    # -- 5. Trình độ ngôn ngữ (ordinal) -----------------------------------------
-
-    def _match_proficiency(self, jd_norm: str,
-                           cv_skills: set[str]) -> Optional[tuple[str, float]]:
-        """
-        So khớp trình độ ngôn ngữ theo thứ bậc (ordinal). Trả về verdict
-        (status, credit) khi kỹ năng JD yêu cầu là 1 chứng chỉ trình độ
-        chuẩn hóa (ví dụ JLPT, TOEIC...) VÀ CV có chứng chỉ cùng hệ khung
-        (framework) đó; ngược lại trả về None (để nhường cho fuzzy/category
-        xử lý tiếp).
-        """
-        req = _parse_proficiency(jd_norm)
+        req = _parse_proficiency(jd_token)
         if req is None:
             return None
         framework, req_rank = req
-        best: Optional[float] = None
+        best_rank: Optional[float] = None
+        best_src = ""
         for cv_s in cv_skills:
             cp = _parse_proficiency(cv_s)
-            if cp and cp[0] == framework:
-                best = cp[1] if best is None else max(best, cp[1])
-        if best is None:
+            if cp and cp[0] == framework and (best_rank is None or cp[1] > best_rank):
+                best_rank = cp[1]
+                best_src = cv_s
+        if best_rank is None:
             return None
-        return ("matched", 1.0) if best >= req_rank else ("missing", 0.0)
+        if best_rank >= req_rank:
+            return ("matched", 1.0, best_src)
+        return ("missing", 0.0, best_src)
 
-    # -- Tổng hợp: gom skill CV, OR-group, entry point -------------------------
-    #
-    # A RequiredSkill may carry `alternatives`: the requirement is satisfied by
-    # ANY of {skill} ∪ alternatives. All group logic funnels through here so the
-    # scorer and evaluator agree.
-
-    def normalized_cv_skills(self, cv: ParsedCV) -> tuple[set[str], set[str]]:
-        """Trả về (tập kỹ năng CV đã chuẩn hóa, tập đó được mở rộng thêm các kỹ năng suy luận được)."""
-        cv_skills = {self.normalize_skill(s) for s in _collect_cv_skills(cv) if s}
-        return cv_skills, self.expand_implied(cv_skills)
+    # -- OR-group: thỏa 1 alternative là đủ -----------------------------------
 
     def group_names(self, req) -> list[str]:
-        """Danh sách tên kỹ năng đã chuẩn hóa trong 1 nhóm OR (requirement + alternatives)."""
-        return [self.normalize_skill(n) for n in [req.skill, *req.alternatives] if n]
+        """Danh sách tên kỹ năng thô trong 1 OR-group (requirement + alternatives)."""
+        return [n for n in [req.skill, *req.alternatives] if n]
 
     def group_label(self, req) -> str:
-        """Nhãn hiển thị dễ đọc cho 1 requirement — dạng 'A / B / C' cho các nhóm OR (OR-group)."""
-        names = [n for n in [req.skill, *req.alternatives] if n]
-        return " / ".join(dict.fromkeys(names))
+        """Nhãn hiển thị 'A / B / C' cho 1 OR-group."""
+        return " / ".join(dict.fromkeys(self.group_names(req)))
 
-    def evaluate_skill(self, jd_norm: str, cv_skills: set[str],
-                       cv_skills_expanded: set[str]) -> tuple[str, float]:
+    def evaluate_group(self, req, ctx: CVContext) -> Match:
         """
-        Phân loại 1 kỹ năng JD (đã chuẩn hóa) so với CV.
-        Trả về (status, credit) với status ∈ matched|matched_implied|missing
-        và credit ∈ [0,1] tương ứng các bậc trong score_skills (khớp chính
-        xác/suy luận = 1.0, khớp gần đúng = 0.9, còn lại là điểm một phần
-        theo nhóm lĩnh vực).
+        Trả Match tốt nhất trong mọi alternative của 1 requirement (OR-group:
+        thỏa 1 cái là đủ). "Tốt nhất" = tầng sớm nhất, ưu tiên matched.
         """
-        if jd_norm in cv_skills:
-            return "matched", 1.0
-        if jd_norm in cv_skills_expanded:
-            return "matched_implied", 1.0
-        # Language proficiency: when the JD asks for a standardized level, credit
-        # the CV only via same-framework ordinal comparison (an equal-or-higher
-        # level matches; a lower one does not), never fuzzy on the level code.
-        prof = self._match_proficiency(jd_norm, cv_skills)
-        if prof is not None:
-            return prof
-        if self.is_fuzzy(jd_norm, cv_skills):
-            return "matched", 0.9
-        return "missing", self.category_match(cv_skills, jd_norm)
-
-    # status priority for picking the best alternative in a group
-    _STATUS_RANK = {"matched": 2, "matched_implied": 1, "missing": 0}
-
-    def evaluate_group(self, req, cv_skills: set[str],
-                       cv_skills_expanded: set[str]) -> tuple[str, float]:
-        """Trả về (status, credit) tốt nhất trong số mọi lựa chọn thay thế (alternative) của 1 requirement."""
-        best: tuple[str, float] = ("missing", 0.0)
-        for jd_norm in self.group_names(req):
-            status, credit = self.evaluate_skill(jd_norm, cv_skills, cv_skills_expanded)
-            if (self._STATUS_RANK[status], credit) > (self._STATUS_RANK[best[0]], best[1]):
-                best = (status, credit)
+        best = Match("missing", 0.0, "missing", "")
+        for name in self.group_names(req):
+            m = self.evaluate_name(name, ctx)
+            if (_LAYER_RANK[m.layer], m.credit) > (_LAYER_RANK[best.layer], best.credit):
+                best = m
         return best
+
+    # -- Evidence chi tiết cho evaluator.py ------------------------------------
+
+    def evaluate_all_skills(self, cv: ParsedCV, jd) -> list[dict]:
+        """
+        Trả evidence chi tiết cho TỪNG required_skill của JD (dùng cho HR):
+        [{label, weight, status, matched_layer, matched_via, credit}, ...].
+        matched_layer ∈ layer0|layer1|layer2|proficiency|missing để evaluator
+        giải thích được đã khớp qua đâu; matched_via là skill CV cụ thể đã thỏa.
+        """
+        ctx = self.build_cv_context(cv)
+        out: list[dict] = []
+        for req in jd.required_skills:
+            m = self.evaluate_group(req, ctx)
+            out.append({
+                "label":         self.group_label(req),
+                "weight":        req.weight,
+                "status":        m.status,
+                "matched_layer": m.layer,
+                "matched_via":   m.via,
+                "credit":        m.credit,
+            })
+        return out
 
 
 _skill_matcher = SkillMatcher()

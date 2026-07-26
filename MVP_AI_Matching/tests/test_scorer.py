@@ -80,10 +80,10 @@ def test_score_skills_partial_with_tech_stack():
     assert score_skills(cv, jd) == pytest.approx(5 / 6)
 
 
-def test_score_skills_alias_and_fuzzy():
-    # 'js' → javascript, 'reactjs' → react via ALIASES; 'fastapi' exact.
-    # "Python" is satisfied via the implied tier (fastapi implies python is a
-    # guaranteed fact) before the fuzzy typo 'pythonn' is even considered —
+def test_score_skills_layers_combined_full_match():
+    # 'js' → javascript and 'reactjs' → reactjs canonicalize via skill_data.json
+    # (Layer 1); 'fastapi' exact (Layer 0). "Python" is satisfied via Layer 2
+    # (fastapi implies python) even though the CV only has the typo 'pythonn' —
     # so all 4 required skills get full credit.
     cv = ParsedCV(skills=["js", "reactjs", "fastapi", "pythonn"])
     jd = ParsedJD(
@@ -98,31 +98,34 @@ def test_score_skills_alias_and_fuzzy():
     assert score_skills(cv, jd) == pytest.approx(1.0)
 
 
-def test_score_skills_fuzzy_still_applies_without_implied_path():
-    # Genuine fuzzy-only case: 'pythonn' (typo) with no other CV skill that
-    # implies python — must still get the 0.9 fuzzy credit, not full credit.
+def test_score_skills_typo_no_longer_fuzzy_matched():
+    # Fuzzy matching was removed with the 3-layer redesign: a typo like
+    # 'pythonn' that isn't in skill_data and isn't implied by any CV skill now
+    # counts as missing (0.0), not a 0.9 fuzzy credit.
     cv = ParsedCV(skills=["pythonn"])
     jd = ParsedJD(
         title="Backend",
         required_skills=[RequiredSkill(skill="Python", weight=1)],
     )
-    assert score_skills(cv, jd) == pytest.approx(0.9)
+    assert score_skills(cv, jd) == pytest.approx(0.0)
 
 
-def test_score_skills_category_partial_credit():
-    # JD wants PostgreSQL (database category); CV has MySQL (same category)
+def test_score_skills_no_category_partial_credit():
+    # Category partial credit was removed: MySQL and PostgreSQL are distinct
+    # canonical skills with no entailment between them, so a JD asking for
+    # PostgreSQL is NOT satisfied by MySQL — binary scoring gives 0.0, not 0.3.
     cv = ParsedCV(skills=["mysql"])
     jd = ParsedJD(
         title="Backend",
         required_skills=[RequiredSkill(skill="PostgreSQL", weight=1)],
     )
-    assert score_skills(cv, jd) == pytest.approx(0.3)
+    assert score_skills(cv, jd) == pytest.approx(0.0)
 
 
 def test_score_skills_implied_match_full_credit():
-    # CV only lists "ReactJS" (not "JavaScript" explicitly) — React implies
-    # JavaScript (IMPLIES, sourced from Wikidata P277), so this must be a
-    # full-weight match, not a partial category-credit guess.
+    # CV only lists "ReactJS" (not "JavaScript" explicitly) — reactjs implies
+    # javascript (Layer 2, skill_implies.json), so this must be a full-weight
+    # match rather than missing.
     cv = ParsedCV(skills=["reactjs"])
     jd = ParsedJD(
         title="Frontend",
@@ -144,25 +147,43 @@ def test_score_skills_or_group_satisfied_by_one_alternative():
     assert score_skills(cv, jd) == pytest.approx(1.0)
 
 
-def test_chartjs_implies_data_visualization():
-    # Chart.js is a data-visualization library; a JD asking for "Data
-    # Visualization" must count it as matched (concept implication), not missing.
+def test_chartjs_implies_javascript_layer2():
+    # Layer 2 (skill_implies.json): Chart.js entails JavaScript, so a JD asking
+    # for JavaScript is fully satisfied by a CV that only lists Chart.js.
     cv = ParsedCV(skills=["Chart.js"])
     jd = ParsedJD(
         title="Frontend",
-        required_skills=[RequiredSkill(skill="Data Visualization", weight=3)],
+        required_skills=[RequiredSkill(skill="JavaScript", weight=3)],
     )
     assert score_skills(cv, jd) == pytest.approx(1.0)
 
 
-def test_rest_apis_plural_alias():
-    # "REST APIs" (plural) must normalize to the same canonical as "RESTful APIs".
-    cv = ParsedCV(skills=["REST APIs"])
+def test_layer1_identity_across_formats():
+    # Layer 1 (skill_data.json): the LLM's Title-Case "Node.js" and a CV's
+    # "NodeJS" both canonicalize to the same Stack Overflow tag (node.js), so
+    # they match on identity even though the raw strings differ.
+    cv = ParsedCV(skills=["NodeJS"])
     jd = ParsedJD(
         title="Backend",
-        required_skills=[RequiredSkill(skill="RESTful APIs", weight=3)],
+        required_skills=[RequiredSkill(skill="Node.js", weight=3)],
     )
     assert score_skills(cv, jd) == pytest.approx(1.0)
+
+
+def test_score_skills_language_proficiency_ordinal():
+    # Proficiency layer (kept alongside the 3 data layers): a CV certificate
+    # equal-or-higher in the same framework satisfies the JD requirement even
+    # though the strings differ — JLPT N2 (higher) covers a required N3.
+    cv = ParsedCV(certifications=["Japanese - JLPT N2"])
+    jd = ParsedJD(
+        title="Bridge SE",
+        required_skills=[RequiredSkill(skill="JLPT N3", weight=3)],
+    )
+    assert score_skills(cv, jd) == pytest.approx(1.0)
+
+    # A lower level does NOT satisfy a higher requirement.
+    cv_low = ParsedCV(certifications=["Japanese - JLPT N4"])
+    assert score_skills(cv_low, jd) == pytest.approx(0.0)
 
 
 def test_score_skills_implied_match_different_ecosystem():

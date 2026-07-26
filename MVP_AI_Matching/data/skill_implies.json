@@ -69,11 +69,13 @@
   ],
   "pyqt5": [
     "qt",
-    "python"
+    "python",
+    "c++"
   ],
   "pyqt4": [
     "qt",
-    "python"
+    "python",
+    "c++"
   ],
   "tkinter": [
     "python"
@@ -138,7 +140,8 @@
   ],
   "nestjs": [
     "typescript",
-    "node.js"
+    "node.js",
+    "javascript"
   ],
   "jquery": [
     "javascript"
@@ -215,10 +218,12 @@
     "javascript"
   ],
   "cypress": [
-    "javascript"
+    "javascript",
+    "automation-testing"
   ],
   "playwright": [
-    "javascript"
+    "javascript",
+    "automation-testing"
   ],
   "puppeteer": [
     "javascript"
@@ -232,7 +237,8 @@
     "javascript"
   ],
   "bootstrap-vue": [
-    "vue.js"
+    "vue.js",
+    "javascript"
   ],
   "material-ui": [
     "reactjs",
@@ -367,10 +373,12 @@
     "java"
   ],
   "kotlin-coroutines": [
-    "kotlin"
+    "kotlin",
+    "java"
   ],
   "kotlin-flow": [
-    "kotlin"
+    "kotlin",
+    "java"
   ],
   "rx-java": [
     "java"
@@ -393,92 +401,121 @@
   ],
   "asp.net-core": [
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net-core-mvc": [
     "asp.net-core",
-    "c#"
+    "c#",
+    ".net",
+    "asp.net"
   ],
   "asp.net-core-webapi": [
     "asp.net-core",
-    "c#"
+    "c#",
+    ".net",
+    "asp.net"
   ],
   "asp.net-mvc": [
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net-web-api": [
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net": [
     "c#",
     ".net"
   ],
   "entity-framework": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "entity-framework-core": [
     "entity-framework",
-    "c#"
+    "c#",
+    ".net"
   ],
   "entity-framework-6": [
     "entity-framework",
-    "c#"
+    "c#",
+    ".net"
   ],
   "wpf": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "winforms": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "wcf": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "blazor": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "blazor-webassembly": [
     "blazor",
-    "c#"
+    "c#",
+    ".net"
   ],
   "blazor-server-side": [
     "blazor",
-    "c#"
+    "c#",
+    ".net"
   ],
   "xamarin": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "xamarin.forms": [
     "xamarin",
-    "c#"
+    "c#",
+    ".net"
   ],
   "xamarin.android": [
-    "xamarin"
+    "xamarin",
+    ".net",
+    "c#"
   ],
   "xamarin.ios": [
-    "xamarin"
+    "xamarin",
+    ".net",
+    "c#"
   ],
   "linq": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "nunit": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "xunit": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "moq": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "dapper": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "signalr": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "nhibernate": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "c#": [
     ".net"
@@ -506,25 +543,32 @@
     "ruby"
   ],
   "laravel": [
-    "php-7"
+    "php-7",
+    "php"
   ],
   "symfony": [
-    "php-7"
+    "php-7",
+    "php"
   ],
   "codeigniter": [
-    "php-7"
+    "php-7",
+    "php"
   ],
   "cakephp": [
-    "php-7"
+    "php-7",
+    "php"
   ],
   "wordpress": [
-    "php-7"
+    "php-7",
+    "php"
   ],
   "phpunit": [
-    "php-7"
+    "php-7",
+    "php"
   ],
   "composer-php": [
-    "php-7"
+    "php-7",
+    "php"
   ],
   "goroutine": [
     "go"
@@ -559,7 +603,8 @@
     "swift"
   ],
   "unity-game-engine": [
-    "c#"
+    "c#",
+    ".net"
   ],
   "qt": [
     "c++"
@@ -649,7 +694,8 @@
   ],
   "tf.keras": [
     "keras",
-    "tensorflow"
+    "tensorflow",
+    "python"
   ],
   "pymysql": [
     "mysql",
@@ -751,7 +797,8 @@
   "angular-material2": [
     "angular-material",
     "angular",
-    "typescript"
+    "typescript",
+    "javascript"
   ],
   "angular-ng-if": [
     "angular",
@@ -948,27 +995,32 @@
   "asp.net-core-2.0": [
     "asp.net-core",
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net-core-2.1": [
     "asp.net-core",
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net-core-3.1": [
     "asp.net-core",
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net-core-6.0": [
     "asp.net-core",
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net-core-identity": [
     "asp.net-core",
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net-identity": [
     "asp.net",
@@ -978,7 +1030,8 @@
   "asp.net-identity-2": [
     "asp.net-identity",
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net-membership": [
     "asp.net",
@@ -988,22 +1041,26 @@
   "asp.net-mvc-2": [
     "asp.net-mvc",
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net-mvc-3": [
     "asp.net-mvc",
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net-mvc-4": [
     "asp.net-mvc",
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net-mvc-5": [
     "asp.net-mvc",
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "asp.net-mvc-routing": [
     "asp.net",
@@ -1018,7 +1075,8 @@
   "asp.net-web-api2": [
     "asp.net-web-api",
     "asp.net",
-    "c#"
+    "c#",
+    ".net"
   ],
   "auth0": [
     "authentication"
@@ -1079,23 +1137,28 @@
   ],
   "cakephp-1.3": [
     "cakephp",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "cakephp-2.0": [
     "cakephp",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "cakephp-2.1": [
     "cakephp",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "cakephp-2.3": [
     "cakephp",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "cakephp-3.0": [
     "cakephp",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "cassandra-2.0": [
     "cassandra"
@@ -1114,15 +1177,18 @@
   ],
   "codeigniter-2": [
     "codeigniter",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "codeigniter-3": [
     "codeigniter",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "codeigniter-4": [
     "codeigniter",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "coldfusion-10": [
     "coldfusion"
@@ -1325,7 +1391,8 @@
   ],
   "ef-code-first": [
     "entity-framework",
-    "c#"
+    "c#",
+    ".net"
   ],
   "eigen3": [
     "eigen"
@@ -1347,19 +1414,23 @@
   ],
   "entity-framework-4": [
     "entity-framework",
-    "c#"
+    "c#",
+    ".net"
   ],
   "entity-framework-4.1": [
     "entity-framework",
-    "c#"
+    "c#",
+    ".net"
   ],
   "entity-framework-5": [
     "entity-framework",
-    "c#"
+    "c#",
+    ".net"
   ],
   "entity-framework-migrations": [
     "entity-framework",
-    "c#"
+    "c#",
+    ".net"
   ],
   "excel-2007": [
     "excel"
@@ -1707,7 +1778,8 @@
     "jersey"
   ],
   "jmeter-5.0": [
-    "jmeter"
+    "jmeter",
+    "performance-testing"
   ],
   "joomla1.5": [
     "joomla"
@@ -1834,63 +1906,78 @@
   ],
   "laravel-4": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-5": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-5.7": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-5.8": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-6": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-7": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-8": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-9": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-artisan": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-blade": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-livewire": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-mix": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-passport": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-query-builder": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "laravel-routing": [
     "laravel",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "liferay-6": [
     "liferay"
@@ -2673,27 +2760,33 @@
   ],
   "symfony-1.4": [
     "symfony",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "symfony-2.1": [
     "symfony",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "symfony-forms": [
     "symfony",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "symfony1": [
     "symfony",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "symfony4": [
     "symfony",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "symfony5": [
     "symfony",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "tensorflow-datasets": [
     "tensorflow",
@@ -2863,7 +2956,8 @@
   ],
   "windows-forms-designer": [
     "winforms",
-    "c#"
+    "c#",
+    ".net"
   ],
   "windows-phone-7": [
     "windows-phone"
@@ -2882,22 +2976,26 @@
   ],
   "wordpress-gutenberg": [
     "wordpress",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "wordpress-theming": [
     "wordpress",
-    "php-7"
+    "php-7",
+    "php"
   ],
   "workflow-foundation-4": [
     "workflow-foundation"
   ],
   "wpf-controls": [
     "wpf",
-    "c#"
+    "c#",
+    ".net"
   ],
   "xamarin-studio": [
     "xamarin",
-    "c#"
+    "c#",
+    ".net"
   ],
   "xcode-ui-testing": [
     "xcode"
@@ -2931,5 +3029,60 @@
   ],
   "yii2": [
     "yii"
+  ],
+  "boundary-value-analysis": [
+    "test-case-design"
+  ],
+  "equivalence-partitioning": [
+    "test-case-design"
+  ],
+  "decision-table": [
+    "test-case-design"
+  ],
+  "selenium-webdriver": [
+    "automation-testing"
+  ],
+  "webdriverio": [
+    "automation-testing"
+  ],
+  "cucumber": [
+    "automation-testing"
+  ],
+  "appium": [
+    "automation-testing",
+    "mobile-testing"
+  ],
+  "postman": [
+    "api-testing"
+  ],
+  "rest-assured": [
+    "api-testing"
+  ],
+  "jmeter": [
+    "performance-testing"
+  ],
+  "k6": [
+    "performance-testing"
+  ],
+  "locust": [
+    "performance-testing"
+  ],
+  "gatling": [
+    "performance-testing"
+  ],
+  "black-box-testing": [
+    "functional-testing"
+  ],
+  "end-to-end-testing": [
+    "functional-testing"
+  ],
+  "load-testing": [
+    "performance-testing"
+  ],
+  "stress-testing": [
+    "performance-testing"
+  ],
+  "php-7": [
+    "php"
   ]
 }

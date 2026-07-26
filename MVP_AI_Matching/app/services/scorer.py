@@ -69,28 +69,25 @@ def score_skills(
     matcher: Optional[SkillMatcher] = None,
 ) -> float:
     """
-    So khớp kỹ năng theo từng bậc (tiered), mỗi requirement được thỏa mãn
-    bởi bất kỳ lựa chọn thay thế nào trong OR-group của nó:
-      1. Chuẩn hóa kỹ năng CV + JD qua bảng alias
-      2. Khớp chính xác     → tính đủ trọng số
-      3. Khớp suy luận      → tính đủ trọng số (ví dụ CV có "react" → JD
-         cần "javascript" thì coi như đã đảm bảo có, theo dữ liệu
-         IMPLIES / Wikidata P277)
-      4. Khớp gần đúng (fuzzy) → 0.9 × trọng số
-      5. Khớp cùng nhóm lĩnh vực (category) → 0.3–0.5 × trọng số
+    So khớp kỹ năng theo pipeline 3 tầng (skill_matcher.py), scoring NHỊ PHÂN:
+    mỗi requirement (OR-group — thỏa 1 alternative là đủ) hoặc matched (full
+    trọng số) hoặc missing (0), không còn partial credit fuzzy/category:
+      Layer 0 — direct match trên output LLM thô
+      Layer 1 — identity qua skill_data.json (canonical hóa 2 phía)
+      Layer 2 — entailment qua skill_implies.json (đã flatten bắc cầu sẵn)
+      + tầng phụ: trình độ ngôn ngữ (JLPT/TOEIC...) so theo thứ bậc ordinal
     """
     if not jd.required_skills:
         return 1.0
     matcher = matcher or _skill_matcher
 
-    cv_skills, cv_skills_expanded = matcher.normalized_cv_skills(cv)
+    ctx = matcher.build_cv_context(cv)
 
     total_w = sum(s.weight for s in jd.required_skills)
     matched_w = 0.0
 
     for req in jd.required_skills:
-        _, credit = matcher.evaluate_group(req, cv_skills, cv_skills_expanded)
-        matched_w += req.weight * credit
+        matched_w += req.weight * matcher.evaluate_group(req, ctx).credit
 
     return matched_w / total_w if total_w > 0 else 0.0
 
