@@ -332,6 +332,7 @@
   "import": "import",
   "jakarta-ee": "jakarta-ee",
   "java-8": "java-8",
+  "java-core": "java",
   "jestjs": "jestjs",
   "junit": null,
   "jupyter-notebook": "jupyter-notebook",

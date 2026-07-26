@@ -8,7 +8,9 @@ trước (ở đây gộp trong evaluate_group: mỗi requirement dừng ngay �
 nhất thỏa nó):
 
   Layer 0 — Direct match: so trực tiếp (lowercase+strip) output LLM của CV và
-            JD, chưa cần canonicalize. Fast-path rẻ tiền cho các case hiển nhiên.
+            JD, chưa cần canonicalize. Fast-path rẻ tiền cho các case hiển nhiên;
+            kèm fuzzy fallback (SequenceMatcher, ngưỡng 0.85) để bắt biến thể
+            chính tả/format nhỏ ("Postgresql" vs "PostgreSQL").
   Layer 1 — Identity qua skill_data.json: chuẩn hóa cả CV lẫn JD về tên chuẩn
             (canonical) rồi so exact. Bắc cầu giữa format Title-Case của LLM và
             format Stack Overflow tag (lowercase, space→hyphen) của skill_data.
@@ -30,6 +32,7 @@ from __future__ import annotations
 
 import json
 import re
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import NamedTuple, Optional
 
@@ -101,6 +104,34 @@ def to_stackoverflow_format(skill: str) -> list[str]:
             seen.add(v)
             out.append(v)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Layer 0 fuzzy fallback — bắt các sai lệch nhỏ về ký tự giữa output LLM của CV
+# và JD ("Postgresql" vs "PostgreSQL", "Node JS" vs "Node.js") trước khi phải
+# canonicalize. Dùng difflib.SequenceMatcher (ratio 0..1); ngưỡng cao (0.85) để
+# tránh gộp nhầm các skill khác nhau nhưng gần giống ("N4" vs "N3", "Java" vs
+# "JavaScript" đều dưới ngưỡng nên KHÔNG khớp ở đây).
+# ---------------------------------------------------------------------------
+
+_LAYER0_FUZZY_THRESHOLD = 0.85
+
+
+def _fuzzy_best_match(name: str, candidates: set[str],
+                      threshold: float = _LAYER0_FUZZY_THRESHOLD) -> Optional[str]:
+    """
+    Trả candidate có tỉ lệ tương đồng cao nhất với `name` nếu >= threshold, ngược
+    lại None. So trên chuỗi đã lowercase/strip (caller đảm bảo). Ngưỡng mặc định
+    0.85 — đủ chặt để chỉ bắt biến thể chính tả/format, không gộp skill khác nhau.
+    """
+    best_ratio = threshold
+    best: Optional[str] = None
+    for cand in candidates:
+        ratio = SequenceMatcher(None, name, cand).ratio()
+        if ratio >= best_ratio:
+            best_ratio = ratio
+            best = cand
+    return best
 
 
 def resolve_canonical(skill: str, skill_data: dict = SKILL_DATA) -> str:
@@ -285,9 +316,16 @@ class SkillMatcher:
         if not n:
             return Match("missing", 0.0, "missing", "")
 
-        # Layer 0 — direct match trên output LLM thô
+        # Layer 0 — direct match trên output LLM thô, kèm fuzzy fallback (>=0.85)
+        # để bắt biến thể chính tả/format nhỏ trước khi phải canonicalize. KHÔNG
+        # fuzzy cho token trình độ ngôn ngữ: "N4" giống 86% "N3" nhưng THẤP HƠN,
+        # phải để tầng phụ proficiency so theo thứ bậc (ordinal) mới đúng.
         if n in ctx.raw:
             return Match("matched", 1.0, "layer0", n)
+        if _parse_proficiency(n) is None:
+            fuzzy = _fuzzy_best_match(n, ctx.raw)
+            if fuzzy is not None:
+                return Match("matched", 1.0, "layer0", fuzzy)
 
         # Layer 1 — identity qua skill_data.json (canonical hóa cả 2 phía)
         canon = resolve_canonical(name)
