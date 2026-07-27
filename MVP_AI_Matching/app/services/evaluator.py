@@ -11,7 +11,7 @@ Flow:
   4. LLM narrative     — 1 call duy nhất: hr_summary + strengths + weaknesses
 
 Không có "recommendation" (strong_fit/possible_fit/...) — nhãn phù hợp do
-final_score + penalty (scorer.py) quyết định, HR tự đọc điểm số. Narrative
+final_score. Narrative
 chỉ mô tả, không tự đưa kết luận riêng để tránh mâu thuẫn với điểm số.
 """
 
