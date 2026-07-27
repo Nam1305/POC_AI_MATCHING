@@ -64,6 +64,13 @@ treated as `jd_text`.
 `error` is set (e.g. `"Embed failed: ..."`) when embedding fails; `jd_embedding`
 is `null` in that case.
 
+`education_degree` is one of `high_school`, `associate`, `bachelor`, `master`,
+`phd`, `other`, or `null` (JD states no specific degree).
+`work_location.work_mode` is one of `onsite`, `hybrid`, `remote` — defaults to
+`onsite` when the JD gives no explicit signal.
+`work_location.city` is constrained to exactly `"Ha Noi"`, `"Ho Chi Minh"`, or
+`"Da Nang"`.
+
 **Errors:**
 - `400` — `"Request body is empty"`
 - `400` — `"jd_text is empty"`
@@ -133,14 +140,22 @@ directly; only accepts URLs.
 }
 ```
 
+`work_experience[].months` is computed by Python (`schemas.py::_diff_months`)
+from `start`/`end` at validation time — never trust an LLM-provided value for
+this field. For an entry with `"end": "present"`, `months` grows with the
+current date, so the number above is illustrative, not fixed.
+
 Per-URL failures never fail the whole request — that item's `error` is set
-(e.g. `"HTTP 404 when downloading file"`, `"Network error: ..."`, `"No text
+(e.g. `"HTTP 404 when downloading file"`, `"Network error: ..."`,
+`"Unsupported file type: .xyz (only .pdf / .docx allowed)"`, `"No text
 could be extracted from file"`, `"Parse/embed failed: ..."`) with
 `cv_raw_text`, `parsed_cv`, `cv_embedding` left `null`; other URLs in the same
 request are unaffected.
 
-**Errors (whole-request, `422`):** neither `cv_url` nor `cv_urls` given, more
-than 50 URLs, or any URL not starting with `http://`/`https://`.
+**Errors (whole-request, `422`):**
+- `"cv_url or cv_urls is required"`
+- `"Maximum 50 CVs per request"`
+- `"Invalid URL (must start with http/https): {url}"`
 
 ---
 
@@ -197,7 +212,7 @@ Compute the 5-dimension weighted match score plus a qualitative evaluation.
     "missing_must_have": [],
     "missing_preferred": ["Docker"],
     "bonus_skills": ["GraphQL"],
-    "skill_match_rate": 0.85,
+    "skill_match_rate": 85.7,
     "experience_verdict": "sufficient",
     "experience_detail": "3.5 years vs. 2 years required",
     "education_verdict": "meets",
@@ -205,6 +220,9 @@ Compute the 5-dimension weighted match score plus a qualitative evaluation.
   }
 }
 ```
+
+`skill_match_rate` is a **percentage (0–100)**, not a 0–1 fraction — it's
+`matched_weight / total_weight * 100` from `evaluator.py`.
 
 `narrative` is only populated when `include_narrative: true`.
 
@@ -238,13 +256,15 @@ field of `/ai/score`, but always with `narrative` populated):
   "missing_must_have": [],
   "missing_preferred": ["Docker"],
   "bonus_skills": ["GraphQL"],
-  "skill_match_rate": 0.85,
+  "skill_match_rate": 85.7,
   "experience_verdict": "sufficient",
   "experience_detail": "3.5 years vs. 2 years required",
   "education_verdict": "meets",
   "narrative": "Ứng viên phù hợp tốt với vị trí..."
 }
 ```
+
+`skill_match_rate` is a **percentage (0–100)**, not a 0–1 fraction.
 
 `skill_details[].status` is one of `matched`, `matched_implied`,
 `missing_must_have`, `missing_preferred`.
