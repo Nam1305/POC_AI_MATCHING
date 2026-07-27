@@ -8,15 +8,17 @@ trước (ở đây gộp trong evaluate_group: mỗi requirement dừng ngay �
 nhất thỏa nó):
 
   Layer 0 — Direct match: so trực tiếp (lowercase+strip) output LLM của CV và
-            JD, chưa cần canonicalize. Fast-path rẻ tiền cho các case hiển nhiên;
-            kèm fuzzy fallback (SequenceMatcher, ngưỡng 0.85) để bắt biến thể
-            chính tả/format nhỏ ("Postgresql" vs "PostgreSQL").
+            JD, chưa cần canonicalize. Fast-path rẻ tiền cho các case hiển nhiên.
   Layer 1 — Identity qua skill_data.json: chuẩn hóa cả CV lẫn JD về tên chuẩn
             (canonical) rồi so exact. Bắc cầu giữa format Title-Case của LLM và
             format Stack Overflow tag (lowercase, space→hyphen) của skill_data.
   Layer 2 — Entailment qua skill_implies.json: "biết X thì biết Y". Dữ liệu đã
             được flatten theo bao đóng bắc cầu sẵn nên chỉ cần tra list trực
             tiếp, KHÔNG duyệt graph ở runtime.
+  Layer 3 — Fuzzy fallback: SequenceMatcher (ngưỡng 0.85) trên output LLM thô,
+            bắt biến thể chính tả/format nhỏ ("Postgresql" vs "PostgreSQL") mà 3
+            tầng trên (exact + canonical + entailment) chưa thỏa. Đặt CUỐI vì
+            đắt hơn và lỏng hơn — chỉ chạy khi các tầng chính xác đã trượt.
 
 Ngoài 3 tầng còn 1 tầng phụ cho TRÌNH ĐỘ NGÔN NGỮ (JLPT/HSK/TOPIK/IELTS/
 TOEIC/TOEFL/CEFR) — so theo thứ bậc (ordinal) trong cùng framework, vì các
@@ -50,12 +52,12 @@ from app.schemas import ParsedCV
 
 def _load_json(filename: str) -> dict:
     """
-    Tra file dữ liệu ở thư mục data/ của repo (repo_root/data), có fallback
-    sang app/data/ để không phụ thuộc vị trí cố định. Trả về dict rỗng chỉ
-    khi thực sự không tìm thấy (để test/tooling không crash lúc import).
+    Tra file dữ liệu ở app/data/ (đi cùng app/ nên được COPY vào Docker image),
+    có fallback sang repo_root/data để tương thích layout cũ. Trả về dict rỗng
+    chỉ khi thực sự không tìm thấy (để test/tooling không crash lúc import).
     """
     here = Path(__file__).resolve()
-    for base in (here.parents[2], here.parents[1]):  # repo_root/data, app/data
+    for base in (here.parents[1], here.parents[2]):  # app/data, repo_root/data
         candidate = base / "data" / filename
         if candidate.is_file():
             with candidate.open(encoding="utf-8") as f:
@@ -107,18 +109,19 @@ def to_stackoverflow_format(skill: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Layer 0 fuzzy fallback — bắt các sai lệch nhỏ về ký tự giữa output LLM của CV
-# và JD ("Postgresql" vs "PostgreSQL", "Node JS" vs "Node.js") trước khi phải
-# canonicalize. Dùng difflib.SequenceMatcher (ratio 0..1); ngưỡng cao (0.85) để
-# tránh gộp nhầm các skill khác nhau nhưng gần giống ("N4" vs "N3", "Java" vs
-# "JavaScript" đều dưới ngưỡng nên KHÔNG khớp ở đây).
+# Layer 3 fuzzy fallback — bắt các sai lệch nhỏ về ký tự giữa output LLM của CV
+# và JD ("Postgresql" vs "PostgreSQL", "Node JS" vs "Node.js") SAU khi 3 tầng
+# chính xác (exact + canonical + entailment) đã trượt. Dùng difflib.Sequence-
+# Matcher (ratio 0..1); ngưỡng cao (0.85) để tránh gộp nhầm các skill khác nhau
+# nhưng gần giống ("N4" vs "N3", "Java" vs "JavaScript" đều dưới ngưỡng nên
+# KHÔNG khớp ở đây).
 # ---------------------------------------------------------------------------
 
-_LAYER0_FUZZY_THRESHOLD = 0.85
+_LAYER3_FUZZY_THRESHOLD = 0.85
 
 
 def _fuzzy_best_match(name: str, candidates: set[str],
-                      threshold: float = _LAYER0_FUZZY_THRESHOLD) -> Optional[str]:
+                      threshold: float = _LAYER3_FUZZY_THRESHOLD) -> Optional[str]:
     """
     Trả candidate có tỉ lệ tương đồng cao nhất với `name` nếu >= threshold, ngược
     lại None. So trên chuỗi đã lowercase/strip (caller đảm bảo). Ngưỡng mặc định
@@ -261,7 +264,7 @@ class Match(NamedTuple):
     Kết quả so khớp 1 requirement (đã gộp OR-group).
       status : "matched" | "matched_implied" | "missing"  (để evaluator phân loại)
       credit : 1.0 nếu matched, 0.0 nếu missing (scoring nhị phân)
-      layer  : "layer0" | "layer1" | "layer2" | "proficiency" | "missing"
+      layer  : "layer0" | "layer1" | "layer2" | "layer3" | "proficiency" | "missing"
       via    : chuỗi skill CV cụ thể đã thỏa requirement (để giải thích cho HR)
     """
     status: str
@@ -271,8 +274,9 @@ class Match(NamedTuple):
 
 
 # Ưu tiên khi chọn alternative tốt nhất trong 1 OR-group: tầng sớm hơn thắng,
-# matched luôn hơn missing. Proficiency-matched xếp sau các tầng identity/implied.
-_LAYER_RANK = {"layer0": 4, "layer1": 3, "layer2": 2, "proficiency": 1, "missing": 0}
+# matched luôn hơn missing. Fuzzy (layer3) và proficiency xếp sau các tầng chính
+# xác exact/identity/implied.
+_LAYER_RANK = {"layer0": 5, "layer1": 4, "layer2": 3, "layer3": 2, "proficiency": 1, "missing": 0}
 
 
 # ---------------------------------------------------------------------------
@@ -316,16 +320,9 @@ class SkillMatcher:
         if not n:
             return Match("missing", 0.0, "missing", "")
 
-        # Layer 0 — direct match trên output LLM thô, kèm fuzzy fallback (>=0.85)
-        # để bắt biến thể chính tả/format nhỏ trước khi phải canonicalize. KHÔNG
-        # fuzzy cho token trình độ ngôn ngữ: "N4" giống 86% "N3" nhưng THẤP HƠN,
-        # phải để tầng phụ proficiency so theo thứ bậc (ordinal) mới đúng.
+        # Layer 0 — direct match trên output LLM thô (exact, chưa canonicalize).
         if n in ctx.raw:
             return Match("matched", 1.0, "layer0", n)
-        if _parse_proficiency(n) is None:
-            fuzzy = _fuzzy_best_match(n, ctx.raw)
-            if fuzzy is not None:
-                return Match("matched", 1.0, "layer0", fuzzy)
 
         # Layer 1 — identity qua skill_data.json (canonical hóa cả 2 phía)
         canon = resolve_canonical(name)
@@ -335,6 +332,14 @@ class SkillMatcher:
         # Layer 2 — entailment qua skill_implies.json (đã flatten sẵn)
         if canon in ctx.implied:
             return Match("matched_implied", 1.0, "layer2", ctx.implied_src[canon])
+
+        # Layer 3 — fuzzy fallback (>=0.85) trên output LLM thô, khi 3 tầng chính
+        # xác đã trượt. KHÔNG fuzzy cho token trình độ ngôn ngữ: "N4" giống 86%
+        # "N3" nhưng THẤP HƠN, phải để tầng phụ proficiency so theo thứ bậc.
+        if _parse_proficiency(n) is None:
+            fuzzy = _fuzzy_best_match(n, ctx.raw)
+            if fuzzy is not None:
+                return Match("matched", 1.0, "layer3", fuzzy)
 
         # Tầng phụ — trình độ ngôn ngữ (ordinal, cùng framework)
         prof = self._match_proficiency(n, ctx.raw)
@@ -398,8 +403,9 @@ class SkillMatcher:
         """
         Trả evidence chi tiết cho TỪNG required_skill của JD (dùng cho HR):
         [{label, weight, status, matched_layer, matched_via, credit}, ...].
-        matched_layer ∈ layer0|layer1|layer2|proficiency|missing để evaluator
-        giải thích được đã khớp qua đâu; matched_via là skill CV cụ thể đã thỏa.
+        matched_layer ∈ layer0|layer1|layer2|layer3|proficiency|missing để
+        evaluator giải thích được đã khớp qua đâu; matched_via là skill CV cụ thể
+        đã thỏa.
         """
         ctx = self.build_cv_context(cv)
         out: list[dict] = []
