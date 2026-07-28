@@ -637,7 +637,9 @@
     "docker"
   ],
   "terraform-provider-aws": [
-    "terraform"
+    "terraform",
+    "devops",
+    "infrastructure-as-code"
   ],
   "github": [
     "git"
@@ -2805,7 +2807,9 @@
     "python"
   ],
   "terraform-provider-gcp": [
-    "terraform"
+    "terraform",
+    "devops",
+    "infrastructure-as-code"
   ],
   "tfs-2015": [
     "tfs"
@@ -3031,13 +3035,16 @@
     "yii"
   ],
   "boundary-value-analysis": [
-    "test-case-design"
+    "test-case-design",
+    "testing"
   ],
   "equivalence-partitioning": [
-    "test-case-design"
+    "test-case-design",
+    "testing"
   ],
   "decision-table": [
-    "test-case-design"
+    "test-case-design",
+    "testing"
   ],
   "selenium-webdriver": [
     "automation-testing"
@@ -3046,7 +3053,8 @@
     "automation-testing"
   ],
   "cucumber": [
-    "automation-testing"
+    "automation-testing",
+    "bdd"
   ],
   "appium": [
     "automation-testing",
@@ -3074,7 +3082,8 @@
     "functional-testing"
   ],
   "end-to-end-testing": [
-    "functional-testing"
+    "functional-testing",
+    "e2e-testing"
   ],
   "load-testing": [
     "performance-testing"
@@ -3084,5 +3093,909 @@
   ],
   "php-7": [
     "php"
+  ],
+  ".net-mvc": [],
+  "2d-animator": [],
+  "2d-artist": [],
+  "3cx": [],
+  "3d-artist": [],
+  "3d-designer": [],
+  "3d-max": [],
+  "3d-modelling": [],
+  "3g": [],
+  "4g-lte": [],
+  "5g": [],
+  "a/b-testing": [],
+  "account-executive": [],
+  "account-manager": [],
+  "activemq": [],
+  "administration-/-receptionist": [],
+  "adobe-creative-suite": [],
+  "adobe-xd": [],
+  "after-effect": [],
+  "agile-&-scrum": [],
+  "air-conditioner": [],
+  "analyst": [],
+  "android": [],
+  "android-unit-test": [],
+  "angular-10": [],
+  "angular-10+": [],
+  "angular-11": [],
+  "angular-2+": [],
+  "angular-4+": [],
+  "angular-5+": [],
+  "angular-6+": [],
+  "angular-7+": [],
+  "angular-8+": [],
+  "animation-2d": [],
+  "animation-3d": [],
+  "api": [],
+  "application-security": [],
+  "application-support": [],
+  "art-director": [],
+  "asp": [],
+  "assistant": [],
+  "automation-developer": [],
+  "automation-qa": [],
+  "automation-qc": [],
+  "automation-tester": [],
+  "automotive": [],
+  "autosar": [],
+  "aws": [],
+  "ax2012-r2": [],
+  "axure-rp": [],
+  "azure": [],
+  "b2b": [],
+  "babylonjs": [],
+  "back-end": [],
+  "backlog": [],
+  "balsamiq": [],
+  "beaglebone": [],
+  "bitbucket/-bamboo/-jenkins": [],
+  "bootstrap": [],
+  "bpo": [],
+  "brand-marketing": [],
+  "bridge-se": [],
+  "brightscript": [],
+  "brse": [],
+  "bse-leader": [],
+  "bsi": [],
+  "business-analyst": [],
+  "business-coordinator": [],
+  "business-development": [],
+  "business/sales": [],
+  "c#/-oop/-net-framwork": [],
+  "c&b": [],
+  "c-language": [],
+  "c/c++": [],
+  "cad": [],
+  "cadence": [],
+  "canva": [],
+  "capcut": [],
+  "ccna": [],
+  "ccna/-ccnp": [],
+  "ccnp": [],
+  "ceh-v5": [],
+  "character-artist": [],
+  "ci/cd": [
+    "ci-cd",
+    "devops"
+  ],
+  "cloud-migration-service-(aws": [],
+  "cocoonjs": [],
+  "commucation": [],
+  "communicator": [],
+  "construct-2": [],
+  "consultant": [],
+  "content": [],
+  "content-creator": [],
+  "control-system": [],
+  "copywriter": [],
+  "core-banking": [],
+  "core-java-8": [],
+  "corecard": [],
+  "coreldraw": [],
+  "corona": [],
+  "cosos": [],
+  "crm-(sap": [],
+  "crm-consultant": [],
+  "crm-integration": [],
+  "crm-system": [],
+  "csdl": [],
+  "csdl-oracle": [],
+  "customer-service/customer-support": [],
+  "d365-fo": [],
+  "data-administrator": [],
+  "data-analyst": [],
+  "data-analytics": [],
+  "data-architecture": [],
+  "data-engineer": [],
+  "data-operation": [],
+  "data-reporting-analyst": [],
+  "data-structure-&-algorithm": [],
+  "database-administrator": [],
+  "de-fi": [],
+  "depm": [],
+  "design": [],
+  "digital-design": [],
+  "digital-operation-specialist": [],
+  "director": [],
+  "disinfection": [],
+  "dms": [],
+  "document-analyst": [],
+  "eda": [],
+  "edgelib": [],
+  "elastic-path": [],
+  "electricity-/-electronics-/-refrigeration-/-industrial-electricity": [],
+  "elixir---rails": [],
+  "embedded-engineer": [],
+  "embedded-system": [],
+  "emtuty-famework-6": [],
+  "english": [],
+  "english---good": [],
+  "english-skills": [],
+  "erp": [],
+  "erp-consultant": [],
+  "erpnext": [],
+  "es": [],
+  "esenthel-engine": [],
+  "fi": [],
+  "figma": [],
+  "fintech": [],
+  "firebase": [],
+  "firestore": [],
+  "firmware": [],
+  "flightphp": [],
+  "fmcg": [],
+  "french": [],
+  "front-end": [],
+  "fuelphp": [],
+  "full-stack": [],
+  "functional-analyst": [],
+  "functional-consultant": [],
+  "functional-safety": [],
+  "game": [],
+  "game-artist": [],
+  "game-asset": [],
+  "game-design": [],
+  "game-developer": [],
+  "game-editor": [],
+  "game-master": [],
+  "game-mobile": [],
+  "game-nft": [],
+  "game-operator": [],
+  "game-programmer": [],
+  "game-tester": [],
+  "german": [],
+  "gideros": [],
+  "gitflow": [],
+  "glusterfs": [],
+  "google-cloud-platform---rollbar": [],
+  "graphic-design": [],
+  "hardware-design": [],
+  "hmi-application": [],
+  "hmi-frameworks": [],
+  "hr": [],
+  "html-&-css": [],
+  "html/css": [],
+  "hub": [],
+  "hybrid": [],
+  "hybrid-app": [],
+  "illustrator": [],
+  "infrastructure": [],
+  "integration-engineer": [],
+  "integration-test": [],
+  "internet-of-things": [],
+  "invision": [],
+  "ios": [],
+  "iot-development": [],
+  "iot-engineering": [],
+  "iot-integration": [],
+  "ips/ids": [],
+  "it-administrator": [],
+  "it-auditor": [],
+  "it-communicator": [],
+  "it-compliance": [],
+  "it-comtor": [],
+  "it-consultant": [],
+  "it-coordinator": [],
+  "it-helpdesk": [
+    "it-support"
+  ],
+  "it-infrastructure": [],
+  "it-manager": [],
+  "it-operation": [],
+  "it-operations": [],
+  "it-outsource": [],
+  "it-presales": [],
+  "it-security": [],
+  "it-service": [],
+  "it-solution-sales": [],
+  "it-specialist": [],
+  "it-staff": [],
+  "it-support": [],
+  "it-support-specialist": [],
+  "it-system": [],
+  "itil/itsm": [],
+  "japanese-(-n1-or-n2)": [],
+  "japanese---n1": [],
+  "japanese---n2": [],
+  "japanese---n3": [],
+  "japanese---n4": [],
+  "japanese---n5": [],
+  "java-spring": [],
+  "java-spring-boot": [],
+  "javaee": [],
+  "jenkins-ci": [
+    "ci-cd",
+    "devops"
+  ],
+  "jet-global": [],
+  "json/xml": [],
+  "jsp/servlet": [],
+  "kanban": [],
+  "kubernete": [],
+  "lean": [],
+  "legal/law": [],
+  "lifecycle-(sdlc)": [],
+  "lightroom": [],
+  "livecode": [],
+  "liveops": [],
+  "logistics-/-warehouse-/-transportation": [],
+  "lora": [],
+  "ls-central": [],
+  "lumion": [],
+  "lwc": [],
+  "maintenance-/-repair": [],
+  "manager": [],
+  "manual": [],
+  "manual-test": [],
+  "manual-tester": [],
+  "marketing": [],
+  "mcsa": [],
+  "mcse": [],
+  "mcv": [],
+  "mdm-design": [],
+  "microsoft": [],
+  "microsoft-365": [],
+  "microsoft-dynamics-365": [],
+  "microsoft-dynamics-ax-2009": [],
+  "mobile-tester": [],
+  "mobile-video-games": [],
+  "mongosql": [],
+  "monitor-card-transactions": [],
+  "motion-graphic-design": [],
+  "motivate-staffs": [],
+  "mql4/mql5": [],
+  "ms-dynamic": [],
+  "ms-visio": [],
+  "msa": [],
+  "nas": [],
+  "nette": [],
+  "nlp": [],
+  "no": [],
+  "noc": [],
+  "oca/-ocp": [],
+  "on-premise": [],
+  "openstack-development": [],
+  "oracle": [],
+  "oracle-&-plsql": [],
+  "oracle-and/or-postgresql": [],
+  "oracle-ebs": [],
+  "oracle-ebs-r12": [],
+  "oracle-erp": [],
+  "oracle-erp-cloud": [],
+  "oracle-middleware": [],
+  "oracle-pl/sql": [],
+  "oracle-rac/-sql-server": [],
+  "oracle-sql": [],
+  "oracle-storage": [],
+  "osp": [],
+  "ott": [],
+  "outsystem": [],
+  "pc-devices": [],
+  "penetration-test": [],
+  "pest-control-services": [],
+  "photography": [],
+  "photon": [],
+  "phpixie": [],
+  "pl/sql": [],
+  "pmo": [],
+  "pmp": [],
+  "pod": [],
+  "popphp": [],
+  "postgre": [],
+  "pqa": [],
+  "pr": [],
+  "premier": [],
+  "prisma2": [],
+  "problem-solving-skill": [],
+  "process-quality-assurance": [],
+  "product-design": [],
+  "product-manager": [],
+  "product-operation": [],
+  "product-owner": [],
+  "product-planning": [],
+  "programming-experience": [],
+  "programming-language": [],
+  "project-assistant": [],
+  "project-coordinator": [],
+  "project-leader": [],
+  "project-manager": [],
+  "qa": [],
+  "qa/qc": [],
+  "qc": [],
+  "qt-framework": [],
+  "quality-analyst": [],
+  "quantitative-researcher": [],
+  "r": [],
+  "r&d": [],
+  "r&d-engineer": [],
+  "react/typescript": [],
+  "rep": [],
+  "research": [],
+  "retail": [],
+  "retouch": [],
+  "robot": [],
+  "roku": [],
+  "rpa": [],
+  "rpa-using-uipath": [],
+  "rtl-verification": [],
+  "rtos": [],
+  "rxswift": [],
+  "s3": [],
+  "sale": [],
+  "sales": [],
+  "sales-admin": [],
+  "sap": [],
+  "sap-consultant": [],
+  "scrum": [],
+  "scrum-master": [],
+  "sdn": [],
+  "security-engineer": [],
+  "sem": [],
+  "serenity-bdd": [],
+  "sfa/dms": [],
+  "sharepoint-framework": [],
+  "site-reliability": [],
+  "sketch": [],
+  "sketchup": [],
+  "soc-design": [],
+  "social-media": [],
+  "software": [],
+  "software-architect": [],
+  "software-developer": [],
+  "software-engineer": [],
+  "solid": [],
+  "solution-architect": [],
+  "sqa": [],
+  "sql-&-system-integration": [],
+  "sqs": [],
+  "squid": [],
+  "sre": [],
+  "stock-broker": [],
+  "supporting-end-users": [],
+  "sysops": [],
+  "system-admin": [],
+  "system-architect": [],
+  "system-engineer": [],
+  "system-security": [],
+  "system-test": [],
+  "syteline": [],
+  "talent-acquisition": [],
+  "tcp/ip": [],
+  "technical-architect": [],
+  "technical-consultant": [],
+  "technical-director": [],
+  "technical-engineer": [],
+  "technical-leader": [],
+  "technical-support": [],
+  "technical-writer": [],
+  "telemarketing": [],
+  "test-engineer": [],
+  "tester": [],
+  "tiktok": [],
+  "trello": [],
+  "ue4": [],
+  "ui-design": [],
+  "ui/ux": [],
+  "ux-design": [],
+  "ux/ui-design": [],
+  "vfx": [],
+  "video-edit": [],
+  "video-game-producer": [],
+  "video-stream": [],
+  "videos-editor": [],
+  "visual-basic": [],
+  "visual-designer": [],
+  "visual-effects": [],
+  "vr/ar": [],
+  "wan": [],
+  "washing-machine-cleaning": [],
+  "waterfall": [],
+  "web-design": [],
+  "web-developer": [],
+  "web-master": [],
+  "web-tester": [],
+  "web/-mobile": [],
+  "wordpress-customize": [],
+  "xml": [],
+  "zbrush": [],
+  "zend": [],
+  "zeplin": [],
+  "accelerate": [
+    "python",
+    "pytorch"
+  ],
+  "ag2": [
+    "python"
+  ],
+  "bentoml": [
+    "python"
+  ],
+  "bitsandbytes": [
+    "python",
+    "pytorch"
+  ],
+  "catboost": [
+    "python"
+  ],
+  "chromadb": [
+    "python"
+  ],
+  "crewai": [
+    "python"
+  ],
+  "dask": [
+    "python"
+  ],
+  "deepspeed": [
+    "python",
+    "pytorch"
+  ],
+  "diffusers": [
+    "python",
+    "huggingface"
+  ],
+  "dspy": [
+    "python"
+  ],
+  "duckdb": [
+    "python"
+  ],
+  "evidently": [
+    "python"
+  ],
+  "fastmcp": [
+    "python",
+    "mcp"
+  ],
+  "flash-attn": [
+    "python",
+    "pytorch"
+  ],
+  "flax": [
+    "python",
+    "jax"
+  ],
+  "great-expectations": [
+    "python"
+  ],
+  "guidance": [
+    "python"
+  ],
+  "haystack": [
+    "python"
+  ],
+  "huggingface-hub": [
+    "python",
+    "huggingface"
+  ],
+  "imbalanced-learn": [
+    "python",
+    "scikit-learn"
+  ],
+  "instructor": [
+    "python",
+    "pydantic"
+  ],
+  "jax": [
+    "python"
+  ],
+  "langgraph": [
+    "python"
+  ],
+  "lightgbm": [
+    "python"
+  ],
+  "lightning": [
+    "python",
+    "pytorch"
+  ],
+  "litellm": [
+    "python"
+  ],
+  "llama-cpp-python": [
+    "python"
+  ],
+  "llama-index": [
+    "python"
+  ],
+  "mlflow": [
+    "python"
+  ],
+  "optax": [
+    "python",
+    "jax"
+  ],
+  "optuna": [
+    "python"
+  ],
+  "outlines": [
+    "python"
+  ],
+  "peft": [
+    "python",
+    "transformers",
+    "huggingface"
+  ],
+  "polars": [
+    "python"
+  ],
+  "prophet": [
+    "python"
+  ],
+  "pydantic-ai": [
+    "python",
+    "pydantic"
+  ],
+  "pydantic-settings": [
+    "python",
+    "pydantic"
+  ],
+  "pymc": [
+    "python"
+  ],
+  "pymilvus": [
+    "python"
+  ],
+  "pyarrow": [
+    "python"
+  ],
+  "qdrant-client": [
+    "python"
+  ],
+  "ray": [
+    "python"
+  ],
+  "safetensors": [
+    "python"
+  ],
+  "sentence-transformers": [
+    "python",
+    "transformers",
+    "huggingface"
+  ],
+  "shap": [
+    "python"
+  ],
+  "smolagents": [
+    "python",
+    "huggingface"
+  ],
+  "statsmodels": [
+    "python"
+  ],
+  "tiktoken": [
+    "python"
+  ],
+  "tokenizers": [
+    "python",
+    "huggingface"
+  ],
+  "torch-geometric": [
+    "python",
+    "pytorch"
+  ],
+  "torchaudio": [
+    "python",
+    "pytorch"
+  ],
+  "torchvision": [
+    "python",
+    "pytorch"
+  ],
+  "transformers": [
+    "python",
+    "huggingface"
+  ],
+  "trl": [
+    "python",
+    "transformers",
+    "huggingface"
+  ],
+  "umap-learn": [
+    "python"
+  ],
+  "vllm": [
+    "python"
+  ],
+  "wandb": [
+    "python"
+  ],
+  "weaviate-client": [
+    "python"
+  ],
+  "xgboost": [
+    "python"
+  ],
+  "argocd": [
+    "kubernetes",
+    "gitops",
+    "docker"
+  ],
+  "ci-cd": [
+    "devops"
+  ],
+  "containerization": [
+    "docker"
+  ],
+  "datadog": [
+    "observability",
+    "monitoring"
+  ],
+  "devsecops": [
+    "devops"
+  ],
+  "fluxcd": [
+    "kubernetes",
+    "gitops",
+    "docker"
+  ],
+  "github-actions": [
+    "github",
+    "ci-cd",
+    "devops",
+    "git"
+  ],
+  "gitlab-ci": [
+    "gitlab",
+    "ci-cd",
+    "devops",
+    "git"
+  ],
+  "infrastructure-as-code": [
+    "devops"
+  ],
+  "linkerd": [
+    "kubernetes",
+    "docker"
+  ],
+  "loki": [
+    "observability",
+    "logging",
+    "monitoring"
+  ],
+  "new-relic": [
+    "observability",
+    "monitoring"
+  ],
+  "observability": [
+    "monitoring"
+  ],
+  "opentelemetry": [
+    "observability",
+    "monitoring"
+  ],
+  "opentofu": [
+    "terraform",
+    "devops",
+    "infrastructure-as-code"
+  ],
+  "prometheus": [
+    "monitoring"
+  ],
+  "grafana": [
+    "monitoring"
+  ],
+  "tekton": [
+    "kubernetes",
+    "ci-cd",
+    "devops",
+    "docker"
+  ],
+  "tempo": [
+    "observability",
+    "monitoring"
+  ],
+  "terraform": [
+    "infrastructure-as-code",
+    "devops"
+  ],
+  "trivy": [
+    "devsecops",
+    "vulnerability-management",
+    "devops"
+  ],
+  "snyk": [
+    "devsecops",
+    "vulnerability-management",
+    "devops"
+  ],
+  "anydesk": [
+    "remote-support",
+    "remote-desktop"
+  ],
+  "change-management": [
+    "itsm"
+  ],
+  "dhcp": [
+    "network-management"
+  ],
+  "endpoint-management": [
+    "mdm"
+  ],
+  "freshservice": [
+    "itsm"
+  ],
+  "help-desk": [
+    "it-helpdesk",
+    "it-support"
+  ],
+  "incident-management": [
+    "itsm"
+  ],
+  "intune": [
+    "mdm",
+    "microsoft-365"
+  ],
+  "itil": [
+    "itsm"
+  ],
+  "itil-4": [
+    "itil",
+    "itsm"
+  ],
+  "jamf": [
+    "mdm"
+  ],
+  "jira-service-management": [
+    "itsm",
+    "jira"
+  ],
+  "problem-management": [
+    "itsm"
+  ],
+  "remote-support": [
+    "remote-desktop"
+  ],
+  "service-desk": [
+    "it-helpdesk",
+    "itsm",
+    "it-support"
+  ],
+  "teamviewer": [
+    "remote-support",
+    "remote-desktop"
+  ],
+  "ticket-management": [
+    "it-helpdesk",
+    "it-support"
+  ],
+  "zendesk": [
+    "ticket-management",
+    "it-helpdesk",
+    "it-support"
+  ],
+  "accessibility-testing": [
+    "testing"
+  ],
+  "allure": [
+    "testing"
+  ],
+  "behave": [
+    "python",
+    "bdd"
+  ],
+  "browserstack": [
+    "cross-browser-testing",
+    "testing"
+  ],
+  "burp-suite": [
+    "security-testing"
+  ],
+  "chaos-testing": [
+    "testing"
+  ],
+  "contract-testing": [
+    "testing"
+  ],
+  "cross-browser-testing": [
+    "testing"
+  ],
+  "detox": [
+    "automation-testing",
+    "mobile-testing"
+  ],
+  "exploratory-testing": [
+    "testing"
+  ],
+  "insomnia": [
+    "api-testing"
+  ],
+  "karate": [
+    "api-testing"
+  ],
+  "maestro": [
+    "automation-testing",
+    "mobile-testing"
+  ],
+  "manual-testing": [
+    "testing"
+  ],
+  "newman": [
+    "api-testing",
+    "postman"
+  ],
+  "owasp-zap": [
+    "security-testing"
+  ],
+  "pact": [
+    "contract-testing",
+    "testing"
+  ],
+  "qa-engineer": [
+    "qa",
+    "testing"
+  ],
+  "regression-testing": [
+    "testing"
+  ],
+  "robot-framework": [
+    "python",
+    "automation-testing"
+  ],
+  "saucelabs": [
+    "cross-browser-testing",
+    "testing"
+  ],
+  "sdet": [
+    "automation-testing",
+    "testing"
+  ],
+  "smoke-testing": [
+    "testing"
+  ],
+  "test-case-management": [
+    "test-management",
+    "testing"
+  ],
+  "test-case-design": [
+    "testing"
+  ],
+  "test-management": [
+    "testing"
+  ],
+  "test-planning": [
+    "testing"
+  ],
+  "testcontainers": [
+    "docker"
+  ],
+  "visual-regression-testing": [
+    "testing"
+  ],
+  "azure-devops": [
+    "devops"
+  ],
+  "open-telemetry": [
+    "opentelemetry",
+    "monitoring",
+    "observability"
+  ],
+  "robotframework": [
+    "robot-framework",
+    "automation-testing",
+    "python"
   ]
 }
