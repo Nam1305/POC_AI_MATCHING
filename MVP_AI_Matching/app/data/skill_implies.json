@@ -1,0 +1,4001 @@
+{
+  "django": [
+    "python"
+  ],
+  "fastapi": [
+    "python"
+  ],
+  "flask": [
+    "python"
+  ],
+  "pandas": [
+    "python"
+  ],
+  "numpy": [
+    "python"
+  ],
+  "scipy": [
+    "python"
+  ],
+  "matplotlib": [
+    "python"
+  ],
+  "seaborn": [
+    "python"
+  ],
+  "scikit-learn": [
+    "python"
+  ],
+  "pytorch": [
+    "python"
+  ],
+  "tensorflow": [
+    "python"
+  ],
+  "keras": [
+    "tensorflow",
+    "python"
+  ],
+  "celery": [
+    "python"
+  ],
+  "pytest": [
+    "python"
+  ],
+  "pydantic": [
+    "python"
+  ],
+  "sqlalchemy": [
+    "python"
+  ],
+  "tornado": [
+    "python"
+  ],
+  "streamlit": [
+    "python"
+  ],
+  "scrapy": [
+    "python"
+  ],
+  "beautifulsoup": [
+    "python"
+  ],
+  "pyspark": [
+    "apache-spark",
+    "python"
+  ],
+  "boto3": [
+    "python"
+  ],
+  "pyqt5": [
+    "qt",
+    "python",
+    "c++"
+  ],
+  "pyqt4": [
+    "qt",
+    "python",
+    "c++"
+  ],
+  "tkinter": [
+    "python"
+  ],
+  "wxpython": [
+    "python"
+  ],
+  "kivy": [
+    "python"
+  ],
+  "geopandas": [
+    "pandas",
+    "python"
+  ],
+  "jinja2": [
+    "python"
+  ],
+  "pip": [
+    "python"
+  ],
+  "cython": [
+    "python",
+    "c"
+  ],
+  "pybind11": [
+    "python",
+    "c++"
+  ],
+  "bokeh": [
+    "python"
+  ],
+  "biopython": [
+    "python"
+  ],
+  "virtualenv": [
+    "python"
+  ],
+  "reactjs": [
+    "javascript"
+  ],
+  "vue.js": [
+    "javascript"
+  ],
+  "angular": [
+    "typescript",
+    "javascript"
+  ],
+  "angularjs": [
+    "javascript"
+  ],
+  "express": [
+    "node.js",
+    "javascript"
+  ],
+  "next.js": [
+    "reactjs",
+    "javascript"
+  ],
+  "nuxt.js": [
+    "vue.js",
+    "javascript"
+  ],
+  "nestjs": [
+    "typescript",
+    "node.js",
+    "javascript"
+  ],
+  "jquery": [
+    "javascript"
+  ],
+  "ember.js": [
+    "javascript"
+  ],
+  "backbone.js": [
+    "javascript"
+  ],
+  "redux": [
+    "javascript"
+  ],
+  "gatsby": [
+    "reactjs",
+    "javascript"
+  ],
+  "svelte": [
+    "javascript"
+  ],
+  "electron": [
+    "javascript"
+  ],
+  "react-native": [
+    "reactjs",
+    "javascript"
+  ],
+  "axios": [
+    "javascript"
+  ],
+  "lodash": [
+    "javascript"
+  ],
+  "underscore.js": [
+    "javascript"
+  ],
+  "momentjs": [
+    "javascript"
+  ],
+  "chart.js": [
+    "javascript"
+  ],
+  "d3.js": [
+    "javascript"
+  ],
+  "three.js": [
+    "javascript"
+  ],
+  "pixi.js": [
+    "javascript"
+  ],
+  "socket.io": [
+    "javascript"
+  ],
+  "webpack": [
+    "javascript"
+  ],
+  "vite": [
+    "javascript"
+  ],
+  "babeljs": [
+    "javascript"
+  ],
+  "gulp": [
+    "javascript"
+  ],
+  "gruntjs": [
+    "javascript"
+  ],
+  "jestjs": [
+    "javascript"
+  ],
+  "mocha.js": [
+    "javascript"
+  ],
+  "cypress": [
+    "javascript",
+    "automation-testing"
+  ],
+  "playwright": [
+    "javascript",
+    "automation-testing"
+  ],
+  "puppeteer": [
+    "javascript"
+  ],
+  "vuex": [
+    "vue.js",
+    "javascript"
+  ],
+  "vuetify.js": [
+    "vue.js",
+    "javascript"
+  ],
+  "bootstrap-vue": [
+    "vue.js",
+    "javascript"
+  ],
+  "material-ui": [
+    "reactjs",
+    "javascript"
+  ],
+  "styled-components": [
+    "reactjs",
+    "javascript"
+  ],
+  "mobx": [
+    "javascript"
+  ],
+  "rxjs": [
+    "javascript"
+  ],
+  "redux-saga": [
+    "redux",
+    "javascript"
+  ],
+  "redux-thunk": [
+    "redux",
+    "javascript"
+  ],
+  "typescript": [
+    "javascript"
+  ],
+  "node.js": [
+    "javascript"
+  ],
+  "npm": [
+    "javascript"
+  ],
+  "handlebars.js": [
+    "javascript"
+  ],
+  "apollo-client": [
+    "graphql",
+    "javascript"
+  ],
+  "apollo-server": [
+    "graphql",
+    "node.js",
+    "javascript"
+  ],
+  "spring-boot": [
+    "spring",
+    "java"
+  ],
+  "spring-mvc": [
+    "spring",
+    "java"
+  ],
+  "spring-security": [
+    "spring",
+    "java"
+  ],
+  "spring-data": [
+    "spring",
+    "java"
+  ],
+  "spring-cloud": [
+    "spring",
+    "java"
+  ],
+  "spring-aop": [
+    "spring",
+    "java"
+  ],
+  "spring-batch": [
+    "spring",
+    "java"
+  ],
+  "spring-webflux": [
+    "spring",
+    "java"
+  ],
+  "spring": [
+    "java"
+  ],
+  "hibernate": [
+    "java"
+  ],
+  "maven": [
+    "java"
+  ],
+  "gradle": [
+    "java"
+  ],
+  "junit": [
+    "java"
+  ],
+  "testng": [
+    "java"
+  ],
+  "servlets": [
+    "java"
+  ],
+  "jsp": [
+    "java"
+  ],
+  "jpa": [
+    "java"
+  ],
+  "javafx": [
+    "java"
+  ],
+  "swing": [
+    "java"
+  ],
+  "mybatis": [
+    "java"
+  ],
+  "struts": [
+    "java"
+  ],
+  "jsf": [
+    "java"
+  ],
+  "dropwizard": [
+    "java"
+  ],
+  "quarkus": [
+    "java"
+  ],
+  "micronaut": [
+    "java"
+  ],
+  "gwt": [
+    "java"
+  ],
+  "kotlin": [
+    "java"
+  ],
+  "kotlin-coroutines": [
+    "kotlin",
+    "java"
+  ],
+  "kotlin-flow": [
+    "kotlin",
+    "java"
+  ],
+  "rx-java": [
+    "java"
+  ],
+  "rx-android": [
+    "java"
+  ],
+  "tomcat": [
+    "java"
+  ],
+  "jetty": [
+    "java"
+  ],
+  "jboss": [
+    "java"
+  ],
+  "grails": [
+    "groovy",
+    "java"
+  ],
+  "asp.net-core": [
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-core-mvc": [
+    "asp.net-core",
+    "c#",
+    ".net",
+    "asp.net"
+  ],
+  "asp.net-core-webapi": [
+    "asp.net-core",
+    "c#",
+    ".net",
+    "asp.net"
+  ],
+  "asp.net-mvc": [
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-web-api": [
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net": [
+    "c#",
+    ".net"
+  ],
+  "entity-framework": [
+    "c#",
+    ".net"
+  ],
+  "entity-framework-core": [
+    "entity-framework",
+    "c#",
+    ".net"
+  ],
+  "entity-framework-6": [
+    "entity-framework",
+    "c#",
+    ".net"
+  ],
+  "wpf": [
+    "c#",
+    ".net"
+  ],
+  "winforms": [
+    "c#",
+    ".net"
+  ],
+  "wcf": [
+    "c#",
+    ".net"
+  ],
+  "blazor": [
+    "c#",
+    ".net"
+  ],
+  "blazor-webassembly": [
+    "blazor",
+    "c#",
+    ".net"
+  ],
+  "blazor-server-side": [
+    "blazor",
+    "c#",
+    ".net"
+  ],
+  "xamarin": [
+    "c#",
+    ".net"
+  ],
+  "xamarin.forms": [
+    "xamarin",
+    "c#",
+    ".net"
+  ],
+  "xamarin.android": [
+    "xamarin",
+    ".net",
+    "c#"
+  ],
+  "xamarin.ios": [
+    "xamarin",
+    ".net",
+    "c#"
+  ],
+  "linq": [
+    "c#",
+    ".net"
+  ],
+  "nunit": [
+    "c#",
+    ".net"
+  ],
+  "xunit": [
+    "c#",
+    ".net"
+  ],
+  "moq": [
+    "c#",
+    ".net"
+  ],
+  "dapper": [
+    "c#",
+    ".net"
+  ],
+  "signalr": [
+    "c#",
+    ".net"
+  ],
+  "nhibernate": [
+    "c#",
+    ".net"
+  ],
+  "c#": [
+    ".net"
+  ],
+  ".net-core": [
+    ".net"
+  ],
+  "f#": [
+    ".net"
+  ],
+  "ruby-on-rails": [
+    "ruby"
+  ],
+  "rspec": [
+    "ruby"
+  ],
+  "sinatra": [
+    "ruby"
+  ],
+  "sidekiq": [
+    "ruby"
+  ],
+  "devise": [
+    "ruby-on-rails",
+    "ruby"
+  ],
+  "laravel": [
+    "php-7",
+    "php"
+  ],
+  "symfony": [
+    "php-7",
+    "php"
+  ],
+  "codeigniter": [
+    "php-7",
+    "php"
+  ],
+  "cakephp": [
+    "php-7",
+    "php"
+  ],
+  "wordpress": [
+    "php-7",
+    "php"
+  ],
+  "phpunit": [
+    "php-7",
+    "php"
+  ],
+  "composer-php": [
+    "php-7",
+    "php"
+  ],
+  "goroutine": [
+    "go"
+  ],
+  "go-gorm": [
+    "go"
+  ],
+  "rust-cargo": [
+    "rust"
+  ],
+  "phoenix-framework": [
+    "elixir"
+  ],
+  "flutter": [
+    "dart"
+  ],
+  "swiftui": [
+    "swift"
+  ],
+  "swiftui-list": [
+    "swiftui",
+    "swift"
+  ],
+  "swiftui-navigationlink": [
+    "swiftui",
+    "swift"
+  ],
+  "cocoapods": [
+    "swift"
+  ],
+  "rx-swift": [
+    "swift"
+  ],
+  "unity-game-engine": [
+    "c#",
+    ".net"
+  ],
+  "qt": [
+    "c++"
+  ],
+  "boost": [
+    "c++"
+  ],
+  "kubernetes": [
+    "docker"
+  ],
+  "kubernetes-helm": [
+    "kubernetes",
+    "docker"
+  ],
+  "kubernetes-ingress": [
+    "kubernetes",
+    "docker"
+  ],
+  "kubectl": [
+    "kubernetes",
+    "docker"
+  ],
+  "docker-compose": [
+    "docker"
+  ],
+  "docker-swarm": [
+    "docker"
+  ],
+  "docker-container": [
+    "docker"
+  ],
+  "terraform-provider-aws": [
+    "terraform",
+    "devops",
+    "infrastructure-as-code"
+  ],
+  "github": [
+    "git"
+  ],
+  "gitlab": [
+    "git"
+  ],
+  "bitbucket": [
+    "git"
+  ],
+  "spark-streaming": [
+    "apache-spark"
+  ],
+  "delta-lake": [
+    "apache-spark"
+  ],
+  "kibana": [
+    "elasticsearch"
+  ],
+  "logstash": [
+    "elasticsearch"
+  ],
+  "elk": [
+    "elasticsearch"
+  ],
+  "sass": [
+    "css"
+  ],
+  "less": [
+    "css"
+  ],
+  "tailwind-css": [
+    "css"
+  ],
+  "bootstrap-4": [
+    "css"
+  ],
+  "twitter-bootstrap": [
+    "css"
+  ],
+  "twitter-bootstrap-3": [
+    "css"
+  ],
+  "deep-learning": [
+    "machine-learning"
+  ],
+  "conv-neural-network": [
+    "deep-learning",
+    "machine-learning"
+  ],
+  "recurrent-neural-network": [
+    "deep-learning",
+    "machine-learning"
+  ],
+  "tf.keras": [
+    "keras",
+    "tensorflow",
+    "python"
+  ],
+  "pymysql": [
+    "mysql",
+    "python"
+  ],
+  "mysql-python": [
+    "mysql",
+    "python"
+  ],
+  "psycopg2": [
+    "postgresql",
+    "python"
+  ],
+  "pymongo": [
+    "mongodb",
+    "python"
+  ],
+  "cx-oracle": [
+    "oracle-database",
+    "python"
+  ],
+  ".net-2.0": [
+    ".net"
+  ],
+  ".net-3.5": [
+    ".net"
+  ],
+  ".net-4.0": [
+    ".net"
+  ],
+  ".net-4.5": [
+    ".net"
+  ],
+  ".net-4.8": [
+    ".net"
+  ],
+  ".net-5": [
+    ".net"
+  ],
+  ".net-6.0": [
+    ".net"
+  ],
+  ".net-7.0": [
+    ".net"
+  ],
+  ".net-8.0": [
+    ".net"
+  ],
+  "actionscript-2": [
+    "actionscript"
+  ],
+  "actionscript-3": [
+    "actionscript"
+  ],
+  "afnetworking-2": [
+    "afnetworking"
+  ],
+  "android-camera2": [
+    "android-camera"
+  ],
+  "android-studio-3.0": [
+    "android-studio"
+  ],
+  "angular-cli": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-components": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-dart": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-directive": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-forms": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-httpclient": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-material": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-material2": [
+    "angular-material",
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-ng-if": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-ngmodel": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-promise": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-reactive-forms": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-router": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-routing": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-services": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-ui": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-ui-bootstrap": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-ui-grid": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-ui-router": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular-universal": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular2-directives": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular2-forms": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular2-nativescript": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular2-routing": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular2-services": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular2-template": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular5": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular6": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular7": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular8": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angular9": [
+    "angular",
+    "typescript",
+    "javascript"
+  ],
+  "angularfire2": [
+    "angularfire"
+  ],
+  "angularjs-controller": [
+    "angularjs",
+    "javascript"
+  ],
+  "angularjs-directive": [
+    "angularjs",
+    "javascript"
+  ],
+  "angularjs-filter": [
+    "angularjs",
+    "javascript"
+  ],
+  "angularjs-ng-click": [
+    "angularjs",
+    "javascript"
+  ],
+  "angularjs-ng-repeat": [
+    "angularjs",
+    "javascript"
+  ],
+  "angularjs-routing": [
+    "angularjs",
+    "javascript"
+  ],
+  "angularjs-scope": [
+    "angularjs",
+    "javascript"
+  ],
+  "angularjs-service": [
+    "angularjs",
+    "javascript"
+  ],
+  "ansible-2.x": [
+    "ansible"
+  ],
+  "ansible-inventory": [
+    "ansible"
+  ],
+  "antlr4": [
+    "antlr"
+  ],
+  "apache-kafka-connect": [
+    "apache-kafka"
+  ],
+  "apache-kafka-streams": [
+    "apache-kafka"
+  ],
+  "apache-spark-mllib": [
+    "apache-spark"
+  ],
+  "apache-spark-sql": [
+    "apache-spark"
+  ],
+  "apache2": [
+    "apache"
+  ],
+  "arm64": [
+    "arm"
+  ],
+  "asp.net-3.5": [
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-4.0": [
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-ajax": [
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-core-2.0": [
+    "asp.net-core",
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-core-2.1": [
+    "asp.net-core",
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-core-3.1": [
+    "asp.net-core",
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-core-6.0": [
+    "asp.net-core",
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-core-identity": [
+    "asp.net-core",
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-identity": [
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-identity-2": [
+    "asp.net-identity",
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-membership": [
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-mvc-2": [
+    "asp.net-mvc",
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-mvc-3": [
+    "asp.net-mvc",
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-mvc-4": [
+    "asp.net-mvc",
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-mvc-5": [
+    "asp.net-mvc",
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-mvc-routing": [
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-web-api-routing": [
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "asp.net-web-api2": [
+    "asp.net-web-api",
+    "asp.net",
+    "c#",
+    ".net"
+  ],
+  "auth0": [
+    "authentication"
+  ],
+  "base64": [
+    "radix"
+  ],
+  "blackberry-10": [
+    "blackberry"
+  ],
+  "boost-asio": [
+    "boost",
+    "c++"
+  ],
+  "boost-python": [
+    "boost",
+    "c++"
+  ],
+  "boost-spirit": [
+    "boost",
+    "c++"
+  ],
+  "c#-2.0": [
+    "c#",
+    ".net"
+  ],
+  "c#-3.0": [
+    "c#",
+    ".net"
+  ],
+  "c#-4.0": [
+    "c#",
+    ".net"
+  ],
+  "c++-chrono": [
+    "c++"
+  ],
+  "c++-cli": [
+    "c++"
+  ],
+  "c++-concepts": [
+    "c++"
+  ],
+  "c++11": [
+    "c++"
+  ],
+  "c++14": [
+    "c++"
+  ],
+  "c++17": [
+    "c++"
+  ],
+  "c++20": [
+    "c++"
+  ],
+  "c99": [
+    "c"
+  ],
+  "cakephp-1.3": [
+    "cakephp",
+    "php-7",
+    "php"
+  ],
+  "cakephp-2.0": [
+    "cakephp",
+    "php-7",
+    "php"
+  ],
+  "cakephp-2.1": [
+    "cakephp",
+    "php-7",
+    "php"
+  ],
+  "cakephp-2.3": [
+    "cakephp",
+    "php-7",
+    "php"
+  ],
+  "cakephp-3.0": [
+    "cakephp",
+    "php-7",
+    "php"
+  ],
+  "cassandra-2.0": [
+    "cassandra"
+  ],
+  "cassandra-3.0": [
+    "cassandra"
+  ],
+  "centos6": [
+    "centos"
+  ],
+  "centos7": [
+    "centos"
+  ],
+  "ckeditor5": [
+    "ckeditor"
+  ],
+  "codeigniter-2": [
+    "codeigniter",
+    "php-7",
+    "php"
+  ],
+  "codeigniter-3": [
+    "codeigniter",
+    "php-7",
+    "php"
+  ],
+  "codeigniter-4": [
+    "codeigniter",
+    "php-7",
+    "php"
+  ],
+  "coldfusion-10": [
+    "coldfusion"
+  ],
+  "coldfusion-9": [
+    "coldfusion"
+  ],
+  "contact-form-7": [
+    "contact-form"
+  ],
+  "crystal-reports-2008": [
+    "crystal-reports"
+  ],
+  "cs50": [
+    "computer-science"
+  ],
+  "css-animations": [
+    "css"
+  ],
+  "css-float": [
+    "css"
+  ],
+  "css-grid": [
+    "css"
+  ],
+  "css-position": [
+    "css"
+  ],
+  "css-selectors": [
+    "css"
+  ],
+  "css-shapes": [
+    "css"
+  ],
+  "css-tables": [
+    "css"
+  ],
+  "css-transforms": [
+    "css"
+  ],
+  "css-transitions": [
+    "css"
+  ],
+  "dagger-2": [
+    "dagger"
+  ],
+  "dart-polymer": [
+    "dart"
+  ],
+  "dart-pub": [
+    "dart"
+  ],
+  "db2": [
+    "database"
+  ],
+  "delphi-2010": [
+    "delphi"
+  ],
+  "delphi-7": [
+    "delphi"
+  ],
+  "delphi-xe2": [
+    "delphi-xe"
+  ],
+  "directx-11": [
+    "directx"
+  ],
+  "django-admin": [
+    "django",
+    "python"
+  ],
+  "django-allauth": [
+    "django",
+    "python"
+  ],
+  "django-authentication": [
+    "django",
+    "python"
+  ],
+  "django-celery": [
+    "django",
+    "python"
+  ],
+  "django-channels": [
+    "django",
+    "python"
+  ],
+  "django-class-based-views": [
+    "django",
+    "python"
+  ],
+  "django-cms": [
+    "django",
+    "python"
+  ],
+  "django-filter": [
+    "django",
+    "python"
+  ],
+  "django-forms": [
+    "django",
+    "python"
+  ],
+  "django-haystack": [
+    "django",
+    "python"
+  ],
+  "django-migrations": [
+    "django",
+    "python"
+  ],
+  "django-models": [
+    "django",
+    "python"
+  ],
+  "django-orm": [
+    "django",
+    "python"
+  ],
+  "django-queryset": [
+    "django",
+    "python"
+  ],
+  "django-rest-framework": [
+    "django",
+    "python"
+  ],
+  "django-serializer": [
+    "django",
+    "python"
+  ],
+  "django-south": [
+    "django",
+    "python"
+  ],
+  "django-staticfiles": [
+    "django",
+    "python"
+  ],
+  "django-templates": [
+    "django",
+    "python"
+  ],
+  "django-testing": [
+    "django",
+    "python"
+  ],
+  "django-urls": [
+    "django",
+    "python"
+  ],
+  "django-views": [
+    "django",
+    "python"
+  ],
+  "docker-desktop": [
+    "docker"
+  ],
+  "docker-image": [
+    "docker"
+  ],
+  "docker-machine": [
+    "docker"
+  ],
+  "docker-network": [
+    "docker"
+  ],
+  "docker-registry": [
+    "docker"
+  ],
+  "docker-volume": [
+    "docker"
+  ],
+  "drupal-6": [
+    "drupal"
+  ],
+  "drupal-7": [
+    "drupal"
+  ],
+  "drupal-8": [
+    "drupal"
+  ],
+  "dynamics-365": [
+    "microsoft-dynamics"
+  ],
+  "dynamics-ax-2012": [
+    "axapta"
+  ],
+  "dynamics-crm-2011": [
+    "dynamics-crm"
+  ],
+  "dynamics-crm-2013": [
+    "dynamics-crm"
+  ],
+  "ecmascript-5": [
+    "javascript"
+  ],
+  "ecmascript-6": [
+    "javascript"
+  ],
+  "ef-code-first": [
+    "entity-framework",
+    "c#",
+    ".net"
+  ],
+  "eigen3": [
+    "eigen"
+  ],
+  "ejb-3.0": [
+    "ejb"
+  ],
+  "ejb-3.1": [
+    "ejb"
+  ],
+  "elastic-stack": [
+    "elasticsearch"
+  ],
+  "elasticsearch-5": [
+    "elasticsearch"
+  ],
+  "elasticsearch-aggregation": [
+    "elasticsearch"
+  ],
+  "entity-framework-4": [
+    "entity-framework",
+    "c#",
+    ".net"
+  ],
+  "entity-framework-4.1": [
+    "entity-framework",
+    "c#",
+    ".net"
+  ],
+  "entity-framework-5": [
+    "entity-framework",
+    "c#",
+    ".net"
+  ],
+  "entity-framework-migrations": [
+    "entity-framework",
+    "c#",
+    ".net"
+  ],
+  "excel-2007": [
+    "excel"
+  ],
+  "excel-2010": [
+    "excel"
+  ],
+  "excel-2013": [
+    "excel"
+  ],
+  "excel-2016": [
+    "excel"
+  ],
+  "express-session": [
+    "express",
+    "node.js",
+    "javascript"
+  ],
+  "extjs3": [
+    "extjs"
+  ],
+  "extjs4": [
+    "extjs"
+  ],
+  "extjs4.1": [
+    "extjs"
+  ],
+  "extjs4.2": [
+    "extjs"
+  ],
+  "extjs5": [
+    "extjs"
+  ],
+  "facebook-sdk-4.0": [
+    "facebook"
+  ],
+  "fancybox-2": [
+    "fancybox"
+  ],
+  "flask-login": [
+    "flask",
+    "python"
+  ],
+  "flask-restful": [
+    "flask",
+    "python"
+  ],
+  "flask-socketio": [
+    "flask",
+    "python"
+  ],
+  "flask-sqlalchemy": [
+    "flask",
+    "python"
+  ],
+  "flask-wtforms": [
+    "flask",
+    "python"
+  ],
+  "flex3": [
+    "flexbox"
+  ],
+  "flex4": [
+    "flexbox"
+  ],
+  "flex4.5": [
+    "flexbox"
+  ],
+  "flutter-animation": [
+    "flutter",
+    "dart"
+  ],
+  "flutter-bloc": [
+    "flutter",
+    "dart"
+  ],
+  "flutter-dependencies": [
+    "flutter",
+    "dart"
+  ],
+  "flutter-getx": [
+    "flutter",
+    "dart"
+  ],
+  "fortran90": [
+    "fortran"
+  ],
+  "git-bash": [
+    "git"
+  ],
+  "git-branch": [
+    "git"
+  ],
+  "git-checkout": [
+    "git"
+  ],
+  "git-clone": [
+    "git"
+  ],
+  "git-commit": [
+    "git"
+  ],
+  "git-diff": [
+    "git"
+  ],
+  "git-flow": [
+    "git"
+  ],
+  "git-lfs": [
+    "git"
+  ],
+  "git-merge": [
+    "git"
+  ],
+  "git-pull": [
+    "git"
+  ],
+  "git-push": [
+    "git"
+  ],
+  "git-rebase": [
+    "git"
+  ],
+  "git-submodules": [
+    "git"
+  ],
+  "git-svn": [
+    "git"
+  ],
+  "glassfish-3": [
+    "glassfish"
+  ],
+  "google-analytics-4": [
+    "google-analytics"
+  ],
+  "google-maps-api-2": [
+    "google-maps"
+  ],
+  "google-maps-api-3": [
+    "google-maps"
+  ],
+  "gradle-kotlin-dsl": [
+    "gradle",
+    "java"
+  ],
+  "gradle-plugin": [
+    "gradle",
+    "java"
+  ],
+  "grails-2.0": [
+    "grails",
+    "groovy",
+    "java"
+  ],
+  "gtk3": [
+    "gtk"
+  ],
+  "hadoop2": [
+    "hadoop"
+  ],
+  "hibernate-criteria": [
+    "hibernate",
+    "java"
+  ],
+  "hibernate-mapping": [
+    "hibernate",
+    "java"
+  ],
+  "hibernate-search": [
+    "hibernate",
+    "java"
+  ],
+  "hibernate-validator": [
+    "hibernate",
+    "java"
+  ],
+  "html-agility-pack": [
+    "html"
+  ],
+  "html-email": [
+    "html"
+  ],
+  "html-entities": [
+    "html"
+  ],
+  "html-helper": [
+    "html"
+  ],
+  "html-lists": [
+    "html"
+  ],
+  "html-meta": [
+    "html"
+  ],
+  "html-parsing": [
+    "html"
+  ],
+  "html-select": [
+    "html"
+  ],
+  "html-table": [
+    "html"
+  ],
+  "html5-audio": [
+    "html"
+  ],
+  "html5-canvas": [
+    "html"
+  ],
+  "html5-video": [
+    "html"
+  ],
+  "http-status-code-301": [
+    "http-status-codes"
+  ],
+  "http-status-code-401": [
+    "http-status-codes"
+  ],
+  "http-status-code-403": [
+    "http-status-codes"
+  ],
+  "http-status-code-404": [
+    "http-status-codes"
+  ],
+  "http2": [
+    "http"
+  ],
+  "iis-10": [
+    "iis"
+  ],
+  "iis-6": [
+    "iis"
+  ],
+  "iis-7": [
+    "iis"
+  ],
+  "iis-7.5": [
+    "iis"
+  ],
+  "iis-8": [
+    "iis"
+  ],
+  "internet-explorer-10": [
+    "internet-explorer"
+  ],
+  "internet-explorer-11": [
+    "internet-explorer"
+  ],
+  "internet-explorer-6": [
+    "internet-explorer"
+  ],
+  "internet-explorer-7": [
+    "internet-explorer"
+  ],
+  "internet-explorer-8": [
+    "internet-explorer"
+  ],
+  "internet-explorer-9": [
+    "internet-explorer"
+  ],
+  "ionic2": [
+    "ionic-framework"
+  ],
+  "ionic3": [
+    "ionic-framework"
+  ],
+  "ionic4": [
+    "ionic-framework"
+  ],
+  "ionic5": [
+    "ionic-framework"
+  ],
+  "iphone-sdk-3.0": [
+    "iphone"
+  ],
+  "itext7": [
+    "itext"
+  ],
+  "java-11": [
+    "java"
+  ],
+  "java-17": [
+    "java"
+  ],
+  "java-2d": [
+    "java"
+  ],
+  "java-6": [
+    "java"
+  ],
+  "java-7": [
+    "java"
+  ],
+  "java-8": [
+    "java"
+  ],
+  "java-9": [
+    "java"
+  ],
+  "java-dateformat": [
+    "java"
+  ],
+  "java-ee-6": [
+    "jakarta-ee"
+  ],
+  "java-ee-7": [
+    "jakarta-ee"
+  ],
+  "java-io": [
+    "java"
+  ],
+  "java-me": [
+    "java"
+  ],
+  "java-native-interface": [
+    "java"
+  ],
+  "java-stream": [
+    "java"
+  ],
+  "java-threads": [
+    "java"
+  ],
+  "java-time": [
+    "java"
+  ],
+  "java-web-start": [
+    "java"
+  ],
+  "javafx-2": [
+    "javafx",
+    "java"
+  ],
+  "javafx-8": [
+    "javafx",
+    "java"
+  ],
+  "javascript-framework": [
+    "javascript"
+  ],
+  "javascript-objects": [
+    "javascript"
+  ],
+  "jersey-2.0": [
+    "jersey"
+  ],
+  "jmeter-5.0": [
+    "jmeter",
+    "performance-testing"
+  ],
+  "joomla1.5": [
+    "joomla"
+  ],
+  "joomla2.5": [
+    "joomla"
+  ],
+  "joomla3.0": [
+    "joomla"
+  ],
+  "jpa-2.0": [
+    "jpa",
+    "java"
+  ],
+  "jquery-animate": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-chosen": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-deferred": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-events": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-file-upload": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-isotope": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-masonry": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-mobile": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-plugins": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-select2": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-selectors": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-ui": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-ui-autocomplete": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-ui-datepicker": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-ui-dialog": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-ui-draggable": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-ui-sortable": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-ui-tabs": [
+    "jquery",
+    "javascript"
+  ],
+  "jquery-validate": [
+    "jquery",
+    "javascript"
+  ],
+  "jsf-2": [
+    "jsf",
+    "java"
+  ],
+  "jsf-2.2": [
+    "jsf",
+    "java"
+  ],
+  "junit4": [
+    "junit",
+    "java"
+  ],
+  "junit5": [
+    "junit",
+    "java"
+  ],
+  "kafka-consumer-api": [
+    "apache-kafka"
+  ],
+  "kafka-producer-api": [
+    "apache-kafka"
+  ],
+  "keras-layer": [
+    "keras",
+    "tensorflow",
+    "python"
+  ],
+  "knockout-2.0": [
+    "knockout.js"
+  ],
+  "kotlin-multiplatform": [
+    "kotlin",
+    "java"
+  ],
+  "laravel-4": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-5": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-5.7": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-5.8": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-6": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-7": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-8": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-9": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-artisan": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-blade": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-livewire": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-mix": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-passport": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-query-builder": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "laravel-routing": [
+    "laravel",
+    "php-7",
+    "php"
+  ],
+  "liferay-6": [
+    "liferay"
+  ],
+  "magento-1.7": [
+    "magento"
+  ],
+  "magento-1.9": [
+    "magento"
+  ],
+  "magento2": [
+    "magento"
+  ],
+  "matplotlib-basemap": [
+    "matplotlib",
+    "python"
+  ],
+  "maven-2": [
+    "maven",
+    "java"
+  ],
+  "maven-3": [
+    "maven",
+    "java"
+  ],
+  "maven-assembly-plugin": [
+    "maven",
+    "java"
+  ],
+  "maven-plugin": [
+    "maven",
+    "java"
+  ],
+  "maven-surefire-plugin": [
+    "maven",
+    "java"
+  ],
+  "mongodb-.net-driver": [
+    "mongodb"
+  ],
+  "mongodb-atlas": [
+    "mongodb"
+  ],
+  "mongodb-java": [
+    "mongodb"
+  ],
+  "mongodb-query": [
+    "mongodb"
+  ],
+  "ms-access-2007": [
+    "ms-access"
+  ],
+  "ms-access-2010": [
+    "ms-access"
+  ],
+  "ms-access-2013": [
+    "ms-access"
+  ],
+  "ms-access-2016": [
+    "ms-access"
+  ],
+  "mule4": [
+    "mule"
+  ],
+  "mysql-connector": [
+    "mysql"
+  ],
+  "mysql-error-1064": [
+    "mysql"
+  ],
+  "mysql-workbench": [
+    "mysql"
+  ],
+  "netbeans-7": [
+    "netbeans"
+  ],
+  "netbeans-8": [
+    "netbeans"
+  ],
+  "next.js13": [
+    "next.js",
+    "reactjs",
+    "javascript"
+  ],
+  "numpy-ndarray": [
+    "numpy",
+    "python"
+  ],
+  "oauth-2.0": [
+    "oauth"
+  ],
+  "odoo-10": [
+    "odoo"
+  ],
+  "odoo-8": [
+    "odoo"
+  ],
+  "odoo-9": [
+    "odoo"
+  ],
+  "opencv3.0": [
+    "opencv"
+  ],
+  "opengl-es-2.0": [
+    "opengl-es"
+  ],
+  "openlayers-3": [
+    "openlayers"
+  ],
+  "pgadmin-4": [
+    "pgadmin"
+  ],
+  "playframework-2.0": [
+    "playframework"
+  ],
+  "playframework-2.2": [
+    "playframework"
+  ],
+  "polymer-1.0": [
+    "polymer"
+  ],
+  "postgresql-9.1": [
+    "postgresql"
+  ],
+  "postgresql-9.2": [
+    "postgresql"
+  ],
+  "postgresql-9.3": [
+    "postgresql"
+  ],
+  "postgresql-9.4": [
+    "postgresql"
+  ],
+  "postgresql-9.5": [
+    "postgresql"
+  ],
+  "powershell-2.0": [
+    "powershell"
+  ],
+  "powershell-3.0": [
+    "powershell"
+  ],
+  "powershell-4.0": [
+    "powershell"
+  ],
+  "prestashop-1.6": [
+    "prestashop"
+  ],
+  "prestashop-1.7": [
+    "prestashop"
+  ],
+  "pyqt6": [
+    "pyqt"
+  ],
+  "pyside2": [
+    "pyside"
+  ],
+  "pyside6": [
+    "pyside"
+  ],
+  "python-2.6": [
+    "python"
+  ],
+  "python-2.7": [
+    "python"
+  ],
+  "python-2.x": [
+    "python"
+  ],
+  "python-3.3": [
+    "python"
+  ],
+  "python-3.4": [
+    "python"
+  ],
+  "python-3.5": [
+    "python"
+  ],
+  "python-3.6": [
+    "python"
+  ],
+  "python-3.7": [
+    "python"
+  ],
+  "python-3.8": [
+    "python"
+  ],
+  "python-3.9": [
+    "python"
+  ],
+  "python-3.x": [
+    "python"
+  ],
+  "python-asyncio": [
+    "python"
+  ],
+  "python-c-api": [
+    "python"
+  ],
+  "python-dataclasses": [
+    "python"
+  ],
+  "python-datetime": [
+    "python"
+  ],
+  "python-decorators": [
+    "python"
+  ],
+  "python-docx": [
+    "python"
+  ],
+  "python-idle": [
+    "python"
+  ],
+  "python-imaging-library": [
+    "python"
+  ],
+  "python-import": [
+    "python"
+  ],
+  "python-itertools": [
+    "python"
+  ],
+  "python-module": [
+    "python"
+  ],
+  "python-multiprocessing": [
+    "python"
+  ],
+  "python-multithreading": [
+    "python"
+  ],
+  "python-packaging": [
+    "python"
+  ],
+  "python-poetry": [
+    "python"
+  ],
+  "python-polars": [
+    "python"
+  ],
+  "python-re": [
+    "python"
+  ],
+  "python-requests": [
+    "python"
+  ],
+  "python-sphinx": [
+    "python"
+  ],
+  "python-telegram-bot": [
+    "python"
+  ],
+  "python-tesseract": [
+    "python"
+  ],
+  "python-turtle": [
+    "python"
+  ],
+  "python-typing": [
+    "python"
+  ],
+  "python-unicode": [
+    "python"
+  ],
+  "python-unittest": [
+    "python"
+  ],
+  "python-venv": [
+    "python"
+  ],
+  "python-wheel": [
+    "python"
+  ],
+  "python-xarray": [
+    "python"
+  ],
+  "qt-creator": [
+    "qt",
+    "c++"
+  ],
+  "qt-designer": [
+    "qt",
+    "c++"
+  ],
+  "qt4": [
+    "qt",
+    "c++"
+  ],
+  "qt5": [
+    "qt",
+    "c++"
+  ],
+  "rails-activerecord": [
+    "ruby-on-rails",
+    "ruby"
+  ],
+  "rails-activestorage": [
+    "ruby-on-rails",
+    "ruby"
+  ],
+  "rails-migrations": [
+    "ruby-on-rails",
+    "ruby"
+  ],
+  "raspberry-pi2": [
+    "raspberry-pi"
+  ],
+  "raspberry-pi3": [
+    "raspberry-pi"
+  ],
+  "raspberry-pi4": [
+    "raspberry-pi"
+  ],
+  "react-admin": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-apollo": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-bootstrap": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-context": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-dom": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-functional-component": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-hook-form": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-hooks": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-leaflet": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-native-flatlist": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-native-maps": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-native-navigation": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-navigation": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-props": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-query": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-redux": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-router": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-router-dom": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-router-v4": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-select": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-state": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-table": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-testing-library": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-three-fiber": [
+    "reactjs",
+    "javascript"
+  ],
+  "react-typescript": [
+    "reactjs",
+    "javascript"
+  ],
+  "redux-form": [
+    "redux",
+    "javascript"
+  ],
+  "redux-toolkit": [
+    "redux",
+    "javascript"
+  ],
+  "reshape2": [
+    "reshape"
+  ],
+  "retrofit2": [
+    "retrofit"
+  ],
+  "rspec-rails": [
+    "rspec",
+    "ruby"
+  ],
+  "rspec2": [
+    "rspec",
+    "ruby"
+  ],
+  "ruby-on-rails-3": [
+    "ruby-on-rails",
+    "ruby"
+  ],
+  "ruby-on-rails-3.1": [
+    "ruby-on-rails",
+    "ruby"
+  ],
+  "ruby-on-rails-3.2": [
+    "ruby-on-rails",
+    "ruby"
+  ],
+  "ruby-on-rails-4": [
+    "ruby-on-rails",
+    "ruby"
+  ],
+  "ruby-on-rails-5": [
+    "ruby-on-rails",
+    "ruby"
+  ],
+  "ruby-on-rails-6": [
+    "ruby-on-rails",
+    "ruby"
+  ],
+  "rust-tokio": [
+    "rust"
+  ],
+  "rx-java2": [
+    "rx-java",
+    "java"
+  ],
+  "rxjs5": [
+    "rxjs",
+    "javascript"
+  ],
+  "rxjs6": [
+    "rxjs",
+    "javascript"
+  ],
+  "saml-2.0": [
+    "saml"
+  ],
+  "scala-collections": [
+    "scala"
+  ],
+  "scipy-optimize": [
+    "scipy",
+    "python"
+  ],
+  "sdl-2": [
+    "sdl"
+  ],
+  "sencha-touch-2": [
+    "sencha-touch"
+  ],
+  "sha1": [
+    "sha"
+  ],
+  "sha256": [
+    "sha"
+  ],
+  "sharepoint-2007": [
+    "sharepoint"
+  ],
+  "sharepoint-2010": [
+    "sharepoint"
+  ],
+  "sharepoint-2013": [
+    "sharepoint"
+  ],
+  "shopware6": [
+    "shopware"
+  ],
+  "silverlight-3.0": [
+    "silverlight"
+  ],
+  "silverlight-4.0": [
+    "silverlight"
+  ],
+  "silverlight-5.0": [
+    "silverlight"
+  ],
+  "sitecore6": [
+    "sitecore"
+  ],
+  "sitecore8": [
+    "sitecore"
+  ],
+  "sklearn-pandas": [
+    "scikit-learn",
+    "python"
+  ],
+  "spark-cassandra-connector": [
+    "apache-spark"
+  ],
+  "spark-structured-streaming": [
+    "apache-spark"
+  ],
+  "spring-amqp": [
+    "spring",
+    "java"
+  ],
+  "spring-annotations": [
+    "spring",
+    "java"
+  ],
+  "spring-boot-actuator": [
+    "spring-boot",
+    "spring",
+    "java"
+  ],
+  "spring-boot-test": [
+    "spring-boot",
+    "spring",
+    "java"
+  ],
+  "spring-cloud-config": [
+    "spring",
+    "java"
+  ],
+  "spring-cloud-dataflow": [
+    "spring",
+    "java"
+  ],
+  "spring-cloud-gateway": [
+    "spring",
+    "java"
+  ],
+  "spring-cloud-stream": [
+    "spring",
+    "java"
+  ],
+  "spring-data-elasticsearch": [
+    "spring",
+    "java"
+  ],
+  "spring-data-jpa": [
+    "spring",
+    "java"
+  ],
+  "spring-data-mongodb": [
+    "spring",
+    "java"
+  ],
+  "spring-data-neo4j": [
+    "spring",
+    "java"
+  ],
+  "spring-data-redis": [
+    "spring",
+    "java"
+  ],
+  "spring-data-rest": [
+    "spring",
+    "java"
+  ],
+  "spring-integration": [
+    "spring",
+    "java"
+  ],
+  "spring-jdbc": [
+    "spring",
+    "java"
+  ],
+  "spring-jms": [
+    "spring",
+    "java"
+  ],
+  "spring-kafka": [
+    "spring",
+    "java"
+  ],
+  "spring-rabbit": [
+    "spring",
+    "java"
+  ],
+  "spring-rest": [
+    "spring",
+    "java"
+  ],
+  "spring-restcontroller": [
+    "spring",
+    "java"
+  ],
+  "spring-roo": [
+    "spring",
+    "java"
+  ],
+  "spring-security-oauth2": [
+    "spring",
+    "java"
+  ],
+  "spring-test": [
+    "spring",
+    "java"
+  ],
+  "spring-tool-suite": [
+    "spring",
+    "java"
+  ],
+  "spring-transactions": [
+    "spring",
+    "java"
+  ],
+  "spring-webclient": [
+    "spring",
+    "java"
+  ],
+  "spring-webflow": [
+    "spring",
+    "java"
+  ],
+  "spring-websocket": [
+    "spring",
+    "java"
+  ],
+  "spring-ws": [
+    "spring",
+    "java"
+  ],
+  "sql-delete": [
+    "sql"
+  ],
+  "sql-execution-plan": [
+    "sql"
+  ],
+  "sql-injection": [
+    "sql"
+  ],
+  "sql-insert": [
+    "sql"
+  ],
+  "sql-like": [
+    "sql"
+  ],
+  "sql-loader": [
+    "sql"
+  ],
+  "sql-order-by": [
+    "sql"
+  ],
+  "sql-server": [
+    "sql"
+  ],
+  "sql-server-2000": [
+    "sql-server",
+    "sql"
+  ],
+  "sql-server-2005": [
+    "sql-server",
+    "sql"
+  ],
+  "sql-server-2008": [
+    "sql-server",
+    "sql"
+  ],
+  "sql-server-2008-r2": [
+    "sql"
+  ],
+  "sql-server-2012": [
+    "sql-server",
+    "sql"
+  ],
+  "sql-server-2014": [
+    "sql-server",
+    "sql"
+  ],
+  "sql-server-2016": [
+    "sql-server",
+    "sql"
+  ],
+  "sql-server-2017": [
+    "sql-server",
+    "sql"
+  ],
+  "sql-server-2019": [
+    "sql-server",
+    "sql"
+  ],
+  "sql-server-ce": [
+    "sql"
+  ],
+  "sql-server-data-tools": [
+    "sql"
+  ],
+  "sql-server-express": [
+    "sql"
+  ],
+  "sql-update": [
+    "sql"
+  ],
+  "sql-view": [
+    "sql"
+  ],
+  "ssis-2012": [
+    "ssis"
+  ],
+  "ssrs-2008": [
+    "reporting-services"
+  ],
+  "ssrs-2012": [
+    "reporting-services"
+  ],
+  "struts-1": [
+    "struts",
+    "java"
+  ],
+  "struts2": [
+    "struts",
+    "java"
+  ],
+  "sublimetext2": [
+    "sublimetext"
+  ],
+  "sublimetext3": [
+    "sublimetext"
+  ],
+  "suitescript2.0": [
+    "suitescript"
+  ],
+  "swagger-2.0": [
+    "swagger"
+  ],
+  "swift-package-manager": [
+    "swift"
+  ],
+  "swift-playground": [
+    "swift"
+  ],
+  "swift-protocols": [
+    "swift"
+  ],
+  "swift2": [
+    "swift"
+  ],
+  "swift3": [
+    "swift"
+  ],
+  "swift4": [
+    "swift"
+  ],
+  "swift5": [
+    "swift"
+  ],
+  "symfony-1.4": [
+    "symfony",
+    "php-7",
+    "php"
+  ],
+  "symfony-2.1": [
+    "symfony",
+    "php-7",
+    "php"
+  ],
+  "symfony-forms": [
+    "symfony",
+    "php-7",
+    "php"
+  ],
+  "symfony1": [
+    "symfony",
+    "php-7",
+    "php"
+  ],
+  "symfony4": [
+    "symfony",
+    "php-7",
+    "php"
+  ],
+  "symfony5": [
+    "symfony",
+    "php-7",
+    "php"
+  ],
+  "tensorflow-datasets": [
+    "tensorflow",
+    "python"
+  ],
+  "tensorflow-lite": [
+    "tensorflow",
+    "python"
+  ],
+  "tensorflow-serving": [
+    "tensorflow",
+    "python"
+  ],
+  "tensorflow2.0": [
+    "tensorflow",
+    "python"
+  ],
+  "terraform-provider-gcp": [
+    "terraform",
+    "devops",
+    "infrastructure-as-code"
+  ],
+  "tfs-2015": [
+    "tfs"
+  ],
+  "tinymce-4": [
+    "tinymce"
+  ],
+  "tls1.2": [
+    "ssl"
+  ],
+  "tomcat6": [
+    "tomcat",
+    "java"
+  ],
+  "tomcat7": [
+    "tomcat",
+    "java"
+  ],
+  "tomcat8": [
+    "tomcat",
+    "java"
+  ],
+  "tomcat9": [
+    "tomcat",
+    "java"
+  ],
+  "typescript-generics": [
+    "typescript",
+    "javascript"
+  ],
+  "typescript-typings": [
+    "typescript",
+    "javascript"
+  ],
+  "typescript2.0": [
+    "typescript",
+    "javascript"
+  ],
+  "ubuntu-12.04": [
+    "ubuntu"
+  ],
+  "ubuntu-14.04": [
+    "ubuntu"
+  ],
+  "ubuntu-16.04": [
+    "ubuntu"
+  ],
+  "ubuntu-18.04": [
+    "ubuntu"
+  ],
+  "ubuntu-20.04": [
+    "ubuntu"
+  ],
+  "umbraco7": [
+    "umbraco"
+  ],
+  "urllib2": [
+    "urllib"
+  ],
+  "vaadin7": [
+    "vaadin"
+  ],
+  "vb.net-2010": [
+    "vb.net"
+  ],
+  "vb6": [
+    "vb.net"
+  ],
+  "visual-studio-2005": [
+    "visual-studio"
+  ],
+  "visual-studio-2008": [
+    "visual-studio"
+  ],
+  "visual-studio-2010": [
+    "visual-studio"
+  ],
+  "visual-studio-2012": [
+    "visual-studio"
+  ],
+  "visual-studio-2013": [
+    "visual-studio"
+  ],
+  "visual-studio-2015": [
+    "visual-studio"
+  ],
+  "visual-studio-2017": [
+    "visual-studio"
+  ],
+  "visual-studio-2019": [
+    "visual-studio"
+  ],
+  "visual-studio-2022": [
+    "visual-studio"
+  ],
+  "vue-cli": [
+    "vue.js",
+    "javascript"
+  ],
+  "vue-component": [
+    "vue.js",
+    "javascript"
+  ],
+  "vue-composition-api": [
+    "vue.js",
+    "javascript"
+  ],
+  "vue-router": [
+    "vue.js",
+    "javascript"
+  ],
+  "vuejs2": [
+    "vue.js",
+    "javascript"
+  ],
+  "vuejs3": [
+    "vue.js",
+    "javascript"
+  ],
+  "webpack-2": [
+    "webpack",
+    "javascript"
+  ],
+  "webpack-4": [
+    "webpack",
+    "javascript"
+  ],
+  "websphere-8": [
+    "websphere"
+  ],
+  "wildfly-8": [
+    "wildfly"
+  ],
+  "windows-10": [
+    "windows"
+  ],
+  "windows-11": [
+    "windows"
+  ],
+  "windows-7": [
+    "windows"
+  ],
+  "windows-8": [
+    "windows"
+  ],
+  "windows-8.1": [
+    "windows"
+  ],
+  "windows-forms-designer": [
+    "winforms",
+    "c#",
+    ".net"
+  ],
+  "windows-phone-7": [
+    "windows-phone"
+  ],
+  "windows-phone-7.1": [
+    "windows-phone"
+  ],
+  "windows-phone-8": [
+    "windows-phone"
+  ],
+  "windows-server-2003": [
+    "windows-server"
+  ],
+  "windows-server-2012": [
+    "windows-server"
+  ],
+  "wordpress-gutenberg": [
+    "wordpress",
+    "php-7",
+    "php"
+  ],
+  "wordpress-theming": [
+    "wordpress",
+    "php-7",
+    "php"
+  ],
+  "workflow-foundation-4": [
+    "workflow-foundation"
+  ],
+  "wpf-controls": [
+    "wpf",
+    "c#",
+    ".net"
+  ],
+  "xamarin-studio": [
+    "xamarin",
+    "c#",
+    ".net"
+  ],
+  "xcode-ui-testing": [
+    "xcode"
+  ],
+  "xcode11": [
+    "xcode"
+  ],
+  "xcode4": [
+    "xcode"
+  ],
+  "xcode4.2": [
+    "xcode"
+  ],
+  "xcode4.3": [
+    "xcode"
+  ],
+  "xcode5": [
+    "xcode"
+  ],
+  "xcode6": [
+    "xcode"
+  ],
+  "xcode7": [
+    "xcode"
+  ],
+  "xcode8": [
+    "xcode"
+  ],
+  "xcode9": [
+    "xcode"
+  ],
+  "yii2": [
+    "yii"
+  ],
+  "boundary-value-analysis": [
+    "test-case-design",
+    "testing"
+  ],
+  "equivalence-partitioning": [
+    "test-case-design",
+    "testing"
+  ],
+  "decision-table": [
+    "test-case-design",
+    "testing"
+  ],
+  "selenium-webdriver": [
+    "automation-testing"
+  ],
+  "webdriverio": [
+    "automation-testing"
+  ],
+  "cucumber": [
+    "automation-testing",
+    "bdd"
+  ],
+  "appium": [
+    "automation-testing",
+    "mobile-testing"
+  ],
+  "postman": [
+    "api-testing"
+  ],
+  "rest-assured": [
+    "api-testing"
+  ],
+  "jmeter": [
+    "performance-testing"
+  ],
+  "k6": [
+    "performance-testing"
+  ],
+  "locust": [
+    "performance-testing"
+  ],
+  "gatling": [
+    "performance-testing"
+  ],
+  "black-box-testing": [
+    "functional-testing"
+  ],
+  "end-to-end-testing": [
+    "functional-testing",
+    "e2e-testing"
+  ],
+  "load-testing": [
+    "performance-testing"
+  ],
+  "stress-testing": [
+    "performance-testing"
+  ],
+  "php-7": [
+    "php"
+  ],
+  ".net-mvc": [],
+  "2d-animator": [],
+  "2d-artist": [],
+  "3cx": [],
+  "3d-artist": [],
+  "3d-designer": [],
+  "3d-max": [],
+  "3d-modelling": [],
+  "3g": [],
+  "4g-lte": [],
+  "5g": [],
+  "a/b-testing": [],
+  "account-executive": [],
+  "account-manager": [],
+  "activemq": [],
+  "administration-/-receptionist": [],
+  "adobe-creative-suite": [],
+  "adobe-xd": [],
+  "after-effect": [],
+  "agile-&-scrum": [],
+  "air-conditioner": [],
+  "analyst": [],
+  "android": [],
+  "android-unit-test": [],
+  "angular-10": [],
+  "angular-10+": [],
+  "angular-11": [],
+  "angular-2+": [],
+  "angular-4+": [],
+  "angular-5+": [],
+  "angular-6+": [],
+  "angular-7+": [],
+  "angular-8+": [],
+  "animation-2d": [],
+  "animation-3d": [],
+  "api": [],
+  "application-security": [],
+  "application-support": [],
+  "art-director": [],
+  "asp": [],
+  "assistant": [],
+  "automation-developer": [],
+  "automation-qa": [],
+  "automation-qc": [],
+  "automation-tester": [],
+  "automotive": [],
+  "autosar": [],
+  "aws": [],
+  "ax2012-r2": [],
+  "axure-rp": [],
+  "azure": [],
+  "b2b": [],
+  "babylonjs": [],
+  "back-end": [],
+  "backlog": [],
+  "balsamiq": [],
+  "beaglebone": [],
+  "bitbucket/-bamboo/-jenkins": [],
+  "bootstrap": [],
+  "bpo": [],
+  "brand-marketing": [],
+  "bridge-se": [],
+  "brightscript": [],
+  "brse": [],
+  "bse-leader": [],
+  "bsi": [],
+  "business-analyst": [],
+  "business-coordinator": [],
+  "business-development": [],
+  "business/sales": [],
+  "c#/-oop/-net-framwork": [],
+  "c&b": [],
+  "c-language": [],
+  "c/c++": [],
+  "cad": [],
+  "cadence": [],
+  "canva": [],
+  "capcut": [],
+  "ccna": [],
+  "ccna/-ccnp": [],
+  "ccnp": [],
+  "ceh-v5": [],
+  "character-artist": [],
+  "ci/cd": [
+    "ci-cd",
+    "devops"
+  ],
+  "cloud-migration-service-(aws": [],
+  "cocoonjs": [],
+  "commucation": [],
+  "communicator": [],
+  "construct-2": [],
+  "consultant": [],
+  "content": [],
+  "content-creator": [],
+  "control-system": [],
+  "copywriter": [],
+  "core-banking": [],
+  "core-java-8": [],
+  "corecard": [],
+  "coreldraw": [],
+  "corona": [],
+  "cosos": [],
+  "crm-(sap": [],
+  "crm-consultant": [],
+  "crm-integration": [],
+  "crm-system": [],
+  "csdl": [],
+  "csdl-oracle": [],
+  "customer-service/customer-support": [],
+  "d365-fo": [],
+  "data-administrator": [],
+  "data-analyst": [],
+  "data-analytics": [],
+  "data-architecture": [],
+  "data-engineer": [],
+  "data-operation": [],
+  "data-reporting-analyst": [],
+  "data-structure-&-algorithm": [],
+  "database-administrator": [],
+  "de-fi": [],
+  "depm": [],
+  "design": [],
+  "digital-design": [],
+  "digital-operation-specialist": [],
+  "director": [],
+  "disinfection": [],
+  "dms": [],
+  "document-analyst": [],
+  "eda": [],
+  "edgelib": [],
+  "elastic-path": [],
+  "electricity-/-electronics-/-refrigeration-/-industrial-electricity": [],
+  "elixir---rails": [],
+  "embedded-engineer": [],
+  "embedded-system": [],
+  "emtuty-famework-6": [],
+  "english": [],
+  "english---good": [],
+  "english-skills": [],
+  "erp": [],
+  "erp-consultant": [],
+  "erpnext": [],
+  "es": [],
+  "esenthel-engine": [],
+  "fi": [],
+  "figma": [],
+  "fintech": [],
+  "firebase": [],
+  "firestore": [],
+  "firmware": [],
+  "flightphp": [],
+  "fmcg": [],
+  "french": [],
+  "front-end": [],
+  "fuelphp": [],
+  "full-stack": [],
+  "functional-analyst": [],
+  "functional-consultant": [],
+  "functional-safety": [],
+  "game": [],
+  "game-artist": [],
+  "game-asset": [],
+  "game-design": [],
+  "game-developer": [],
+  "game-editor": [],
+  "game-master": [],
+  "game-mobile": [],
+  "game-nft": [],
+  "game-operator": [],
+  "game-programmer": [],
+  "game-tester": [],
+  "german": [],
+  "gideros": [],
+  "gitflow": [],
+  "glusterfs": [],
+  "google-cloud-platform---rollbar": [],
+  "graphic-design": [],
+  "hardware-design": [],
+  "hmi-application": [],
+  "hmi-frameworks": [],
+  "hr": [],
+  "html-&-css": [],
+  "html/css": [],
+  "hub": [],
+  "hybrid": [],
+  "hybrid-app": [],
+  "illustrator": [],
+  "infrastructure": [],
+  "integration-engineer": [],
+  "integration-test": [],
+  "internet-of-things": [],
+  "invision": [],
+  "ios": [],
+  "iot-development": [],
+  "iot-engineering": [],
+  "iot-integration": [],
+  "ips/ids": [],
+  "it-administrator": [],
+  "it-auditor": [],
+  "it-communicator": [],
+  "it-compliance": [],
+  "it-comtor": [],
+  "it-consultant": [],
+  "it-coordinator": [],
+  "it-helpdesk": [
+    "it-support"
+  ],
+  "it-infrastructure": [],
+  "it-manager": [],
+  "it-operation": [],
+  "it-operations": [],
+  "it-outsource": [],
+  "it-presales": [],
+  "it-security": [],
+  "it-service": [],
+  "it-solution-sales": [],
+  "it-specialist": [],
+  "it-staff": [],
+  "it-support": [],
+  "it-support-specialist": [],
+  "it-system": [],
+  "itil/itsm": [],
+  "japanese-(-n1-or-n2)": [],
+  "japanese---n1": [],
+  "japanese---n2": [],
+  "japanese---n3": [],
+  "japanese---n4": [],
+  "japanese---n5": [],
+  "java-spring": [],
+  "java-spring-boot": [],
+  "javaee": [],
+  "jenkins-ci": [
+    "ci-cd",
+    "devops"
+  ],
+  "jet-global": [],
+  "json/xml": [],
+  "jsp/servlet": [],
+  "kanban": [],
+  "kubernete": [],
+  "lean": [],
+  "legal/law": [],
+  "lifecycle-(sdlc)": [],
+  "lightroom": [],
+  "livecode": [],
+  "liveops": [],
+  "logistics-/-warehouse-/-transportation": [],
+  "lora": [],
+  "ls-central": [],
+  "lumion": [],
+  "lwc": [],
+  "maintenance-/-repair": [],
+  "manager": [],
+  "manual": [],
+  "manual-test": [],
+  "manual-tester": [],
+  "marketing": [],
+  "mcsa": [],
+  "mcse": [],
+  "mcv": [],
+  "mdm-design": [],
+  "microsoft": [],
+  "microsoft-365": [],
+  "microsoft-dynamics-365": [],
+  "microsoft-dynamics-ax-2009": [],
+  "mobile-tester": [],
+  "mobile-video-games": [],
+  "mongosql": [],
+  "monitor-card-transactions": [],
+  "motion-graphic-design": [],
+  "motivate-staffs": [],
+  "mql4/mql5": [],
+  "ms-dynamic": [],
+  "ms-visio": [],
+  "msa": [],
+  "nas": [],
+  "nette": [],
+  "nlp": [],
+  "no": [],
+  "noc": [],
+  "oca/-ocp": [],
+  "on-premise": [],
+  "openstack-development": [],
+  "oracle": [],
+  "oracle-&-plsql": [],
+  "oracle-and/or-postgresql": [],
+  "oracle-ebs": [],
+  "oracle-ebs-r12": [],
+  "oracle-erp": [],
+  "oracle-erp-cloud": [],
+  "oracle-middleware": [],
+  "oracle-pl/sql": [],
+  "oracle-rac/-sql-server": [],
+  "oracle-sql": [],
+  "oracle-storage": [],
+  "osp": [],
+  "ott": [],
+  "outsystem": [],
+  "pc-devices": [],
+  "penetration-test": [],
+  "pest-control-services": [],
+  "photography": [],
+  "photon": [],
+  "phpixie": [],
+  "pl/sql": [],
+  "pmo": [],
+  "pmp": [],
+  "pod": [],
+  "popphp": [],
+  "postgre": [],
+  "pqa": [],
+  "pr": [],
+  "premier": [],
+  "prisma2": [],
+  "problem-solving-skill": [],
+  "process-quality-assurance": [],
+  "product-design": [],
+  "product-manager": [],
+  "product-operation": [],
+  "product-owner": [],
+  "product-planning": [],
+  "programming-experience": [],
+  "programming-language": [],
+  "project-assistant": [],
+  "project-coordinator": [],
+  "project-leader": [],
+  "project-manager": [],
+  "qa": [],
+  "qa/qc": [],
+  "qc": [],
+  "qt-framework": [],
+  "quality-analyst": [],
+  "quantitative-researcher": [],
+  "r": [],
+  "r&d": [],
+  "r&d-engineer": [],
+  "react/typescript": [],
+  "rep": [],
+  "research": [],
+  "retail": [],
+  "retouch": [],
+  "robot": [],
+  "roku": [],
+  "rpa": [],
+  "rpa-using-uipath": [],
+  "rtl-verification": [],
+  "rtos": [],
+  "rxswift": [],
+  "s3": [],
+  "sale": [],
+  "sales": [],
+  "sales-admin": [],
+  "sap": [],
+  "sap-consultant": [],
+  "scrum": [],
+  "scrum-master": [],
+  "sdn": [],
+  "security-engineer": [],
+  "sem": [],
+  "serenity-bdd": [],
+  "sfa/dms": [],
+  "sharepoint-framework": [],
+  "site-reliability": [],
+  "sketch": [],
+  "sketchup": [],
+  "soc-design": [],
+  "social-media": [],
+  "software": [],
+  "software-architect": [],
+  "software-developer": [],
+  "software-engineer": [],
+  "solid": [],
+  "solution-architect": [],
+  "sqa": [],
+  "sql-&-system-integration": [],
+  "sqs": [],
+  "squid": [],
+  "sre": [],
+  "stock-broker": [],
+  "supporting-end-users": [],
+  "sysops": [],
+  "system-admin": [],
+  "system-architect": [],
+  "system-engineer": [],
+  "system-security": [],
+  "system-test": [],
+  "syteline": [],
+  "talent-acquisition": [],
+  "tcp/ip": [],
+  "technical-architect": [],
+  "technical-consultant": [],
+  "technical-director": [],
+  "technical-engineer": [],
+  "technical-leader": [],
+  "technical-support": [],
+  "technical-writer": [],
+  "telemarketing": [],
+  "test-engineer": [],
+  "tester": [],
+  "tiktok": [],
+  "trello": [],
+  "ue4": [],
+  "ui-design": [],
+  "ui/ux": [],
+  "ux-design": [],
+  "ux/ui-design": [],
+  "vfx": [],
+  "video-edit": [],
+  "video-game-producer": [],
+  "video-stream": [],
+  "videos-editor": [],
+  "visual-basic": [],
+  "visual-designer": [],
+  "visual-effects": [],
+  "vr/ar": [],
+  "wan": [],
+  "washing-machine-cleaning": [],
+  "waterfall": [],
+  "web-design": [],
+  "web-developer": [],
+  "web-master": [],
+  "web-tester": [],
+  "web/-mobile": [],
+  "wordpress-customize": [],
+  "xml": [],
+  "zbrush": [],
+  "zend": [],
+  "zeplin": [],
+  "accelerate": [
+    "python",
+    "pytorch"
+  ],
+  "ag2": [
+    "python"
+  ],
+  "bentoml": [
+    "python"
+  ],
+  "bitsandbytes": [
+    "python",
+    "pytorch"
+  ],
+  "catboost": [
+    "python"
+  ],
+  "chromadb": [
+    "python"
+  ],
+  "crewai": [
+    "python"
+  ],
+  "dask": [
+    "python"
+  ],
+  "deepspeed": [
+    "python",
+    "pytorch"
+  ],
+  "diffusers": [
+    "python",
+    "huggingface"
+  ],
+  "dspy": [
+    "python"
+  ],
+  "duckdb": [
+    "python"
+  ],
+  "evidently": [
+    "python"
+  ],
+  "fastmcp": [
+    "python",
+    "mcp"
+  ],
+  "flash-attn": [
+    "python",
+    "pytorch"
+  ],
+  "flax": [
+    "python",
+    "jax"
+  ],
+  "great-expectations": [
+    "python"
+  ],
+  "guidance": [
+    "python"
+  ],
+  "haystack": [
+    "python"
+  ],
+  "huggingface-hub": [
+    "python",
+    "huggingface"
+  ],
+  "imbalanced-learn": [
+    "python",
+    "scikit-learn"
+  ],
+  "instructor": [
+    "python",
+    "pydantic"
+  ],
+  "jax": [
+    "python"
+  ],
+  "langgraph": [
+    "python"
+  ],
+  "lightgbm": [
+    "python"
+  ],
+  "lightning": [
+    "python",
+    "pytorch"
+  ],
+  "litellm": [
+    "python"
+  ],
+  "llama-cpp-python": [
+    "python"
+  ],
+  "llama-index": [
+    "python"
+  ],
+  "mlflow": [
+    "python"
+  ],
+  "optax": [
+    "python",
+    "jax"
+  ],
+  "optuna": [
+    "python"
+  ],
+  "outlines": [
+    "python"
+  ],
+  "peft": [
+    "python",
+    "transformers",
+    "huggingface"
+  ],
+  "polars": [
+    "python"
+  ],
+  "prophet": [
+    "python"
+  ],
+  "pydantic-ai": [
+    "python",
+    "pydantic"
+  ],
+  "pydantic-settings": [
+    "python",
+    "pydantic"
+  ],
+  "pymc": [
+    "python"
+  ],
+  "pymilvus": [
+    "python"
+  ],
+  "pyarrow": [
+    "python"
+  ],
+  "qdrant-client": [
+    "python"
+  ],
+  "ray": [
+    "python"
+  ],
+  "safetensors": [
+    "python"
+  ],
+  "sentence-transformers": [
+    "python",
+    "transformers",
+    "huggingface"
+  ],
+  "shap": [
+    "python"
+  ],
+  "smolagents": [
+    "python",
+    "huggingface"
+  ],
+  "statsmodels": [
+    "python"
+  ],
+  "tiktoken": [
+    "python"
+  ],
+  "tokenizers": [
+    "python",
+    "huggingface"
+  ],
+  "torch-geometric": [
+    "python",
+    "pytorch"
+  ],
+  "torchaudio": [
+    "python",
+    "pytorch"
+  ],
+  "torchvision": [
+    "python",
+    "pytorch"
+  ],
+  "transformers": [
+    "python",
+    "huggingface"
+  ],
+  "trl": [
+    "python",
+    "transformers",
+    "huggingface"
+  ],
+  "umap-learn": [
+    "python"
+  ],
+  "vllm": [
+    "python"
+  ],
+  "wandb": [
+    "python"
+  ],
+  "weaviate-client": [
+    "python"
+  ],
+  "xgboost": [
+    "python"
+  ],
+  "argocd": [
+    "kubernetes",
+    "gitops",
+    "docker"
+  ],
+  "ci-cd": [
+    "devops"
+  ],
+  "containerization": [
+    "docker"
+  ],
+  "datadog": [
+    "observability",
+    "monitoring"
+  ],
+  "devsecops": [
+    "devops"
+  ],
+  "fluxcd": [
+    "kubernetes",
+    "gitops",
+    "docker"
+  ],
+  "github-actions": [
+    "github",
+    "ci-cd",
+    "devops",
+    "git"
+  ],
+  "gitlab-ci": [
+    "gitlab",
+    "ci-cd",
+    "devops",
+    "git"
+  ],
+  "infrastructure-as-code": [
+    "devops"
+  ],
+  "linkerd": [
+    "kubernetes",
+    "docker"
+  ],
+  "loki": [
+    "observability",
+    "logging",
+    "monitoring"
+  ],
+  "new-relic": [
+    "observability",
+    "monitoring"
+  ],
+  "observability": [
+    "monitoring"
+  ],
+  "opentelemetry": [
+    "observability",
+    "monitoring"
+  ],
+  "opentofu": [
+    "terraform",
+    "devops",
+    "infrastructure-as-code"
+  ],
+  "prometheus": [
+    "monitoring"
+  ],
+  "grafana": [
+    "monitoring"
+  ],
+  "tekton": [
+    "kubernetes",
+    "ci-cd",
+    "devops",
+    "docker"
+  ],
+  "tempo": [
+    "observability",
+    "monitoring"
+  ],
+  "terraform": [
+    "infrastructure-as-code",
+    "devops"
+  ],
+  "trivy": [
+    "devsecops",
+    "vulnerability-management",
+    "devops"
+  ],
+  "snyk": [
+    "devsecops",
+    "vulnerability-management",
+    "devops"
+  ],
+  "anydesk": [
+    "remote-support",
+    "remote-desktop"
+  ],
+  "change-management": [
+    "itsm"
+  ],
+  "dhcp": [
+    "network-management"
+  ],
+  "endpoint-management": [
+    "mdm"
+  ],
+  "freshservice": [
+    "itsm"
+  ],
+  "help-desk": [
+    "it-helpdesk",
+    "it-support"
+  ],
+  "incident-management": [
+    "itsm"
+  ],
+  "intune": [
+    "mdm",
+    "microsoft-365"
+  ],
+  "itil": [
+    "itsm"
+  ],
+  "itil-4": [
+    "itil",
+    "itsm"
+  ],
+  "jamf": [
+    "mdm"
+  ],
+  "jira-service-management": [
+    "itsm",
+    "jira"
+  ],
+  "problem-management": [
+    "itsm"
+  ],
+  "remote-support": [
+    "remote-desktop"
+  ],
+  "service-desk": [
+    "it-helpdesk",
+    "itsm",
+    "it-support"
+  ],
+  "teamviewer": [
+    "remote-support",
+    "remote-desktop"
+  ],
+  "ticket-management": [
+    "it-helpdesk",
+    "it-support"
+  ],
+  "zendesk": [
+    "ticket-management",
+    "it-helpdesk",
+    "it-support"
+  ],
+  "accessibility-testing": [
+    "testing"
+  ],
+  "allure": [
+    "testing"
+  ],
+  "behave": [
+    "python",
+    "bdd"
+  ],
+  "browserstack": [
+    "cross-browser-testing",
+    "testing"
+  ],
+  "burp-suite": [
+    "security-testing"
+  ],
+  "chaos-testing": [
+    "testing"
+  ],
+  "contract-testing": [
+    "testing"
+  ],
+  "cross-browser-testing": [
+    "testing"
+  ],
+  "detox": [
+    "automation-testing",
+    "mobile-testing"
+  ],
+  "exploratory-testing": [
+    "testing"
+  ],
+  "insomnia": [
+    "api-testing"
+  ],
+  "karate": [
+    "api-testing"
+  ],
+  "maestro": [
+    "automation-testing",
+    "mobile-testing"
+  ],
+  "manual-testing": [
+    "testing"
+  ],
+  "newman": [
+    "api-testing",
+    "postman"
+  ],
+  "owasp-zap": [
+    "security-testing"
+  ],
+  "pact": [
+    "contract-testing",
+    "testing"
+  ],
+  "qa-engineer": [
+    "qa",
+    "testing"
+  ],
+  "regression-testing": [
+    "testing"
+  ],
+  "robot-framework": [
+    "python",
+    "automation-testing"
+  ],
+  "saucelabs": [
+    "cross-browser-testing",
+    "testing"
+  ],
+  "sdet": [
+    "automation-testing",
+    "testing"
+  ],
+  "smoke-testing": [
+    "testing"
+  ],
+  "test-case-management": [
+    "test-management",
+    "testing"
+  ],
+  "test-case-design": [
+    "testing"
+  ],
+  "test-management": [
+    "testing"
+  ],
+  "test-planning": [
+    "testing"
+  ],
+  "testcontainers": [
+    "docker"
+  ],
+  "visual-regression-testing": [
+    "testing"
+  ],
+  "azure-devops": [
+    "devops"
+  ],
+  "open-telemetry": [
+    "opentelemetry",
+    "monitoring",
+    "observability"
+  ],
+  "robotframework": [
+    "robot-framework",
+    "automation-testing",
+    "python"
+  ]
+}

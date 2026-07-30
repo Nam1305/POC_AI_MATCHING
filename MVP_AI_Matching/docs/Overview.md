@@ -1,5 +1,11 @@
 # AI CV-JD Matching — System Overview
 
+> Tài liệu này mô tả **đúng những gì đang có trong code** (`app/`). Mọi công
+> thức, tên model, tên endpoint đều đối chiếu trực tiếp với source.
+> Cập nhật: 2026-07-27
+
+---
+
 ## Kiến trúc tổng thể
 
 ```
@@ -18,6 +24,21 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
 
 ---
 
+## 4 Endpoint hiện có
+
+| Endpoint | LLM? | Mô tả |
+| --- | --- | --- |
+| `POST /ai/parse-jd` | ✅ 1 call | JD text → `ParsedJD` + `jd_embedding` (+ geocode) |
+| `POST /ai/parse-cv` | ✅ 1–3 call | URL file CV → `cv_raw_text` + `ParsedCV` + `cv_embedding` (+ geocode) |
+| `POST /ai/score` | ⬜ / ✅ tùy chọn | 5 chiều điểm + evaluation (narrative chỉ khi `include_narrative=true`) |
+| `POST /ai/evaluate` | ✅ 1 call | Nhận xét định tính bằng tiếng Việt cho HR |
+| `GET /health` | — | Health check |
+
+> **Chưa có trong code:** `/ai/recalculate` và `/ai/search` (NL search). Xem
+> mục [Ngoài phạm vi bản hiện tại](#ngoài-phạm-vi-bản-hiện-tại).
+
+---
+
 ## Nghiệp vụ 2 Side
 
 ### Side 1 — Ứng viên nộp CV
@@ -31,16 +52,17 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
 
 4. .NET xử lý:
    a. Xác thực JWT token → candidate_id
-   b. Lưu application record, status = "processing"
-   c. Lấy job.parsed_jd + job.jd_embedding + scoring_config từ DB
-   d. Gọi AI Service (2 lần):
-      → POST /ai/parse-cv { cv_file }
-      ← { cv_raw_text, parsed_cv, cv_embedding }
+   b. Upload file lên S3/R2 → nhận presigned URL
+   c. Lưu application record, status = "processing"
+   d. Lấy parsed_jd + jd_embedding + scoring_config từ DB
+   e. Gọi AI Service (2 lần):
+      → POST /ai/parse-cv { cv_url }
+      ← { results: [{ cv_raw_text, parsed_cv, cv_embedding }] }
 
-      → POST /ai/score { parsed_cv, parsed_jd, cv_embedding, jd_embedding, weights, cv_raw_text }
-      ← { final_score, scores: { semantic, skills, experience, education, location } }
-   e. UPDATE application: lưu tất cả kết quả, status = "done"
-   f. Return về ReactJS: { final_score, scores }
+      → POST /ai/score { parsed_cv, parsed_jd, cv_embedding, jd_embedding, weights }
+      ← { final_score, scores{5}, weights_used, evaluation }
+   f. UPDATE application: lưu tất cả kết quả, status = "done"
+   g. Return về ReactJS
 
 5. ReactJS hiển thị kết quả ngay:
    ┌─────────────────────────────────┐
@@ -53,7 +75,7 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
    └─────────────────────────────────┘
 ```
 
-**Thời gian xử lý:** ~5–10s (Claude parse + OpenAI embed là chủ yếu)
+**Thời gian xử lý:** ~5–10s (LLM parse + embedding là chủ yếu; chấm điểm ~1ms)
 
 ---
 
@@ -89,40 +111,46 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
 #### 2c. Điều chỉnh weights
 
 ```
-1. HR kéo 5 sliders (tổng phải = 100%) → PUT /api/jobs/{id}/scoring-config
+1. HR kéo 5 sliders (tổng phải = 1.0) → PUT /api/jobs/{id}/scoring-config
 
 2. .NET:
-   a. Validate sum == 100%
+   a. Validate sum == 1.0
    b. UPDATE scoring_configs
-   c. Fetch tất cả applications (chỉ cần 5 dimension scores, không cần text/embedding)
-   → POST /ai/recalculate { applications:[{id, scores},...], weights }
-   ← { results: [{ id, final_score }, ...] }
-   d. Batch UPDATE final_score → return new ranking
+   c. Gọi lại POST /ai/score cho từng application với weights mới
+      (AI service hiện chưa có endpoint recalculate riêng)
 
-   → Không gọi LLM, chỉ tính toán thuần túy
+   → Hoặc .NET tự tính lại: final = Σ(scoreᵢ/100 × wᵢ) × 100
+     vì 5 điểm thành phần đã được lưu sẵn trong DB, phép tính là
+     số học thuần túy, không cần gọi AI service.
 ```
 
-#### 2d. Tìm kiếm bằng ngôn ngữ tự nhiên
+#### 2d. Xem nhận xét chi tiết 1 ứng viên
 
 ```
-1. HR gõ: "Tìm ứng viên React 3 năm, có kinh nghiệm team lead"
+1. HR bấm vào 1 ứng viên trong bảng ranking
 
 2. .NET:
-   a. Hard filter: job_id + status="done"
-   b. Fetch { id, cv_embedding, final_score, parsed_cv } của tất cả CV
-   → POST /ai/search { query, applications:[...] }
-   ← { query_parsed, results:[{ id, combined_score, match_reason }] }
-   c. Fetch candidate info theo ids → return
+   → POST /ai/evaluate { parsed_cv, parsed_jd }
+   ← { skill_details[], missing_must_have[], missing_preferred[],
+       bonus_skills[], skill_match_rate,
+       experience_verdict, experience_detail, education_verdict,
+       narrative }
 
-3. ReactJS hiển thị kết quả với lý do match:
-   ┌─────────────────────────────────────────┐
-   │ Nguyen Van A — 82.1 pts                  │
-   │ ✓ React: 4 năm kinh nghiệm              │
-   │ ✓ Team lead: dẫn nhóm 5 người tại XYZ  │
-   └─────────────────────────────────────────┘
+3. ReactJS hiển thị:
+   ┌──────────────────────────────────────────────────┐
+   │ Nguyen Van A — 82.1 điểm                          │
+   │ Kỹ năng khớp: 85.7%                               │
+   │ ✓ React   ✓ TypeScript   ✓ Node.js (suy ra)      │
+   │ ✗ Thiếu bắt buộc: Kubernetes                      │
+   │ + Bonus: GraphQL, Redis                           │
+   │                                                    │
+   │ "Ứng viên có nền tảng frontend vững, 3 năm..."   │
+   └──────────────────────────────────────────────────┘
 ```
 
-**Lưu ý về filter:** Không áp `final_score > threshold` làm default — NL search có mục đích tìm "hidden gems" mà ranking thông thường bỏ sót. Chỉ filter `job_id` + `status=done`. HR có thể thêm filter tùy chọn trên UI.
+> `/ai/score` cũng trả về khối `evaluation` này (không có `narrative` trừ khi
+> truyền `include_narrative=true`), nên .NET có thể lấy phần structured ngay
+> ở bước chấm điểm và chỉ gọi `/ai/evaluate` khi HR thực sự mở chi tiết.
 
 ---
 
@@ -134,18 +162,26 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
 [.NET API]                              [AI Service]
     │
     │  POST /ai/parse-jd
-    │  { "jd_text": "..." }
+    │  { "jd_text": "..." }        (hoặc text/plain: raw JD)
     │ ─────────────────────────────────────────────→
-    │                                        Stage 1: LLM Extraction
-    │                                        Claude claude-sonnet-4-6 → parsed_jd JSON
-    │                                        Stage 2: Embedding
-    │                                        OpenAI text-embedding-3-small → float[1536]
+    │                                        Stage 2: LLM Extraction
+    │                                        gemini-2.5-flash → parsed_jd JSON
+    │                                        (temperature=0, response_format=json_object)
+    │                                        Geocode: Nominatim(raw_address ?? city)
+    │                                        → work_location.{lat,lng}
+    │                                        Stage 3: Embedding
+    │                                        gemini-embedding-001 → float[3072]
+    │                                        (input = parsed_jd.build_embed_text())
     │ ←─────────────────────────────────────────────
-    │  { parsed_jd, jd_embedding }
+    │  { parsed_jd, jd_embedding, error }
     │
     ├─ INSERT jobs { title, description, parsed_jd, jd_embedding }
     └─ INSERT scoring_configs { job_id, defaults: 30/35/20/10/5 }
 ```
+
+`jd_embedding` là `null` kèm `error != null` nếu bước embedding lỗi — parse
+vẫn thành công. `/ai/score` coi thiếu embedding là **điểm trung lập 0.5** cho
+D1, không phải lỗi.
 
 ---
 
@@ -158,22 +194,27 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
     │  { job_id,         │
     │    cv_file }       │
     │──────────────→     │
-    │               INSERT application
-    │               status = "processing"
+    │               Upload S3/R2 → presigned URL
+    │               INSERT application, status = "processing"
     │                   │
     │                   │  POST /ai/parse-cv
-    │                   │  multipart: cv_file (binary)
+    │                   │  { "cv_url": "https://s3.../cv.pdf" }
     │                   │ ─────────────────────────────→
+    │                   │                        Download file (retry 3×)
     │                   │                        Stage 1: Document Processing
     │                   │                        PyMuPDF smart layout extract
     │                   │                        → quality score < 60? OCR fallback
     │                   │                        → clean_text()
     │                   │                        Stage 2: LLM Extraction
-    │                   │                        Claude → parsed_cv JSON
+    │                   │                        gemini-2.5-flash → parsed_cv JSON
+    │                   │                        → completeness check → retry nếu thiếu
+    │                   │                        Geocode: Nominatim(raw_address)
+    │                   │                        → candidate_location.{lat,lng}
     │                   │                        Stage 3: Embedding
-    │                   │                        OpenAI → cv_embedding float[1536]
+    │                   │                        gemini-embedding-001 → float[3072]
     │                   │ ←─────────────────────────────
-    │                   │  { cv_raw_text, parsed_cv, cv_embedding }
+    │                   │  { results: [{ url, cv_raw_text, parsed_cv,
+    │                   │               cv_embedding, error }] }
     │                   │
     │                   │  POST /ai/score
     │                   │  {
@@ -181,24 +222,25 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
     │                   │    parsed_jd,            ← lấy từ DB
     │                   │    cv_embedding,         ← vừa nhận
     │                   │    jd_embedding,         ← lấy từ DB
-    │                   │    weights,              ← lấy từ scoring_configs
-    │                   │    cv_raw_text           ← vừa nhận
+    │                   │    weights,              ← lấy từ scoring_configs (optional)
+    │                   │    include_narrative: false
     │                   │  }
     │                   │ ─────────────────────────────→
-    │                   │                        Stage 4: Scoring Engine
-    │                   │                        D1: cosine_sim(cv_vec, jd_vec)
-    │                   │                        D2: weighted skill match
-    │                   │                        D3: experience years ratio
-    │                   │                        D4: degree level map
-    │                   │                        D5: location + work-mode (driving-time route)
-    │                   │                        → final = Σ(score_i × weight_i) × 100
+    │                   │                        Stage 4: Scoring Engine (pure Python)
+    │                   │                        D1: normalize_cosine(cosine_sim(cv, jd))
+    │                   │                        D2: 4-layer skill match (nhị phân)
+    │                   │                        D3: min(cv_years / jd_years, 1.0)
+    │                   │                        D4: min(cv_level / jd_level, 1.0)
+    │                   │                        D5: OSRM driving-time (lat/lng đã geocode)
+    │                   │                        → final = Σ(Dᵢ × Wᵢ) × 100
+    │                   │                        ‖ song song: evaluator (Python analysis)
     │                   │ ←─────────────────────────────
-    │                   │  { final_score, scores:{...} }
+    │                   │  { final_score, scores{5}, weights_used, evaluation }
     │                   │
     │               UPDATE application
-    │               SET cv_raw_text, parsed_cv,
-    │                   cv_embedding, score_*,
-    │                   final_score, status="done"
+    │               SET cv_raw_text, parsed_cv, cv_embedding,
+    │                   final_score, scores JSONB, evaluation JSONB,
+    │                   status = "done"
     │                   │
     │ ←─────────────────│
     │  { final_score: 78.5,
@@ -207,75 +249,37 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
     │              education:100, location:60 } }
 ```
 
+**Batch:** `/ai/parse-cv` nhận `cv_urls: [...]` (tối đa 50 URL) và xử lý
+**đồng thời** bằng `asyncio.gather`. Lỗi ở 1 CV chỉ set `error` cho đúng phần
+tử đó, các CV khác không bị ảnh hưởng (per-item error tolerance).
+
 ---
 
-### Flow 3 — HR đổi weights (no LLM)
+### Flow 3 — HR đổi weights
 
 ```
-[.NET API]                              [AI Service]
+[.NET API]
     │
     │  Validate sum(weights) == 1.0
     │  UPDATE scoring_configs
     │  SELECT applications WHERE job_id = {id}
-    │    → chỉ lấy { id, score_semantic, score_skills,
-    │                   score_experience, score_education, score_location }
+    │    → { id, scores: { semantic, skills, experience, education, location } }
     │
-    │  POST /ai/recalculate
-    │  {
-    │    applications: [{ id, scores:{...} }, ...],
-    │    weights: { semantic:0.20, skills:0.45, ... }
-    │  }
-    │ ─────────────────────────────────────────────→
-    │                                        Pure math, no LLM:
-    │                                        final = Σ(score_i × weight_i)
-    │ ←─────────────────────────────────────────────
-    │  { results: [{ id, final_score }, ...] }
+    │  Tính lại tại chỗ (không cần AI service):
+    │    final = Σ(scoreᵢ / 100 × wᵢ) × 100
     │
     │  Batch UPDATE applications SET final_score = ...
     │  Return new ranking (sorted DESC)
 ```
 
----
-
-### Flow 4 — HR NL Search
-
-```
-[.NET API]                              [AI Service]
-    │
-    │  Hard filter: job_id + status="done"
-    │  SELECT { id, cv_embedding, final_score, parsed_cv }
-    │
-    │  POST /ai/search
-    │  {
-    │    query: "React 3 năm, team lead",
-    │    applications: [
-    │      { id, cv_embedding, final_score, parsed_cv },
-    │      ...
-    │    ]
-    │  }
-    │ ─────────────────────────────────────────────→
-    │                                        Stage 5: Query Parsing (LLM)
-    │                                        Claude → structured filters JSON
-    │                                        Stage 6: Query Embedding
-    │                                        OpenAI → query_vector float[1536]
-    │                                        Stage 7: Vector Similarity
-    │                                        numpy cosine_sim(query_vec, cv_vec[i])
-    │                                        Stage 8: Structured Filter
-    │                                        Python filter trên parsed_cv JSON
-    │                                        Stage 9: Re-rank
-    │                                        combined = score×0.4 + sim×100×0.6
-    │                                        Stage 10: Match Reason (LLM)
-    │                                        Claude → explain top N results
-    │ ←─────────────────────────────────────────────
-    │  { query_parsed, results:[{ id, combined_score, match_reason }] }
-    │
-    │  Fetch candidate info theo ids
-    │  Return full result về ReactJS
-```
+5 điểm thành phần đã nằm sẵn trong DB, phép tính lại là **tổ hợp tuyến tính
+thuần túy** — không cần LLM, không cần embedding, không cần round-trip sang
+AI service. Nếu muốn giữ mọi logic chấm điểm ở một chỗ thì gọi lại `/ai/score`
+với `weights` mới.
 
 ---
 
-## RAG Pipeline Architecture
+## Pipeline Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -283,30 +287,42 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
 │              (chạy khi CV/JD được submit)                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
-│  PDF/DOCX file                                                    │
+│  PDF/DOCX file (tải từ S3/R2 URL)                                │
 │      │                                                            │
-│      ▼  [STAGE 1 — Document Processing]                          │
+│      ▼  [STAGE 1 — Document Processing]  pdf_extractor.py        │
 │  PyMuPDF (fitz)                                                   │
 │  ├─ extract_text_smart_layout()   ← 1-col vs 2-col detection     │
 │  ├─ evaluate_extracted_text_quality()  ← score 0–100            │
-│  └─ quality < 60 → pytesseract OCR  ← fallback cho scan PDF     │
+│  ├─ quality < 60 → pytesseract OCR (200 DPI, eng+vie)           │
+│  └─ clean_text()                                                 │
 │      │                                                            │
 │      ▼  raw_text (clean)                                         │
 │      │                                                            │
-│      ▼  [STAGE 2 — Structured Extraction]                        │
-│  Anthropic SDK → claude-sonnet-4-6                               │
-│  ├─ CV prompt  → { skills[], work_experience[], education }      │
-│  └─ JD prompt  → { required_skills[], min_exp, keywords[] }     │
+│      ▼  [STAGE 2 — Structured Extraction]  parser.py             │
+│  LLM provider theo .env (gemini | anthropic | groq), temp=0       │
+│  ├─ CV prompt  → { skills[], work_experience[], education[],     │
+│  │                 projects[], certifications[], languages[],     │
+│  │                 candidate_location }                           │
+│  ├─ completeness check → retry prompt nếu skills/work_exp rỗng   │
+│  ├─ JD prompt  → { title, responsibilities, required_skills[],   │
+│  │                 preferred_skills[], min_experience_years,      │
+│  │                 education_degree, work_location }              │
+│  └─ Geocode (Nominatim) → lat/lng   ← 1 lần, giống embedding     │
 │      │                                                            │
-│      ▼  parsed JSON                                              │
+│      ▼  parsed JSON (Pydantic validated)                         │
+│      │   ├─ months tính bằng Python, KHÔNG hỏi LLM               │
+│      │   ├─ _filter_empty_entries: loại entry LLM bịa            │
+│      │   └─ _drop_generic_skills: loại "teamwork", "problem      │
+│      │      solving"... khỏi required/preferred_skills            │
 │      │                                                            │
-│      ▼  [STAGE 3 — Dense Embedding]                              │
-│  OpenAI SDK → text-embedding-3-small                             │
-│  ├─ input: full raw_text (không phải parsed JSON)                │
-│  └─ output: float[1536]                                          │
+│      ▼  [STAGE 3 — Dense Embedding]  embedder.py                 │
+│  gemini-embedding-001 (qua OpenAI-compatible endpoint)            │
+│  ├─ input: build_embed_text()  ← KHÔNG phải raw_text             │
+│  │          (narrative-fit: bỏ skills[] và tech_stack[])          │
+│  └─ output: float[3072]                                           │
 │      │                                                            │
 │      ▼  (trả về .NET → lưu PostgreSQL)                          │
-│  { raw_text, parsed_json, embedding[1536] }                      │
+│  { cv_raw_text, parsed_json, embedding[3072] }                   │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
@@ -314,194 +330,141 @@ ReactJS  ──→  .NET API  ──→  PostgreSQL
 │              (chạy ngay sau indexing)                            │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
-│  [STAGE 4 — Multi-Dimension Scoring]                             │
-│  numpy + pure Python                                              │
+│  [STAGE 4 — Multi-Dimension Scoring]  scorer.py                  │
+│  numpy + pure Python, KHÔNG gọi LLM                              │
 │                                                                   │
-│  D1 Semantic    numpy cosine_sim   cosine_sim(cv_vec, jd_vec)   │
+│  D1 Semantic    numpy cosine     normalize_cosine(cos(cv, jd))   │
 │                 ─────────────────────────────────────────────    │
-│  D2 Skills      set intersection   Σ(matched_weight)/Σ(total)  │
+│  D2 Skills      4-layer cascade  Σ(wᵢ·mᵢ)/Σ(wᵢ),  mᵢ ∈ {0,1}   │
 │                 ─────────────────────────────────────────────    │
-│  D3 Experience  arithmetic         min(cv_years/jd_years, 1.0) │
+│  D3 Experience  arithmetic       min(cv_years/jd_years, 1.0)    │
 │                 ─────────────────────────────────────────────    │
-│  D4 Education   lookup table       {PhD:4, Master:3, Bach:2}   │
+│  D4 Education   lookup table     min(cv_level/jd_level, 1.0)    │
 │                 ─────────────────────────────────────────────    │
-│  D5 Location    driving-time route  max(0, 1 - t/T_max) × M     │
+│  D5 Location    OSRM route       max(0, 1 - t/T_max)             │
 │                                                                   │
-│  final_score = Σ(Di × Wi) × 100                                 │
+│  final_score = Σ(Dᵢ × Wᵢ) × 100                                 │
 │                                                                   │
 │  Default weights:                                                 │
 │  semantic=0.30 | skills=0.35 | exp=0.20 | edu=0.10 | loc=0.05  │
+│                                                                   │
+│  Quy tắc "thiếu dữ liệu → 0.5" (neutral, không phạt):           │
+│    D1 thiếu embedding · D4 CV không có bằng cấp                  │
+│    D5 thiếu lat/lng hoặc OSRM lỗi 2 lần                          │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                     RETRIEVAL PHASE                              │
-│              (chạy khi HR NL search)                             │
+│                     EVALUATION PHASE                             │
+│              (song song với scoring, hoặc gọi riêng)             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
-│  NL query: "React 3 năm, team lead"                              │
-│      │                                                            │
-│      ▼  [STAGE 5 — Query Understanding]                          │
-│  claude-sonnet-4-6 (Anthropic SDK)                               │
-│  → { required_skills:[{React, min_years:3}],                    │
-│      soft_skills:["leadership"] }                                │
-│      │                                                            │
-│      ▼  [STAGE 6 — Query Embedding]                              │
-│  OpenAI text-embedding-3-small                                    │
-│  → query_vector float[1536]                                      │
-│      │                                                            │
-│      ▼  [STAGE 7 — Vector Retrieval]                             │
-│  numpy                                                            │
-│  cosine_sim(query_vec, cv_vec[i]) for all applications          │
-│  → similarity_score per CV                                       │
-│      │                                                            │
-│      ▼  [STAGE 8 — Metadata Filtering]                           │
-│  pure Python filter trên parsed_cv JSON                          │
-│  ├─ skill có trong cv.skills? → keep/drop                        │
-│  └─ soft skill match trong descriptions? → boost                 │
-│      │                                                            │
-│      ▼  [STAGE 9 — Re-ranking]                                   │
-│  combined_score = final_score × 0.4 + similarity × 100 × 0.6   │
-│  sort DESC → top N                                               │
-│      │                                                            │
-│      ▼  [STAGE 10 — Augmented Generation]                        │
-│  claude-sonnet-4-6                                               │
-│  input: query + top N parsed_cv                                  │
-│  → match_reason per candidate                                    │
+│  [STAGE 5 — Qualitative Evaluation]  evaluator.py                │
+│  ├─ _analyze_skills()      Python — tái dùng SkillMatcher        │
+│  │    → skill_details[], missing_must_have[], missing_preferred[],│
+│  │      bonus_skills[], skill_match_rate                          │
+│  ├─ _analyze_experience()  Python — verdict 4 mức                │
+│  │    not_required | over_qualified | sufficient | insufficient  │
+│  ├─ _analyze_education()   Python — verdict 4 mức                │
+│  │    not_required | exceeds | meets | below                     │
+│  └─ _llm_narrative()       LLM 1 call — đoạn văn tiếng Việt      │
+│       Mọi CON SỐ do Python tính trước; LLM chỉ "viết văn"        │
+│       KHÔNG có recommendation (interview/reject) — HR tự quyết   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## API Contract (AI Service ↔ .NET)
+## D1 — Semantic (chi tiết)
 
-### POST /ai/parse-jd
-
-```json
-Request:  { "jd_text": "string" }
-
-Response: {
-  "parsed_jd": {
-    "required_skills": [{ "skill": "Python", "level": "mid", "weight": 2 }],
-    "preferred_skills": [{ "skill": "Docker" }],
-    "min_experience_years": 2,
-    "education": { "degree": "Bachelor", "major": "Computer Science" },
-    "responsibilities": ["..."],
-    "keywords": ["FastAPI", "PostgreSQL", "Docker"],
-    "work_location": {
-      "city": "Ha Noi",
-      "raw_address": "Tòa nhà ABC, 123 Cầu Giấy, Hà Nội",
-      "work_mode": "onsite",
-      "lat": 21.0313,
-      "lng": 105.8014
-    }
-  },
-  "embedding": [0.123, ...]
-}
+```python
+# scorer.py
+cosine_sim(v1, v2) = dot(v1, v2) / (‖v1‖ · ‖v2‖)
+normalize_cosine(r) = clamp((r - COSINE_MIN) / (COSINE_MAX - COSINE_MIN), 0, 1)
 ```
 
-`work_location.lat`/`lng` are geocoded once here at parse-time (Nominatim) —
-same treatment as `embedding`. .NET must persist them alongside `parsed_jd`
-so `/ai/score` can read them back without re-geocoding. `null` if geocoding
-failed (e.g. Nominatim unreachable, address not found) — `/ai/score` treats
-a missing lat/lng as neutral, not an error.
+**Cấu hình hiện tại:** `COSINE_MIN = 0.0`, `COSINE_MAX = 1.0` → **không kéo
+giãn**, cosine thô được dùng trực tiếp. Hai hằng số này đọc từ `.env`, có thể
+chỉnh sang `0.2 / 0.8` nếu muốn kéo giãn thang điểm (xem `app/config.py`).
 
-### POST /ai/parse-cv
+**Text được embed KHÔNG phải raw text**, mà là `build_embed_text()`:
+
+| | Đưa vào embedding | Loại khỏi embedding |
+| --- | --- | --- |
+| **CV** | `summary`, `role at company: description` (job mới nhất trước), `Project: name + description`, học vấn, certifications, languages | `skills[]`, mọi `tech_stack[]` |
+| **JD** | `title`, `responsibilities`, min experience, degree yêu cầu | `required_skills[]`, `preferred_skills[]` |
+
+**Lý do loại skills khỏi D1:** so khớp kỹ năng là việc của D2. Nếu embed cả
+token kỹ năng thì cùng một tín hiệu bị tính **hai lần** trên hai chiều điểm
+(0.30 + 0.35 thực chất dồn 0.65 vào kỹ năng), vi phạm giả định **độc lập giữa
+các tiêu chí** của mô hình cộng có trọng số. D1 vì vậy chỉ đo **narrative fit**:
+vai trò, phạm vi trách nhiệm, bối cảnh nghiệp vụ.
+
+Hằng số `EMBED_TEXT_VERSION = "v2-no-skills"` (`schemas.py`) đánh dấu phiên bản
+nội dung được embed — **bump khi `build_embed_text()` đổi**, để vector tính từ
+shape cũ không bị so sánh nhầm với vector tính từ shape mới.
+
+---
+
+## D2 — Skills (chi tiết)
+
+$$D_2 = \frac{\sum_i w_i \cdot m_i}{\sum_i w_i}, \quad w_i \in \{1,2,3\}, \quad m_i \in \{0, 1\}$$
+
+Chấm **nhị phân**: mỗi requirement hoặc thỏa (full trọng số) hoặc thiếu (0).
+Không còn partial credit fuzzy/category như bản trước.
+
+Mỗi requirement là một **OR-group** — `{skill} ∪ alternatives`, thỏa 1 phương án
+là đủ (JD ghi "React, Vue hoặc Angular" → 1 entry, không tách thành 3).
+
+### Cascade 4 tầng + 1 tầng phụ
+
+| Tầng | Cơ chế | Dữ liệu | Ví dụ |
+| --- | --- | --- | --- |
+| **Layer 0** | Direct match trên output LLM thô (lowercase + strip) | — | `"Python"` ↔ `"python"` |
+| **Layer 1** | Canonical hóa **cả 2 phía** rồi so exact | `skill_data.json` | `"Node.js"` ↔ `"nodejs"` → cùng canonical `node.js` |
+| **Layer 2** | Entailment "biết X thì biết Y" | `skill_implies.json` | CV có `django` → thỏa JD đòi `python` |
+| **Layer 3** | Fuzzy `SequenceMatcher ≥ 0.85` trên chuỗi thô | — | `"Postgresql"` ↔ `"PostgreSQL"` |
+| **Phụ** | Trình độ ngôn ngữ so theo **thứ bậc** trong cùng framework | regex | CV `JLPT N2` thỏa JD đòi `JLPT N3` |
+
+Thứ tự là **cascade ưu tiên precision**: tầng chính xác chạy trước, tầng lỏng
+nhất (fuzzy) chạy sau cùng và chỉ khi 3 tầng trên đã trượt. Mỗi requirement
+dừng ngay tại tầng sớm nhất thỏa nó.
+
+**Fuzzy bị chặn trên token trình độ ngôn ngữ**: `"N4"` giống `"N3"` về ký tự
+nhưng **thấp hơn về chất** — phải để tầng proficiency so theo thứ bậc.
+
+### Dữ liệu tĩnh
+
+| File | Kích thước | Nguồn | Vai trò |
+| --- | --- | --- | --- |
+| `app/data/skill_data.json` | **8.757 entry** (3.341 canonical + 5.416 synonym) | Stack Overflow Tags API + tag synonyms | Layer 1 |
+| `app/data/skill_implies.json` | **864 key / 1.358 cạnh** (đã đóng bắc cầu) | Viết tay + `close_implies.py` | Layer 2 |
+
+Pipeline dựng dữ liệu (chạy **tay**, 1 lần, commit output):
 
 ```
-Request:  multipart/form-data — cv_file: binary (PDF hoặc DOCX)
-
-Response: {
-  "cv_raw_text": "string",
-  "parsed_cv": {
-    "skills": ["Python", "FastAPI", "Docker"],
-    "work_experience": [
-      { "company": "ABC", "role": "Backend Dev", "months": 18, "description": "..." }
-    ],
-    "education": { "degree": "Bachelor", "major": "SE", "gpa": 3.6 },
-    "certifications": ["AWS Cloud Practitioner"],
-    "projects": [{ "name": "...", "tech_stack": ["FastAPI", "Redis"], "description": "..." }],
-    "candidate_location": {
-      "raw_address": "45 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
-      "lat": 10.7757,
-      "lng": 106.7004,
-      "willing_to_relocate": null
-    }
-  },
-  "embedding": [0.456, ...]
-}
+crawl_so_tags.py    → so_raw_data.json   (crawl toàn bộ SO tag, loại collective tag)
+build_skill_data.py → skill_data.json    (gọi /tags/{tags}/synonyms → map synonym → canonical)
+close_implies.py    → skill_implies.json (đóng bắc cầu: nestjs→typescript→javascript
+                                          ⟹ nestjs cũng liệt kê javascript)
 ```
 
-`candidate_location.lat`/`lng` are geocoded once here at parse-time
-(Nominatim) — same treatment as `embedding`. .NET must persist them
-alongside `parsed_cv`. `null` if `raw_address` was absent or geocoding
-failed — no error is raised.
+Đồ thị implies là **DAG** → bao đóng bắc cầu luôn hội tụ (lặp tới điểm bất
+động). Vật chất hóa **offline** để runtime chỉ cần **tra hash O(1)**, không
+duyệt đồ thị lúc chấm điểm.
 
-### POST /ai/score
+### Ngôn ngữ / chứng chỉ
 
-```json
-Request: {
-  "parsed_cv": { ... },
-  "parsed_jd": { ... },
-  "cv_embedding": [0.456, ...],
-  "jd_embedding": [0.123, ...],
-  "weights": { "semantic": 0.30, "skills": 0.35, "experience": 0.20, "education": 0.10, "location": 0.05 },
-  "cv_raw_text": "string"
-}
+Framework hỗ trợ: **JLPT** (N5→N1, thứ tự nghịch), **HSK** (1→9), **TOPIK**
+(1→6), **IELTS**, **TOEIC**, **TOEFL**, **CEFR** (A1→C2). Chỉ so **trong cùng
+framework** — IELTS 6.5 và TOEIC 800 không quy đổi chéo.
 
-Response: {
-  "final_score": 78.5,
-  "scores": {
-    "semantic": 82.0,
-    "skills": 75.0,
-    "experience": 80.0,
-    "education": 100.0,
-    "location": 60.0
-  }
-}
-```
+Chuỗi chứng chỉ được **tách sub-token**: `"Japanese - JLPT N3"` → `{"japanese
+- jlpt n3", "japanese", "jlpt n3"}`, để JD đòi `"JLPT N3"` khớp được.
 
-### POST /ai/recalculate
+### Nguồn kỹ năng từ CV
 
-```json
-Request: {
-  "applications": [
-    { "id": "uuid-1", "scores": { "semantic": 82.0, "skills": 75.0, "experience": 80.0, "education": 100.0, "location": 60.0 } }
-  ],
-  "weights": { "semantic": 0.20, "skills": 0.45, "experience": 0.20, "education": 0.10, "location": 0.05 }
-}
-
-Response: {
-  "results": [
-    { "id": "uuid-1", "final_score": 81.4 }
-  ]
-}
-```
-
-### POST /ai/search
-
-```json
-Request: {
-  "query": "Tìm ứng viên React 3 năm, có kinh nghiệm team lead",
-  "applications": [
-    { "id": "uuid-1", "cv_embedding": [0.456, ...], "final_score": 78.5, "parsed_cv": { ... } }
-  ]
-}
-
-Response: {
-  "query_parsed": {
-    "required_skills": [{ "skill": "React", "min_years": 3 }],
-    "soft_skills": ["team lead", "leadership"]
-  },
-  "results": [
-    {
-      "id": "uuid-1",
-      "similarity_score": 0.87,
-      "combined_score": 82.1,
-      "match_reason": "React 4 năm kinh nghiệm, từng dẫn nhóm 5 người tại XYZ"
-    }
-  ]
-}
-```
+`cv.skills` + mọi `work_experience[].tech_stack` + mọi `projects[].tech_stack`
++ `languages` + `certifications` (2 mục cuối được tách sub-token).
 
 ---
 
@@ -518,81 +481,292 @@ embed("2 years") ≈ embed("10 years")                         # similarity cao
 
 | Dimension     | Cần gì                             | Có từ embedding không?            |
 | ------------- | ---------------------------------- | --------------------------------- |
-| D1 Semantic   | Chủ đề CV ↔ JD có khớp không       | Được                              |
+| D1 Semantic   | Vai trò/bối cảnh CV ↔ JD có khớp   | Được                              |
 | D2 Skills     | Đúng skills nào có mặt             | Không — cần structured list       |
 | D3 Experience | Tổng số năm làm việc               | Không — cần tính số               |
 | D4 Education  | Degree level (Bach < Master < PhD) | Không — cần lookup                |
-| D5 Location   | Driving-time giữa CV ↔ JD address   | Không — cần geocode + routing      |
+| D5 Location   | Driving-time giữa CV ↔ JD address  | Không — cần geocode + routing     |
 
-**D5 — Location + Work Mode (thay thế D5 Keywords cũ):**
+**D5 — Location + Work Mode:**
 
-D5 không còn dùng keyword string-match. Thay vào đó, D5 ước tính thời gian
-di chuyển thực tế giữa địa chỉ ứng viên và địa chỉ công ty, kết hợp với độ
-tương thích work mode (onsite/hybrid/remote):
-
-- **Parse-time** (`/ai/parse-jd`, `/ai/parse-cv`): trích xuất `raw_address`
-  thô từ text (LLM), sau đó gọi **Nominatim** (OpenStreetMap, miễn phí, không
-  cần API key) một lần để geocode → `lat`/`lng`. Giống hệt cách `embedding`
-  được tính một lần tại parse-time chứ không tính lại ở mỗi lần score — vì
-  lat/lng là thuộc tính của bản thân JD/CV, không phụ thuộc cặp CV↔JD nào cả.
-  .NET lưu `lat`/`lng` cùng với `parsed_jd`/`parsed_cv` (như đã lưu
-  `jd_embedding`/`cv_embedding`).
-- **Score-time** (`/ai/score`, trong `score_location()`): đọc thẳng `lat`/`lng`
-  đã lưu từ parse-time, không geocode lại. Chỉ gọi **OSRM public demo server**
-  (miễn phí, không cần API key) để tính route driving distance/duration giữa
-  2 tọa độ — vì route thực sự phụ thuộc cặp CV↔JD cụ thể đang được so khớp.
-- Nếu geocode (tại parse-time) thất bại → thiếu lat/lng → `score_location()`
-  trả điểm trung lập 0.5, không geocode lại ở score-time.
-- Nếu route (tại score-time, OSRM) thất bại → retry 1 lần sau 0.5s; nếu vẫn
-  thất bại → trả điểm trung lập 0.5 (không còn ước tính bằng công thức
-  haversine — hàm đó vẫn còn trong code nhưng đã deprecated/unused, giữ lại
-  để rollback nếu cần).
+- **Parse-time** (`/ai/parse-jd`, `/ai/parse-cv`): LLM trích `raw_address` thô,
+  sau đó gọi **Nominatim** (OpenStreetMap, miễn phí, không cần key) **một lần**
+  để geocode → `lat`/`lng`. Giống hệt cách `embedding` được tính một lần tại
+  parse-time — vì lat/lng là thuộc tính của bản thân JD/CV, không phụ thuộc
+  cặp CV↔JD nào. .NET lưu `lat`/`lng` cùng `parsed_jd`/`parsed_cv`.
+- **Score-time** (`score_location()`): đọc thẳng `lat`/`lng` đã lưu, **không
+  geocode lại**. Chỉ gọi **OSRM public demo server** để tính route driving
+  duration giữa 2 tọa độ — vì route phụ thuộc cặp CV↔JD cụ thể.
+- Geocode thất bại → thiếu lat/lng → **0.5** (trung lập).
+- OSRM lỗi → retry 1 lần sau 0.5s; vẫn lỗi → **0.5**. Không có fallback
+  haversine (đường chim bay không phản ánh giao thông đô thị — sông, đường 1
+  chiều, tắc đường — dễ sai lệch hơn là trả điểm trung lập).
 
 **3 thứ .NET lưu sau mỗi CV:**
 
-1. `cv_raw_text` — hiển thị + D5 keyword
-2. `parsed_cv` JSON — D2, D3, D4 + NL search filter
-3. `cv_embedding` float[1536] — D1 semantic + NL search similarity
+1. `cv_raw_text` — hiển thị / audit / re-parse
+2. `parsed_cv` JSON — D2, D3, D4, D5 + evaluation
+3. `cv_embedding` float[3072] — D1 semantic
+
+---
+
+## API Contract (AI Service ↔ .NET)
+
+### POST /ai/parse-jd
+
+Nhận **`application/json`** hoặc **`text/plain`** (tự nhận diện: nếu body parse
+được thành JSON có field `jd_text` thì dùng field đó, ngược lại coi toàn bộ
+body là raw JD text).
+
+```json
+Request:  { "jd_text": "string" }
+
+Response: {
+  "parsed_jd": {
+    "title": "Junior .NET Backend Developer",
+    "responsibilities": "Phát triển và bảo trì các API nội bộ cho hệ thống ...",
+    "required_skills": [
+      { "skill": "C#",      "weight": 3, "alternatives": [] },
+      { "skill": "React",   "weight": 2, "alternatives": ["Vue", "Angular"] }
+    ],
+    "preferred_skills": ["Docker"],
+    "min_experience_years": 2,
+    "education_degree": "bachelor",
+    "work_location": {
+      "city": "Ha Noi",
+      "raw_address": "Tòa nhà ABC, 123 Cầu Giấy, Hà Nội",
+      "work_mode": "onsite",
+      "lat": 21.0313,
+      "lng": 105.8014
+    }
+  },
+  "jd_embedding": [0.123, ...],
+  "error": null
+}
+```
+
+- `city` bị **ràng buộc cứng** vào 3 giá trị: `"Ha Noi" | "Ho Chi Minh" | "Da Nang"`.
+- `work_mode` ∈ `"onsite" | "hybrid" | "remote"`, **mặc định `"onsite"`** khi JD
+  không nêu — đây là **giả định heuristic** (đa số JD không ghi rõ trong thị
+  trường này là onsite), không phải giá trị trung lập.
+- `education_degree` ∈ `high_school | associate | bachelor | master | phd | other | null`.
+- `responsibilities` **cố ý không chứa tên skill/tool** — skill nằm ở
+  `required_skills`/`preferred_skills`; trường này chỉ để D1 embed narrative.
+- `lat`/`lng` = `null` nếu geocode thất bại → `/ai/score` coi là trung lập.
+- `jd_embedding` = `null` + `error != null` nếu embedding lỗi (parse vẫn OK).
+- Soft skill chung chung ("teamwork", "problem solving", "programming
+  fundamentals"...) bị **lọc bỏ tự động** khỏi cả 2 danh sách skill — chúng
+  không bao giờ khớp được với CV và sẽ tạo "missing must-have" giả cho **mọi**
+  ứng viên.
+
+### POST /ai/parse-cv
+
+Nhận **URL** (S3/R2/presigned), không nhận multipart. Tối đa **50 URL**/request.
+
+```json
+Request:  { "cv_url":  "https://s3.amazonaws.com/bucket/cv.pdf" }
+      hoặc { "cv_urls": ["https://...", "https://..."] }
+
+Response: {
+  "results": [
+    {
+      "url": "https://s3.amazonaws.com/bucket/cv.pdf",
+      "cv_raw_text": "string",
+      "parsed_cv": {
+        "name": "Nguyen Van A",
+        "summary": "Backend developer with 3 years ...",
+        "skills": ["Python", "FastAPI", "Docker"],
+        "work_experience": [
+          {
+            "company": "ABC", "role": "Backend Dev",
+            "start": "2021-06", "end": "present",
+            "months": 49, "is_current": true,
+            "tech_stack": ["Python", "FastAPI"],
+            "description": "..."
+          }
+        ],
+        "education": [
+          { "institution": "HCMUT", "degree": "bachelor",
+            "degree_raw": "Bachelor of Software Engineering", "major": "SE" }
+        ],
+        "projects": [
+          { "name": "...", "tech_stack": ["FastAPI", "Redis"], "description": "..." }
+        ],
+        "certifications": ["AWS Cloud Practitioner"],
+        "languages": ["English - TOEIC 835"],
+        "candidate_location": {
+          "raw_address": "45 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
+          "lat": 10.7757,
+          "lng": 106.7004,
+          "willing_to_relocate": null
+        }
+      },
+      "cv_embedding": [0.456, ...],
+      "error": null
+    }
+  ]
+}
+```
+
+- `months` do **Python tính** từ `start`/`end` (không giao cho LLM — LLM dễ sai
+  ±1–2 tháng).
+- `willing_to_relocate` = `true` **chỉ khi** CV nói rõ; không bao giờ suy diễn.
+- Lỗi ở 1 URL chỉ set `error` cho phần tử đó; các URL còn lại vẫn trả kết quả.
+
+### POST /ai/score
+
+```json
+Request: {
+  "parsed_cv": { ... },
+  "parsed_jd": { ... },
+  "cv_embedding": [0.456, ...],
+  "jd_embedding": [0.123, ...],
+  "weights": { "semantic": 0.30, "skills": 0.35, "experience": 0.20,
+               "education": 0.10, "location": 0.05 },
+  "include_narrative": false
+}
+
+Response: {
+  "final_score": 78.5,
+  "scores": {
+    "semantic": 82.0, "skills": 75.0, "experience": 80.0,
+    "education": 100.0, "location": 60.0
+  },
+  "weights_used": { "semantic": 0.30, "skills": 0.35, "experience": 0.20,
+                    "education": 0.10, "location": 0.05 },
+  "evaluation": {
+    "skill_details": [
+      { "skill": "C#", "status": "matched", "weight": 3 },
+      { "skill": "React / Vue / Angular", "status": "matched_implied", "weight": 2 },
+      { "skill": "Kubernetes", "status": "missing_must_have", "weight": 3 }
+    ],
+    "missing_must_have": ["Kubernetes"],
+    "missing_preferred": ["Docker"],
+    "bonus_skills": ["GraphQL", "Redis"],
+    "skill_match_rate": 71.4,
+    "experience_verdict": "sufficient",
+    "experience_detail": "CV có 3.2 năm, JD yêu cầu 2 năm ✓",
+    "education_verdict": "meets",
+    "narrative": ""
+  }
+}
+```
+
+- `weights` **tùy chọn**. Nếu truyền thì phải có **đúng 5 key**, mỗi giá trị
+  ∈ [0,1], **tổng = 1.0** (sai → HTTP 422). Bỏ trống → dùng default từ `.env`.
+- `weights_used` echo lại bộ trọng số **thực sự áp dụng** — để .NET/UI hiển thị
+  và audit.
+- `include_narrative: true` → chạy thêm 1 LLM call sinh `narrative` (chi phí
+  bằng gọi `/ai/evaluate`). Mặc định `false`.
+- Chấm điểm chạy trong thread (`asyncio.to_thread`) **song song** với evaluator.
+
+### POST /ai/evaluate
+
+```json
+Request:  { "parsed_cv": { ... }, "parsed_jd": { ... } }
+
+Response: {          ← cùng shape với khối "evaluation" ở trên
+  "skill_details": [...],
+  "missing_must_have": [...],
+  "missing_preferred": [...],
+  "bonus_skills": [...],
+  "skill_match_rate": 71.4,
+  "experience_verdict": "sufficient",
+  "experience_detail": "CV có 3.2 năm, JD yêu cầu 2 năm ✓",
+  "education_verdict": "meets",
+  "narrative": "Ứng viên có nền tảng backend vững với 3.2 năm kinh nghiệm ..."
+}
+```
+
+- `status` của mỗi skill ∈ `matched | matched_implied | missing_must_have |
+  missing_preferred`.
+- `missing_must_have` chỉ chứa skill có `weight >= 3`.
+- `preferred_skills` được phân tích **chỉ để hiển thị** — không ảnh hưởng D2.
+- **Không có trường `recommendation`** (interview/reject). Narrative chỉ mô tả;
+  quyết định do HR đưa ra dựa trên `final_score`, tránh mâu thuẫn giữa nhãn của
+  LLM và điểm số của hệ thống.
+- Mọi con số trong narrative (tỷ lệ khớp, số năm) đều do **Python tính trước**
+  rồi đưa vào prompt — LLM không tự suy luận số liệu.
+
+---
+
+## Xử lý lỗi — quy tắc chung
+
+| Tình huống | Hành vi |
+| --- | --- |
+| Embedding lỗi lúc parse | `embedding = null` + `error != null`, parse vẫn trả về |
+| Thiếu embedding lúc score | D1 = **0.5** (trung lập) |
+| CV không có bằng cấp | D4 = **0.5** |
+| Thiếu lat/lng | D5 = **0.5** |
+| OSRM lỗi | retry 1 lần sau 0.5s → vẫn lỗi thì **0.5** |
+| JD không yêu cầu skill/exp/degree | chiều tương ứng = **1.0** (không phạt) |
+| LLM trả JSON hỏng | strip trailing comma → `json_repair` → raise nếu vẫn hỏng |
+| CV parse thiếu skills/work_exp | retry prompt tập trung (song song) |
+| 1 URL trong batch lỗi | chỉ phần tử đó có `error`, batch vẫn thành công |
+
+Nguyên tắc xuyên suốt: **thiếu dữ liệu → điểm trung lập 0.5, không phạt** —
+ứng viên không bị trừ điểm vì hệ thống không trích xuất được thông tin.
 
 ---
 
 ## Tech Stack Summary
 
-| Stage | Công việc              | Tech                                                 |
-| ----- | ---------------------- | ---------------------------------------------------- |
-| 1     | PDF/DOCX → clean text  | `PyMuPDF (fitz)`, `pytesseract`, `python-docx`       |
-| 2     | Text → structured JSON | `Anthropic SDK` — `claude-sonnet-4-6`                |
-| 3     | Text → vector          | `OpenAI SDK` — `text-embedding-3-small` (1536-dim)   |
-| 4     | Scoring 5 dimensions   | `numpy` (cosine), pure Python (math)                 |
-| 5     | NL query → filters     | `Anthropic SDK` — `claude-sonnet-4-6`                |
-| 6     | Query → vector         | `OpenAI SDK` — `text-embedding-3-small`              |
-| 7     | Vector similarity      | `numpy` — cosine over in-memory list                 |
-| 8     | Structured filter      | Pure Python — filter trên `parsed_cv` JSON           |
-| 9     | Re-ranking             | Pure Python — `final_score×0.4 + similarity×100×0.6` |
-| 10    | Match reason           | `Anthropic SDK` — `claude-sonnet-4-6`                |
+| Stage | Công việc              | Tech                                                         |
+| ----- | ---------------------- | ------------------------------------------------------------ |
+| 1     | PDF/DOCX → clean text  | `PyMuPDF (fitz)`, `pytesseract`, `python-docx`               |
+| 2     | Text → structured JSON | `anthropic` SDK · `openai` SDK trỏ endpoint Gemini/Groq       |
+| 3     | Text → vector          | `openai` SDK → `gemini-embedding-001` (3072-dim)             |
+| 3b    | Address → lat/lng      | `Nominatim` (OpenStreetMap, free, no key)                    |
+| 4     | Scoring 5 dimensions   | `numpy` (cosine), pure Python (math)                          |
+| 4b    | Driving time           | `OSRM` public demo server (free, no key)                     |
+| 5     | Skill matching         | Pure Python — 4-layer cascade + `difflib.SequenceMatcher`    |
+| 6     | HR narrative           | LLM 1 call (cùng provider Stage 2)                            |
+
+**LLM provider** đổi qua `.env` `LLM_PROVIDER` = `gemini` (mặc định) |
+`anthropic` | `groq`. **Embedding chỉ hỗ trợ Gemini.**
 
 ## Project Structure (AI Service)
 
 ```
-d:\AIMatchingCV\
+MVP_AI_Matching/
 ├── app/
-│   ├── main.py                  # FastAPI app, mount routers
-│   ├── config.py                # API keys (Anthropic, OpenAI)
+│   ├── main.py                  # FastAPI app, mount routers, /health
+│   ├── config.py                # Settings (pydantic-settings), SCORE_DIMENSIONS
+│   ├── schemas.py               # ParsedCV / ParsedJD / CVJobEvaluation + helpers
 │   │
 │   ├── api/
 │   │   ├── parse.py             # POST /ai/parse-jd, POST /ai/parse-cv
 │   │   ├── score.py             # POST /ai/score
-│   │   ├── recalculate.py       # POST /ai/recalculate
-│   │   └── search.py            # POST /ai/search
+│   │   └── evaluate.py          # POST /ai/evaluate
 │   │
-│   └── services/
-│       ├── pdf_extractor.py     # PyMuPDF smart layout + OCR fallback
-│       ├── parser.py            # Claude: JD/CV text → structured JSON
-│       ├── embedder.py          # OpenAI: text → float[1536]
-│       ├── scorer.py            # 5-dimension scoring engine
-│       └── nl_search.py         # query embed → cosine sim → re-rank
+│   ├── services/
+│   │   ├── pdf_extractor.py     # Stage 1 — smart layout + OCR fallback
+│   │   ├── parser.py            # Stage 2 — LLM prompts + retry + geocode
+│   │   ├── llm_client.py        # LLM provider abstraction (3 provider)
+│   │   ├── embedder.py          # Stage 3 — Gemini embedding 3072-dim
+│   │   ├── scorer.py            # Stage 4 — 5-dimension scoring engine
+│   │   ├── skill_matcher.py     # D2 — 4-layer cascade + proficiency
+│   │   ├── location_service.py  # Nominatim geocode + OSRM route
+│   │   └── evaluator.py         # Stage 5 — qualitative evaluation + narrative
+│   │
+│   └── data/
+│       ├── skill_data.json      # 8.757 entry — Layer 1 canonical map
+│       ├── skill_implies.json   # 864 key / 1.358 cạnh — Layer 2 entailment
+│       ├── so_raw_data.json     # raw crawl từ Stack Overflow Tags API
+│       ├── crawl_so_tags.py     # (offline) crawl tag
+│       ├── build_skill_data.py  # (offline) tag → canonical map
+│       ├── close_implies.py     # (offline) đóng bắc cầu DAG
+│       ├── add_misc_skills.py   # (offline) bổ sung thủ công
+│       └── add_qa_skills.py     # (offline) bổ sung nhóm QA
 │
-├── POC_CV_Matching/             # Notebooks + 8 CV PDF mẫu
+├── tests/                       # 189 test, không cần LLM/network (~1s)
+│   ├── test_d2_skills.py        # 103 test — D2 end-to-end (nhóm A–L)
+│   ├── test_skill_matcher.py    # 45 test — từng tầng của cascade
+│   ├── test_scorer.py           # 34 test — D1–D5 + aggregate
+│   ├── test_evaluator.py        # 4 test
+│   └── test_parser.py           # 3 test
+│
+├── docs/
 ├── requirements.txt
 ├── .env
 ├── Dockerfile
@@ -604,13 +778,36 @@ d:\AIMatchingCV\
 ```
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
-pymupdf                    # PDF extraction — smart layout 2-column
-pytesseract                # OCR fallback cho scan PDF
-pillow                     # image processing cho OCR
-python-docx                # DOCX extraction
-anthropic>=0.28.0          # Claude API
-openai>=1.30.0             # text-embedding-3-small
-numpy                      # cosine similarity
-pydantic-settings          # config từ .env
-python-multipart           # file upload
+pydantic>=2.5.0
+pydantic-settings>=2.1.0   # config từ .env
+pymupdf>=1.24.0            # PDF extraction — smart layout 2-column
+pytesseract>=0.3.10        # OCR fallback cho scan PDF (cần binary Tesseract)
+pillow>=10.0.0             # image processing cho OCR
+python-docx>=1.1.0         # DOCX extraction
+anthropic>=0.40.0          # LLM provider: Claude
+openai>=1.30.0             # LLM provider: Gemini/Groq (OpenAI-compatible) + embedding
+json-repair>=0.61.0        # sửa JSON hỏng do LLM sinh
+httpx>=0.27.0              # download CV từ URL + gọi Nominatim/OSRM
+numpy>=1.26.0              # cosine similarity
+pytest>=8.0.0              # dev
+pytest-asyncio>=0.23.0     # dev
 ```
+
+**Yêu cầu hệ thống ngoài Python:** binary `tesseract-ocr` + gói ngôn ngữ
+`tesseract-ocr-vie` (cho OCR fallback tiếng Việt) — phải cài trong Docker image.
+
+---
+
+## Ngoài phạm vi bản hiện tại
+
+Các tính năng từng có trong thiết kế nhưng **chưa được cài đặt** trong code:
+
+| Tính năng | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| `POST /ai/recalculate` | Chưa có | .NET tự tính được (tổ hợp tuyến tính trên 5 điểm đã lưu) |
+| `POST /ai/search` — NL search | Chưa có | Cần: LLM parse query → embed query → cosine → filter → re-rank → LLM explain |
+| Hard-rule penalties | Chưa có | Ý tưởng cũ: phạt −20%/must-have thiếu. Hiện `missing_must_have` chỉ được **báo cáo** trong `evaluation`, không trừ điểm |
+| D3 modifiers (relevance/recency/over-qual) | Chưa có | D3 hiện chỉ là tỷ lệ số năm |
+| Work-mode multiplier `M` cho D5 | Chưa có | `score_location()` chưa nhân hệ số tương thích work-mode |
+| Fallback haversine cho D5 | Đã bỏ hẳn | Trả 0.5 thay vì ước lượng bằng đường chim bay |
+| Category partial credit cho D2 | Đã bỏ hẳn | Thay bằng cascade 4 tầng, chấm nhị phân |

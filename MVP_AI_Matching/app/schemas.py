@@ -203,17 +203,19 @@ class Project(BaseModel):
 class SkillMatchDetail(BaseModel):
     skill:  str
     # "matched" | "matched_implied" | "missing_must_have" | "missing_preferred"
+    # | "missing_nice_to_have"
     status: str
     weight: int = 1
 
 
 class CVJobEvaluation(BaseModel):
     # Structured — dùng cho UI (badges, charts)
-    skill_details:      list[SkillMatchDetail] = Field(default_factory=list)
-    missing_must_have:  list[str]              = Field(default_factory=list)
-    missing_preferred:  list[str]              = Field(default_factory=list)
-    bonus_skills:       list[str]              = Field(default_factory=list)
-    skill_match_rate:   float = 0.0
+    skill_details:        list[SkillMatchDetail] = Field(default_factory=list)
+    missing_must_have:    list[str]              = Field(default_factory=list)
+    missing_preferred:    list[str]              = Field(default_factory=list)
+    missing_nice_to_have: list[str]              = Field(default_factory=list)
+    bonus_skills:         list[str]              = Field(default_factory=list)
+    skill_match_rate:     float = 0.0
 
     experience_verdict: str = ""   # sufficient | insufficient | over_qualified | not_required
     experience_detail:  str = ""
@@ -440,9 +442,13 @@ class ParsedCV(BaseModel):
 class WorkLocation(BaseModel):
     """
     JD work location. `city` is intentionally hardcoded to the 3 cities the
-    business operates in — do not widen this to free text.
+    business operates in — do not widen this to free text. Mirrors BE .NET's
+    `company_branch` table, which stores `address` and `city` as separate
+    columns — `raw_address` here is the street/district portion only and must
+    never repeat the city name (see JD_EXTRACT_PROMPT).
 
-    `lat`/`lng` are geocoded once at parse-time (see parser.parse_jd) via
+    `lat`/`lng` are geocoded once at parse-time (see parser.parse_jd, which
+    concatenates raw_address + city before geocoding) via
     location_service.geocode() and persisted alongside jd_embedding — mirrors
     how jd_embedding is computed once at parse-time rather than per score
     call. None if geocoding failed.
@@ -497,6 +503,10 @@ class ParsedJD(BaseModel):
     responsibilities:     str                 = ""
     required_skills:      list[RequiredSkill] = Field(default_factory=list)
     preferred_skills:     list[str]           = Field(default_factory=list)
+    # Third, lower tier below preferred_skills — mirrors the BE .NET
+    # `tags.nice_to_have` category. Display-only like preferred_skills: never
+    # affects D2 scoring (score_skills only sums required_skills' weights).
+    nice_to_have_skills:  list[str]           = Field(default_factory=list)
     min_experience_years: int                 = 0
     education_degree:     Optional[DegreeLevel] = None
     work_location:        WorkLocation        = Field(default_factory=WorkLocation)
@@ -505,6 +515,16 @@ class ParsedJD(BaseModel):
     @classmethod
     def _coerce_responsibilities(cls, v: object) -> str:
         return v if isinstance(v, str) else ""
+
+    @field_validator("required_skills", "preferred_skills", "nice_to_have_skills", mode="before")
+    @classmethod
+    def _coerce_skill_list(cls, v: object) -> list:
+        # The LLM may emit null instead of [] when the corresponding
+        # "Required/Preferred/Nice to Have Skills:" line is absent from
+        # jd_text (BE .NET omits the line entirely when that list is empty
+        # or null) — without this, model_validate would raise instead of
+        # defaulting to an empty list.
+        return v if isinstance(v, list) else []
 
     @field_validator("education_degree", mode="before")
     @classmethod
@@ -543,6 +563,9 @@ class ParsedJD(BaseModel):
         self.preferred_skills = [
             p for p in self.preferred_skills if not is_generic_non_skill(p)
         ]
+        self.nice_to_have_skills = [
+            p for p in self.nice_to_have_skills if not is_generic_non_skill(p)
+        ]
         return self
 
     # --- Internal helpers (not serialized) ---
@@ -557,7 +580,7 @@ class ParsedJD(BaseModel):
         for s in self.required_skills:
             names.append(s.skill)
             names.extend(s.alternatives)
-        return names + self.preferred_skills
+        return names + self.preferred_skills + self.nice_to_have_skills
 
     # --- Embed text ---
 
