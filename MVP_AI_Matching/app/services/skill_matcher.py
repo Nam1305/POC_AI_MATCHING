@@ -273,6 +273,29 @@ class Match(NamedTuple):
     via: str
 
 
+# Trọng số cố định cho 2 tier skill phụ của JD. required_skills có weight riêng
+# từng skill (RequiredSkill.weight, LLM gán 1-3) nên không cần hằng số; còn
+# preferred_skills/nice_to_have_skills là list string phẳng — cả tier dùng 1
+# trọng số, thấp hơn must-have (3) theo đúng thứ bậc required > preferred >
+# nice_to_have mà form đăng tin bên .NET đã phân sẵn.
+PREFERRED_SKILL_WEIGHT    = 2
+NICE_TO_HAVE_SKILL_WEIGHT = 1
+
+
+class TierResult(NamedTuple):
+    """
+    Kết quả so khớp 1 yêu cầu skill của JD, kèm tier và trọng số đã quy đổi.
+      label  : nhãn hiển thị ("A / B / C" nếu là OR-group)
+      weight : trọng số dùng để tính điểm D2
+      tier   : "required" | "preferred" | "nice_to_have"
+      match  : Match tương ứng
+    """
+    label: str
+    weight: int
+    tier: str
+    match: Match
+
+
 # Ưu tiên khi chọn alternative tốt nhất trong 1 OR-group: tầng sớm hơn thắng,
 # matched luôn hơn missing. Fuzzy (layer3) và proficiency xếp sau các tầng chính
 # xác exact/identity/implied.
@@ -396,6 +419,48 @@ class SkillMatcher:
             if (_LAYER_RANK[m.layer], m.credit) > (_LAYER_RANK[best.layer], best.credit):
                 best = m
         return best
+
+    # -- Gộp 3 tier skill của JD thành 1 danh sách có trọng số ------------------
+
+    def evaluate_tiers(self, jd, ctx: CVContext) -> list[TierResult]:
+        """
+        Duyệt CẢ 3 tier skill của JD (required / preferred / nice_to_have) và
+        trả kết quả so khớp kèm trọng số của từng tier — nguồn duy nhất cho cả
+        D2 (scorer.score_skills) lẫn phần hiển thị cho HR (evaluator), để 2 chỗ
+        không bao giờ lệch công thức.
+
+        Trọng số: required dùng chính req.weight (LLM gán 1-3; skill đến từ tag
+        list "Required Skills:" luôn là 3), preferred và nice_to_have dùng hằng
+        số cố định theo tier (2 và 1) vì 2 list này là string phẳng, không có
+        khái niệm weight riêng từng skill.
+
+        KHÔNG dedup chéo giữa 3 tier — JD_EXTRACT_PROMPT đã ràng buộc LLM chỉ
+        được bổ sung skill từ prose khi skill đó CHƯA nằm trong 3 list do .NET
+        gửi xuống (3 list đó vốn đã canonical vì load từ skill_data).
+        """
+        out: list[TierResult] = []
+        for req in jd.required_skills:
+            out.append(TierResult(
+                label  = self.group_label(req),
+                weight = req.weight,
+                tier   = "required",
+                match  = self.evaluate_group(req, ctx),
+            ))
+        for name in jd.preferred_skills:
+            out.append(TierResult(
+                label  = name,
+                weight = PREFERRED_SKILL_WEIGHT,
+                tier   = "preferred",
+                match  = self.evaluate_name(name, ctx),
+            ))
+        for name in jd.nice_to_have_skills:
+            out.append(TierResult(
+                label  = name,
+                weight = NICE_TO_HAVE_SKILL_WEIGHT,
+                tier   = "nice_to_have",
+                match  = self.evaluate_name(name, ctx),
+            ))
+        return out
 
     # -- Evidence chi tiết cho evaluator.py ------------------------------------
 

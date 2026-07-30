@@ -46,6 +46,7 @@ treated as `jd_text`.
       { "skill": "C#", "weight": 3, "alternatives": [] }
     ],
     "preferred_skills": ["Docker"],
+    "nice_to_have_skills": ["Agile & Scrum"],
     "min_experience_years": 1,
     "education_degree": "bachelor",
     "work_location": {
@@ -69,7 +70,26 @@ is `null` in that case.
 `work_location.work_mode` is one of `onsite`, `hybrid`, `remote` — defaults to
 `onsite` when the JD gives no explicit signal.
 `work_location.city` is constrained to exactly `"Ha Noi"`, `"Ho Chi Minh"`, or
-`"Da Nang"`.
+`"Da Nang"`. `work_location.raw_address` holds only the street/district/
+building portion (never repeats the city) — mirrors BE .NET's
+`company_branch` table, which stores `address`/`city` as separate columns.
+For geocoding, `parser.parse_jd` joins `raw_address + ", " + city` into one
+query string (falling back to `city` alone when `raw_address` is empty).
+
+`preferred_skills` and `nice_to_have_skills` are two separate tiers below
+`required_skills` — mirrors BE .NET's `tags.preferred_skills` /
+`tags.nice_to_have`. The numeric `skills` score (D2) is computed from ALL
+THREE tiers combined: `required_skills` uses each skill's own `weight`
+(1–3, LLM-assigned — skills sourced from the JD's "Required Skills:" tag
+line are always 3), `preferred_skills` uses a flat weight of 2 per skill,
+`nice_to_have_skills` uses a flat weight of 1 per skill
+(`PREFERRED_SKILL_WEIGHT` / `NICE_TO_HAVE_SKILL_WEIGHT` in
+`skill_matcher.py`). D2 = `Σ(weight × matched) / Σ(weight)` across all
+matched/unmatched skills in all three tiers — a missing preferred/
+nice-to-have skill still lowers the score, just less than a missing
+required one. There is no de-duplication step across tiers in code; the
+JD extraction prompt is responsible for ensuring a skill is only ever
+placed in one tier.
 
 **Errors:**
 - `400` — `"Request body is empty"`
@@ -211,6 +231,7 @@ Compute the 5-dimension weighted match score plus a qualitative evaluation.
     ],
     "missing_must_have": [],
     "missing_preferred": ["Docker"],
+    "missing_nice_to_have": ["Agile & Scrum"],
     "bonus_skills": ["GraphQL"],
     "skill_match_rate": 85.7,
     "experience_verdict": "sufficient",
@@ -222,7 +243,9 @@ Compute the 5-dimension weighted match score plus a qualitative evaluation.
 ```
 
 `skill_match_rate` is a **percentage (0–100)**, not a 0–1 fraction — it's
-`matched_weight / total_weight * 100` from `evaluator.py`.
+`matched_weight / total_weight * 100` from `evaluator.py`, using the exact
+same 3-tier weighted formula as the `skills` score above (D2) — the two
+numbers always agree.
 
 `narrative` is only populated when `include_narrative: true`.
 
@@ -255,6 +278,7 @@ field of `/ai/score`, but always with `narrative` populated):
   ],
   "missing_must_have": [],
   "missing_preferred": ["Docker"],
+  "missing_nice_to_have": ["Agile & Scrum"],
   "bonus_skills": ["GraphQL"],
   "skill_match_rate": 85.7,
   "experience_verdict": "sufficient",
@@ -267,7 +291,7 @@ field of `/ai/score`, but always with `narrative` populated):
 `skill_match_rate` is a **percentage (0–100)**, not a 0–1 fraction.
 
 `skill_details[].status` is one of `matched`, `matched_implied`,
-`missing_must_have`, `missing_preferred`.
+`missing_must_have`, `missing_preferred`, `missing_nice_to_have`.
 `experience_verdict` is one of `sufficient`, `insufficient`,
 `over_qualified`, `not_required`.
 `education_verdict` is one of `exceeds`, `meets`, `below`, `not_required`.

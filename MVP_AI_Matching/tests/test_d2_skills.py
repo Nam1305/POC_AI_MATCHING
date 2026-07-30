@@ -288,11 +288,15 @@ def test_I_exact_match_priority_over_implied():
     assert st["JavaScript"] == "matched"
 
 
-def test_I_preferred_reported_not_scored_and_bonus():
+def test_I_preferred_lowers_rate_and_bonus_excludes_jd_skills():
+    # D2 now merges required (weight=3) + preferred (weight=2/skill): a
+    # missing preferred skill still lowers skill_match_rate, just less than
+    # a missing required one. total_w=3+2+2=7, matched_w=3(React.js)+2
+    # (Chart.js)+0(Laravel missing)=5 -> 71.4%.
     cv = _cv("React", "Chart.js", "Python")
     jd = _jd(_req("React.js", 3), preferred=["Chart.js", "Laravel"])
     r = _analyze_skills(cv, jd)
-    assert r["skill_match_rate"] == 100.0             # required-only
+    assert r["skill_match_rate"] == pytest.approx(71.4)
     assert r["missing_must_have"] == []
     assert "Laravel" in r["missing_preferred"]        # preferred miss
     assert "Python" in r["bonus_skills"]              # CV có, JD không yêu cầu

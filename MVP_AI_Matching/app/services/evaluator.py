@@ -34,64 +34,47 @@ def _analyze_skills(cv: ParsedCV, jd: ParsedJD) -> dict:
     scorer.score_skills — ở đây cần trả về chi tiết từng skill để hiển thị
     cho HR, không chỉ 1 con số tổng).
 
-    Với mỗi required_skill của JD (kể cả OR-group/alternatives), phân loại
-    thành: đã khớp (matched/matched_implied), thiếu skill bắt buộc
-    (missing_must_have, khi weight >= 3), hoặc thiếu skill không bắt buộc
-    lắm (missing_preferred, weight < 3). Sau đó phân tích thêm
-    preferred_skills của JD (chỉ để hiển thị, không ảnh hưởng điểm số).
-    Cuối cùng tính thêm "bonus_skills" — kỹ năng CV có mà JD không yêu cầu.
+    Duyệt cả 3 tier skill của JD qua SkillMatcher.evaluate_tiers — CÙNG nguồn
+    mà scorer.score_skills dùng, nên skill_match_rate hiển thị cho HR luôn khớp
+    với điểm D2 thực tế dùng để xếp hạng ứng viên (không còn required-only).
+
+    Mỗi yêu cầu (kể cả OR-group/alternatives) được phân loại thành: đã khớp
+    (matched/matched_implied), hoặc thiếu — và khi thiếu thì vào đúng bucket
+    của tier nó thuộc về: missing_must_have (tier required, weight >= 3),
+    missing_preferred (tier preferred, hoặc tier required weight < 3), hoặc
+    missing_nice_to_have (tier nice_to_have). Cuối cùng tính thêm
+    "bonus_skills" — kỹ năng CV có mà JD không nêu ở bất kỳ tier nào.
 
     Trả về dict gồm: skill_details (danh sách SkillMatchDetail),
-    missing_must_have, missing_preferred, bonus_skills, và skill_match_rate
-    (tỷ lệ % trọng số đã khớp trên tổng trọng số required_skills).
+    missing_must_have, missing_preferred, missing_nice_to_have, bonus_skills,
+    và skill_match_rate (tỷ lệ % trọng số đã khớp trên tổng trọng số của cả 3 tier).
     """
-    ctx = _matcher.build_cv_context(cv)
+    ctx     = _matcher.build_cv_context(cv)
+    results = _matcher.evaluate_tiers(jd, ctx)
 
     skill_details: list[SkillMatchDetail] = []
     missing_must: list[str] = []
     missing_pref: list[str] = []
+    missing_nice: list[str] = []
     matched_weight = 0.0
-    total_weight   = sum(r.weight for r in jd.required_skills)
+    total_weight   = sum(r.weight for r in results)
 
-    for req in jd.required_skills:
-        # OR-group aware: a requirement is satisfied by any of its alternatives.
-        label = _matcher.group_label(req)
-        match = _matcher.evaluate_group(req, ctx)
-        matched_weight += req.weight * match.credit
-        if match.status in ("matched", "matched_implied"):
-            skill_details.append(SkillMatchDetail(
-                skill=label, status=match.status, weight=req.weight
-            ))
-        elif req.weight >= 3:
-            missing_must.append(label)
-            skill_details.append(SkillMatchDetail(
-                skill=label, status="missing_must_have", weight=req.weight
-            ))
+    for r in results:
+        matched_weight += r.weight * r.match.credit
+        if r.match.status in ("matched", "matched_implied"):
+            status = r.match.status
+        elif r.tier == "nice_to_have":
+            status = "missing_nice_to_have"
+            missing_nice.append(r.label)
+        elif r.tier == "preferred" or r.weight < 3:
+            status = "missing_preferred"
+            missing_pref.append(r.label)
         else:
-            missing_pref.append(label)
-            skill_details.append(SkillMatchDetail(
-                skill=label, status="missing_preferred", weight=req.weight
-            ))
-
-    # Preferred (nice-to-have) skills — analyzed for display only. They never
-    # affect D2 or trigger penalties (that is the point of separating them from
-    # required), but HR still wants to see which optional skills a candidate lacks.
-    seen_pref: set[str] = set()
-    for pref in jd.preferred_skills:
-        norm = resolve_canonical(pref)
-        if not norm or norm in seen_pref:
-            continue
-        seen_pref.add(norm)
-        match = _matcher.evaluate_name(pref, ctx)
-        if match.status == "missing":
-            missing_pref.append(pref)
-            skill_details.append(SkillMatchDetail(
-                skill=pref, status="missing_preferred", weight=1
-            ))
-        else:
-            skill_details.append(SkillMatchDetail(
-                skill=pref, status=match.status, weight=1
-            ))
+            status = "missing_must_have"
+            missing_must.append(r.label)
+        skill_details.append(SkillMatchDetail(
+            skill=r.label, status=status, weight=r.weight
+        ))
 
     # Bonus: CV có nhưng JD không yêu cầu (kể cả các alternative của OR-group).
     # So sánh trên dạng canonical để "React" trong CV không bị coi là bonus khi
@@ -100,16 +83,18 @@ def _analyze_skills(cv: ParsedCV, jd: ParsedJD) -> dict:
     for r in jd.required_skills:
         jd_normalized |= {resolve_canonical(n) for n in _matcher.group_names(r)}
     jd_normalized |= {resolve_canonical(s) for s in jd.preferred_skills}
+    jd_normalized |= {resolve_canonical(s) for s in jd.nice_to_have_skills}
     bonus = [s for s in cv.skills if resolve_canonical(s) not in jd_normalized][:8]
 
     rate = round(matched_weight / total_weight * 100, 1) if total_weight > 0 else 100.0
 
     return {
-        "skill_details":    skill_details,
-        "missing_must_have": missing_must,
-        "missing_preferred": missing_pref,
-        "bonus_skills":      bonus,
-        "skill_match_rate":  rate,
+        "skill_details":       skill_details,
+        "missing_must_have":   missing_must,
+        "missing_preferred":   missing_pref,
+        "missing_nice_to_have": missing_nice,
+        "bonus_skills":        bonus,
+        "skill_match_rate":    rate,
     }
 
 
@@ -207,6 +192,7 @@ Tổng kinh nghiệm  : {cv_years} năm
 Kỹ năng match     : {skill_match_rate}% ({matched})
 Kỹ năng bắt buộc còn thiếu : {missing_must}
 Kỹ năng ưu tiên còn thiếu  : {missing_pref}
+Kỹ năng cộng điểm còn thiếu : {missing_nice}
 Kỹ năng thêm (bonus)       : {bonus}
 Kinh nghiệm       : {exp_detail}
 Học vấn           : {edu_verdict}
@@ -252,6 +238,7 @@ async def _llm_narrative(cv: ParsedCV, jd: ParsedJD, analysis: dict) -> str:
         matched          = ", ".join(matched) if matched else "chưa xác định được",
         missing_must     = ", ".join(analysis["missing_must_have"]) if analysis["missing_must_have"] else "không có",
         missing_pref     = ", ".join(analysis["missing_preferred"]) if analysis["missing_preferred"] else "không có",
+        missing_nice     = ", ".join(analysis["missing_nice_to_have"]) if analysis["missing_nice_to_have"] else "không có",
         bonus            = ", ".join(analysis["bonus_skills"]) if analysis["bonus_skills"] else "không có",
         exp_detail       = analysis["exp_detail"],
         edu_verdict      = edu_map.get(analysis["edu_verdict"], analysis["edu_verdict"]),
@@ -288,11 +275,12 @@ async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD, *, include_narrative: 
         narrative = await _llm_narrative(cv, jd, combined)
 
     return CVJobEvaluation(
-        skill_details      = skill_data["skill_details"],
-        missing_must_have  = skill_data["missing_must_have"],
-        missing_preferred  = skill_data["missing_preferred"],
-        bonus_skills       = skill_data["bonus_skills"],
-        skill_match_rate   = skill_data["skill_match_rate"],
+        skill_details        = skill_data["skill_details"],
+        missing_must_have    = skill_data["missing_must_have"],
+        missing_preferred    = skill_data["missing_preferred"],
+        missing_nice_to_have = skill_data["missing_nice_to_have"],
+        bonus_skills         = skill_data["bonus_skills"],
+        skill_match_rate     = skill_data["skill_match_rate"],
 
         experience_verdict = exp_data["verdict"],
         experience_detail  = exp_data["detail"],

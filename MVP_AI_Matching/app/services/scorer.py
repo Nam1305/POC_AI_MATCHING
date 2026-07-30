@@ -76,20 +76,25 @@ def score_skills(
       Layer 1 — identity qua skill_data.json (canonical hóa 2 phía)
       Layer 2 — entailment qua skill_implies.json (đã flatten bắc cầu sẵn)
       + tầng phụ: trình độ ngôn ngữ (JLPT/TOEIC...) so theo thứ bậc ordinal
+
+    Tính trên CẢ 3 tier skill của JD (required / preferred / nice_to_have) theo
+    trọng số giảm dần của từng tier — xem SkillMatcher.evaluate_tiers. Thiếu 1
+    skill preferred/nice_to_have vẫn kéo điểm xuống, nhưng nhẹ hơn thiếu 1
+    skill bắt buộc. JD không nêu skill nào ở cả 3 tier → 1.0 (neutral, cùng
+    quy tắc "JD không yêu cầu → không có gì để thiếu" như D3/D4).
     """
-    if not jd.required_skills:
-        return 1.0
     matcher = matcher or _skill_matcher
 
     ctx = matcher.build_cv_context(cv)
+    results = matcher.evaluate_tiers(jd, ctx)
 
-    total_w = sum(s.weight for s in jd.required_skills)
-    matched_w = 0.0
+    total_w = sum(r.weight for r in results)
+    if total_w <= 0:
+        return 1.0
 
-    for req in jd.required_skills:
-        matched_w += req.weight * matcher.evaluate_group(req, ctx).credit
+    matched_w = sum(r.weight * r.match.credit for r in results)
 
-    return matched_w / total_w if total_w > 0 else 0.0
+    return matched_w / total_w
 
 
 # ---------------------------------------------------------------------------
