@@ -76,17 +76,23 @@ JSON structure:
   "certifications": ["Certificate Name 1", "Certificate Name 2"],
   "languages": ["English - TOEIC 835", "Vietnamese - Native"],
   "candidate_location": {
-    "raw_address": "address exactly as written in the CV header/contact info block (near name, email, phone), or null if no address is present anywhere",
+    "city": "MUST be exactly one of: Ha Noi, Ho Chi Minh, Da Nang, Other — the city stated in the CV header/contact info block, or Other/null if none is recognizable",
+    "raw_address": "ONLY the street/district/building portion (street name, house number, district, ward, building) exactly as written in the CV header/contact info block, WITHOUT the city name — city goes in the separate 'city' field above, never repeat it here. Null if no address beyond the city (or no address at all) is present.",
     "willing_to_relocate": "true ONLY if the CV explicitly states something like 'open to relocate' / 'sẵn sàng chuyển nơi làm việc', otherwise null"
   }
 }
 
 CANDIDATE_LOCATION RULES (critical — do not hallucinate):
-- raw_address: extract ONLY from the CV's header/contact info block (near name,
-  email, phone). Copy it as-is — do not clean, normalize, or reformat it.
-  Do NOT derive an address from phone number area code, university location,
-  or company locations in work history. If no address is stated in the
-  contact block, use null.
+- city / raw_address: extract ONLY from the CV's header/contact info block
+  (near name, email, phone). The city name is normally the last
+  comma-separated segment of the address line; read city from there instead
+  of guessing. Put everything BEFORE that segment into raw_address
+  (street/district/building) — the two fields are stored separately
+  downstream, so raw_address must never repeat the city name. Copy
+  raw_address as-is — do not clean, normalize, or reformat it. Do NOT derive
+  a city or address from phone number area code, university location, or
+  company locations in work history. If no address is stated in the contact
+  block, use null for both city and raw_address.
 - willing_to_relocate: null unless the CV explicitly states willingness to
   relocate. Never infer this from context (e.g. don't assume "true" just
   because the candidate lists an out-of-city address).
@@ -210,7 +216,7 @@ JSON structure:
   "min_experience_years": integer (0 if not specified),
   "education_degree": "bachelor or master or phd or associate or high_school or other or null — the MINIMUM accepted level (see EDUCATION rules below)",
   "work_location": {
-    "city": "MUST be exactly one of: Ha Noi, Ho Chi Minh, Da Nang",
+    "city": "MUST be exactly one of: Ha Noi, Ho Chi Minh, Da Nang, Other",
     "raw_address": "ONLY the street/district/building portion (street name, house number, district, ward, building), WITHOUT the city name — city goes in the separate 'city' field above, never repeat it here. Empty string if the JD states no more than a city.",
     "work_mode": "onsite or hybrid or remote"
   }
@@ -465,8 +471,12 @@ async def parse_cv(cv_text: str) -> ParsedCV:
          tập trung tương ứng
       4. Gộp kết quả retry vào object CV (chỉ ghi đè nếu retry ra kết quả
          khác rỗng, tránh mất dữ liệu nếu retry cũng thất bại)
-      5. Geocode candidate_location.raw_address đúng 1 lần (lat/lng được
-         lưu lại cùng CV, giống cv_embedding — không tính lại lúc chấm điểm)
+      5. Geocode candidate_location.raw_address (+ city nếu có) đúng 1 lần
+         (lat/lng được lưu lại cùng CV, giống cv_embedding — không tính lại
+         lúc chấm điểm). Nếu raw_address rỗng (chỉ có city hoặc không có gì),
+         KHÔNG geocode theo city — lat/lng giữ None (khác JD, nơi luôn có
+         city để fallback); score_location xử lý case này qua so khớp city
+         trực tiếp (xem scorer.py).
     """
     raw = await call_llm_json(CV_EXTRACT_PROMPT, cv_text)
     cv  = ParsedCV.model_validate(raw)
@@ -494,9 +504,10 @@ async def parse_cv(cv_text: str) -> ParsedCV:
                 cv.skills = results[idx]
 
     if cv.candidate_location.raw_address:
-        cv.candidate_location.lat, cv.candidate_location.lng = await _geocode(
-            cv.candidate_location.raw_address
-        )
+        address = cv.candidate_location.raw_address
+        if cv.candidate_location.city:
+            address = f"{address}, {cv.candidate_location.city}"
+        cv.candidate_location.lat, cv.candidate_location.lng = await _geocode(address)
 
     return cv
 

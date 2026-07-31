@@ -165,17 +165,35 @@ class Education(BaseModel):
 
 class CandidateLocation(BaseModel):
     """
-    Location info for a CV. `raw_address` is free-text as stated in the CV;
-    `lat`/`lng` are geocoded once at parse-time (see parser.parse_cv) via
-    location_service.geocode() and persisted alongside cv_embedding — mirrors
-    how cv_embedding is computed once at parse-time rather than per score
-    call. None if no address was found or geocoding failed.
+    Location info for a CV. Mirrors WorkLocation's city/raw_address split:
+    `city` is the normalized city (one of the 3 business cities, or None if
+    the CV gives no recognizable city), `raw_address` is the street/district
+    portion only, WITHOUT the city name. `lat`/`lng` are geocoded once at
+    parse-time (see parser.parse_cv) via location_service.geocode() and
+    persisted alongside cv_embedding — mirrors how cv_embedding is computed
+    once at parse-time rather than per score call. None if no address was
+    found or geocoding failed.
     """
-    raw_address:          Optional[str]                              = None
-    lat:                  Optional[float]                            = None
-    lng:                  Optional[float]                            = None
+    city:                  Optional[Literal["Ha Noi", "Ho Chi Minh", "Da Nang"]] = None
+    raw_address:           Optional[str]                              = None
+    lat:                   Optional[float]                            = None
+    lng:                   Optional[float]                            = None
     # True only if the CV explicitly states willingness to relocate; never inferred.
-    willing_to_relocate:  Optional[bool]                              = None
+    willing_to_relocate:   Optional[bool]                              = None
+
+    @field_validator("city", mode="before")
+    @classmethod
+    def _normalize_city(cls, v: object) -> Optional[str]:
+        if not isinstance(v, str) or not v.strip():
+            return None
+        s = v.lower().strip()
+        if "ha noi" in s or "hanoi" in s or s in {"hn"}:
+            return "Ha Noi"
+        if "ho chi minh" in s or "hcm" in s or "saigon" in s or "sai gon" in s:
+            return "Ho Chi Minh"
+        if "da nang" in s or "danang" in s:
+            return "Da Nang"
+        return None
 
     @field_validator("raw_address", mode="before")
     @classmethod
