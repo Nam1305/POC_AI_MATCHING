@@ -2,7 +2,7 @@
 
 > Tổng hợp cơ sở lý thuyết cho từng thành phần **đang có trong code**
 > (`app/services/`). Mọi mục "Validate component" đều trỏ tới file/hàm cụ thể.
-> Cập nhật: 2026-07-27
+> Cập nhật: 2026-07-31
 
 **Ký hiệu nguồn:**
 `✅` link đã xác minh · `📖` sách/bài báo kinh điển (tra thư viện, không có
@@ -222,7 +222,7 @@ arXiv) · `🌐` tài nguyên/tiêu chuẩn trực tuyến
 
 ## Nhóm 4 — Skill Ontology & Entity Resolution (D2 Layer 1)
 
-> Xác nhận `skill_data.json` (8.757 entry) + `skill_matcher.py::resolve_canonical`.
+> Xác nhận `skill_data.json` (9.524 entry) + `skill_matcher.py::resolve_canonical`.
 > **Đây là tầng "canonical hóa hai phía": đưa tên skill của CV và của JD về
 > cùng một dạng chuẩn rồi mới so.**
 
@@ -266,7 +266,7 @@ arXiv) · `🌐` tài nguyên/tiêu chuẩn trực tuyến
 - **Nguồn:** 📖 Morgan & Claypool, Synthesis Lectures on Data Management, 2010
 - **Phương pháp:** Lý thuyết **entity resolution**: nhiều *surface form* cùng
   trỏ về một *thực thể*; giải bằng chuẩn hóa + so khớp + phân cụm.
-- **Validate component:** `build_skill_data.py` — 5.416 ánh xạ *synonym →
+- **Validate component:** `build_skill_data.py` — 5.536 ánh xạ *synonym →
   canonical* chính là một **synonym ring** kinh điển (cùng mô hình với redirect
   của Wikipedia, hay thesaurus theo chuẩn ISO 25964).
 
@@ -274,7 +274,7 @@ arXiv) · `🌐` tài nguyên/tiêu chuẩn trực tuyến
 
 ## Nhóm 5 — Knowledge Graph & Transitive Closure (D2 Layer 2)
 
-> Xác nhận `skill_implies.json` (864 key / 1.358 cạnh) +
+> Xác nhận `skill_implies.json` (1.504 key / 1.707 cạnh) +
 > `close_implies.py::transitive_closure`. **Đây là phần có hàm lượng thuật toán
 > cao nhất của D2.**
 
@@ -285,7 +285,7 @@ arXiv) · `🌐` tài nguyên/tiêu chuẩn trực tuyến
   closure)** của quan hệ nhị phân, độ phức tạp $O(V^3)$.
 - **Validate component:** `close_implies.py::transitive_closure`. Code dùng
   **lặp tới điểm bất động (fixpoint iteration)** thay vì Warshall thuần: đồ thị
-  thưa (864 đỉnh / 1.358 cạnh) nên lặp tới hội tụ rẻ hơn $O(V^3)$, và tính dừng
+  thưa (1.504 đỉnh / 1.707 cạnh) nên lặp tới hội tụ rẻ hơn $O(V^3)$, và tính dừng
   được bảo đảm vì toán tử mở rộng là **đơn điệu trên một dàn hữu hạn** (định lý
   điểm bất động Kleene) — đồ thị implies là **DAG**, không có chu trình.
 - **Ý nghĩa thiết kế:** vật chất hóa (materialize) closure **offline** để
@@ -318,7 +318,7 @@ arXiv) · `🌐` tài nguyên/tiêu chuẩn trực tuyến
 - **Phương pháp/vấn đề:** Hệ dựa-luật bị giới hạn bởi chi phí **con người viết
   luật**; đảm bảo được *soundness* (luật viết ra là đúng) nhưng không đảm bảo
   được *completeness* (đủ luật).
-- **Validate component:** **Hạn chế phải tự nêu** của Layer 2: 864 quy tắc là
+- **Validate component:** **Hạn chế phải tự nêu** của Layer 2: 1.504 quy tắc là
   viết tay. Kiểm soát chất lượng hiện tại = test tự động
   (`test_L1_implies_transitively_closed`, `test_L2/L3_implies_*_canonical`,
   `test_D_entailment_does_not_leak`). Hướng mở rộng: bootstrap luật từ
@@ -495,6 +495,7 @@ arXiv) · `🌐` tài nguyên/tiêu chuẩn trực tuyến
 | `scorer.py::normalize_cosine` | [10] Anisotropy |
 | **D1** Semantic (0.30) — narrative-only embed | [1] MADM (độc lập tiêu chí), [13], [14], [15] |
 | **D2** Skills (0.35) — Layer 0/1 canonical | [21] ESCO, [22] O\*NET, [23] O\*NET matching, [25] Entity Resolution |
+| **D2** — trọng số 3 tier skill của JD (3/2/1) | [1] MADM (trọng số tiêu chí), [2] AHP |
 | **D2** — Layer 2 entailment + closure | [26] Warshall, [27] RDFS, [28] WordNet, [29] KA bottleneck |
 | **D2** — Layer 3 fuzzy | [30] Ratcliff/Obershelp, [31] Levenshtein (đối chiếu) |
 | **D2** — tầng proficiency ordinal | [32] Stevens, [33] CEFR |
@@ -522,6 +523,7 @@ dụng** — code hiện tại không có chúng nữa:
 | Fuzzy partial credit (0.9× thay vì 1.0) | Fuzzy = full credit ở Layer 3 | Điểm bộ phận làm mờ ranh giới "có/không có kỹ năng" |
 | D5 Keywords (string match trên `cv_raw_text`) | D5 Location + Work Mode (Nominatim + OSRM) | Keyword trùng lặp tín hiệu với D1/D2 |
 | Fallback haversine cho D5 | Trả điểm trung lập 0.5 | Đường chim bay không phản ánh giao thông đô thị |
+| `preferred_skills` chỉ hiển thị, không tính vào D2 | D2 tính trên **cả 3 tier** (`required` / `preferred` / `nice_to_have`) với trọng số giảm dần 3–2–1 | Thứ bậc ưu tiên của nhà tuyển dụng nên biểu diễn bằng **trọng số**, không phải bằng ranh giới cứng tính/không-tính — vẫn nằm trong khuôn khổ SAW [1] |
 
 Trong báo cáo, nên trình bày các thay đổi này ở mục **"Quá trình cải tiến thiết
 kế"** — chúng thể hiện năng lực đánh giá lại lựa chọn kỹ thuật, chứ không nên

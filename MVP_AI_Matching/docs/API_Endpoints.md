@@ -1,10 +1,12 @@
 # API Endpoints
 
 Ground truth extracted from the actual FastAPI code (`app/main.py`, `app/api/*.py`,
-`app/schemas.py`), not from `docs/Overview.md` (which contains stale/aspirational
-examples — see the note at the bottom of this file).
+`app/schemas.py`). This file is the **request/response reference**;
+`docs/Overview.md` covers the same endpoints from the architecture/flow angle and
+explains *why* each field exists.
 
 All routes below except `/health` are mounted under the `/ai` prefix.
+Last verified against the code: 2026-07-31.
 
 ---
 
@@ -90,6 +92,13 @@ nice-to-have skill still lowers the score, just less than a missing
 required one. There is no de-duplication step across tiers in code; the
 JD extraction prompt is responsible for ensuring a skill is only ever
 placed in one tier.
+
+Generic soft skills / meta-competencies ("teamwork", "problem solving",
+"programming fundamentals", … — 44 entries in `schemas.py::GENERIC_NON_SKILLS`)
+are stripped from **all three** tiers by a Pydantic model validator
+(`ParsedJD._drop_generic_skills`) before the object is returned. They can never
+match a CV skill list, so keeping them would produce a phantom missing
+must-have for every candidate.
 
 **Errors:**
 - `400` — `"Request body is empty"`
@@ -290,16 +299,28 @@ field of `/ai/score`, but always with `narrative` populated):
 
 `skill_match_rate` is a **percentage (0–100)**, not a 0–1 fraction.
 
-`skill_details[].status` is one of `matched`, `matched_implied`,
-`missing_must_have`, `missing_preferred`, `missing_nice_to_have`.
-`experience_verdict` is one of `sufficient`, `insufficient`,
-`over_qualified`, `not_required`.
+`skill_details[]` has one entry per JD skill requirement across all three
+tiers (an OR-group is a single entry labelled `"A / B / C"`), with the tier's
+weight in `weight`. `status` is one of `matched`, `matched_implied`,
+`missing_must_have`, `missing_preferred`, `missing_nice_to_have`. A missing
+skill is bucketed by tier + weight: `missing_must_have` = `required` tier with
+`weight >= 3`; `missing_preferred` = `preferred` tier **or** `required` tier
+with `weight < 3`; `missing_nice_to_have` = `nice_to_have` tier.
+
+`bonus_skills` lists CV skills the JD does not ask for in any tier (compared on
+canonical form, so `"React"` isn't a bonus when the JD asks for `"React.js"`),
+capped at 8 entries.
+
+`experience_verdict` is one of `sufficient` (CV years ≥ 80% of required),
+`insufficient`, `over_qualified` (CV years ≥ 2× required), `not_required`
+(JD sets no minimum).
 `education_verdict` is one of `exceeds`, `meets`, `below`, `not_required`.
 
 ---
 
 ## Not implemented
 
-`docs/Overview.md` also describes `POST /ai/recalculate` and `POST /ai/search`.
+`POST /ai/recalculate` and `POST /ai/search` appear in the original design (and
+are listed as out-of-scope in `docs/Overview.md` → *Ngoài phạm vi bản hiện tại*).
 Neither has a route or router file in `app/` — do not treat them as live
 endpoints until they're actually built.

@@ -2,7 +2,7 @@
 
 > **Project:** AI-powered CV/JD Matching Microservice
 > **Stack:** Python FastAPI · LLM (Gemini/Claude/Groq) · pgvector · .NET Backend
-> **Cập nhật:** 2026-07-27
+> **Cập nhật:** 2026-07-31
 >
 > Tài liệu này được đối chiếu trực tiếp với source code trong `app/`. Mọi công
 > thức, hằng số, tên model đều là **giá trị đang chạy thật**, không phải thiết
@@ -109,9 +109,10 @@ FLOW 2 — CREATE JOB
     ▼
 [Python AI] POST /ai/parse-jd
     ├─ Stage 2: parser.parse_jd()  →  ParsedJD
-    │     LLM extract required_skills (weight + OR-alternatives),
-    │        responsibilities, work_location, work_mode
-    │     Pydantic: lọc soft-skill chung chung khỏi skill lists
+    │     LLM extract 3 tier skill (required + weight/OR-alternatives,
+    │        preferred, nice_to_have), responsibilities,
+    │        work_location, work_mode
+    │     Pydantic: lọc soft-skill chung chung khỏi cả 3 tier
     │     Nominatim geocode(raw_address ?? city) → work_location.{lat,lng}
     └─ Stage 3: embedder.embed(parsed_jd.build_embed_text())
           →  jd_embedding [3072 float]
@@ -134,7 +135,7 @@ FLOW 3 — SCORE (AI Matching)
     │
     ├── asyncio.to_thread ──► scorer.calculate_score()   [pure Python, ~1ms]
     │      D1 Semantic   : normalize_cosine(cosine_sim(cv_emb, jd_emb))
-    │      D2 Skills     : cascade 4 tầng, chấm nhị phân
+    │      D2 Skills     : cascade 4 tầng, chấm nhị phân, trên cả 3 tier
     │      D3 Experience : min(cv_years / jd_min_years, 1.0)
     │      D4 Education  : min(cv_level / jd_level, 1.0)
     │      D5 Location   : OSRM driving-time trên lat/lng đã geocode
@@ -160,7 +161,7 @@ FLOW 4 — HR XEM NHẬN XÉT CHI TIẾT
     └─ 1 LLM call → narrative tiếng Việt
     │
     return { skill_details[], missing_must_have[], missing_preferred[],
-             bonus_skills[], skill_match_rate,
+             missing_nice_to_have[], bonus_skills[], skill_match_rate,
              experience_verdict, experience_detail, education_verdict,
              narrative }
 ```
@@ -211,8 +212,9 @@ FLOW 4 — HR XEM NHẬN XÉT CHI TIẾT
 │ weights_used  JSONB                       │  └──────────────────────────┘
 │ evaluation    JSONB                       │
 │   { skill_details[], missing_must_have[],│
-│     missing_preferred[], bonus_skills[], │
-│     skill_match_rate,                    │
+│     missing_preferred[],                 │
+│     missing_nice_to_have[],              │
+│     bonus_skills[], skill_match_rate,    │
 │     experience_verdict, experience_detail│
 │     education_verdict, narrative }       │
 │ status        VARCHAR(20)                 │
@@ -393,18 +395,28 @@ Geocode (nếu có raw_address):
 ParsedCV hoàn chỉnh
 ```
 
-**JD parsing** dùng `JD_EXTRACT_PROMPT` với 3 quy tắc đáng chú ý:
+**JD parsing** dùng `JD_EXTRACT_PROMPT` với 4 quy tắc đáng chú ý:
 
 1. **OR-group:** "React.js, TypeScript, hoặc Vue.js" → **một** entry
    `{skill: "React.js", weight: 3, alternatives: ["TypeScript", "Vue.js"]}`,
    không tách thành 3 requirement độc lập.
-2. **Required vs Preferred** tách bạch tuyệt đối — `preferred_skills` không bao
-   giờ ảnh hưởng D2.
-3. **Lọc non-skill:** danh sách chặn `GENERIC_NON_SKILLS` (44 mục: "teamwork",
+2. **3 tier skill** — `required_skills` / `preferred_skills` /
+   `nice_to_have_skills`, ánh xạ đúng 3 dòng tag mà .NET ghép vào `jd_text`
+   (`Required Skills:` / `Preferred Skills:` / `Nice to Have Skills:`, mirror
+   bảng `tags` bên BE). **Cả 3 tier đều tham gia D2** với trọng số giảm dần
+   (xem [3.5](#35-d2--chi-tiết-pipeline-so-khớp-kỹ-năng-skill_matcherpy)) — đây
+   là thay đổi so với thiết kế cũ, khi `preferred_skills` chỉ để hiển thị.
+3. **Structured fields thắng prose + chống trùng tier.** `jd_text` là chuỗi
+   ghép từ các trường DB cố định, nên prompt bắt LLM: copy **nguyên văn** skill
+   từ 3 dòng tag vào đúng tier của chúng (skill trong dòng tag đã canonical sẵn,
+   và luôn có `weight = 3` với tier required), chỉ khai thác thêm skill từ prose
+   khi nó **chưa** xuất hiện ở bất kỳ dòng tag nào. Đây là **rào chắn duy nhất**
+   chống một skill bị đếm ở 2 tier — **trong code không có bước dedup chéo tier**.
+4. **Lọc non-skill:** danh sách chặn `GENERIC_NON_SKILLS` (44 mục: "teamwork",
    "problem solving", "programming fundamentals"...) được áp ở tầng Pydantic
-   (`_drop_generic_skills`). Lý do: những mục này **không bao giờ khớp được**
-   với CV, nên nếu giữ lại thì **mọi** ứng viên đều bị một "missing must-have"
-   ảo và `skill_match_rate` bị kéo xuống một cách hệ thống.
+   (`_drop_generic_skills`, quét **cả 3 tier**). Lý do: những mục này **không
+   bao giờ khớp được** với CV, nên nếu giữ lại thì **mọi** ứng viên đều bị một
+   "missing must-have" ảo và `skill_match_rate` bị kéo xuống một cách hệ thống.
 
 **Vì sao Python tính `months` chứ không phải LLM:** LLM có thể lệch ±1–2 tháng
 do hallucinate; số học thuần Python luôn chính xác và **tái lập được**.
@@ -427,7 +439,7 @@ vector [3072 float]
 | | Đưa vào | **Cố ý loại bỏ** |
 | --- | --- | --- |
 | **CV** | `summary`; `role at company: description` (job mới nhất trước); `Project: name + description`; học vấn; certifications; languages | `skills[]`, mọi `work_experience[].tech_stack`, mọi `projects[].tech_stack` |
-| **JD** | `title`; `responsibilities`; "minimum N years"; "Education: X or above" | `required_skills[]`, `preferred_skills[]` |
+| **JD** | `title`; `responsibilities`; "minimum N years"; "Education: X or above" | `required_skills[]`, `preferred_skills[]`, `nice_to_have_skills[]` |
 
 **Lý do (quan trọng cho phần bảo vệ):** so khớp kỹ năng là nhiệm vụ của D2. Nếu
 token kỹ năng cũng nằm trong text được embed thì **cùng một tín hiệu được tính
@@ -452,6 +464,10 @@ cảnh gần đây thay vì các job cũ.
 │  D2 Skills (W = 0.35)                                        │
 │  Nguồn CV: skills[] + work_exp.tech_stack + proj.tech_stack  │
 │            + languages + certifications (tách sub-token)     │
+│  Nguồn JD: CẢ 3 tier (evaluate_tiers), trọng số wᵢ:          │
+│    required_skills[i]  → req.weight ∈ {1,2,3} (tag list = 3) │
+│    preferred_skills[i] → 2   (PREFERRED_SKILL_WEIGHT)        │
+│    nice_to_have[i]     → 1   (NICE_TO_HAVE_SKILL_WEIGHT)     │
 │  Mỗi required_skill là OR-group {skill} ∪ alternatives:      │
 │    Layer 0  direct match (raw, lowercase)         → 1.0      │
 │    Layer 1  canonical hóa 2 phía (skill_data)     → 1.0      │
@@ -460,7 +476,7 @@ cảnh gần đây thay vì các job cũ.
 │    phụ      proficiency ordinal (JLPT/TOEIC/...)  → 1.0/0.0  │
 │    không tầng nào thỏa                            → 0.0      │
 │  D2 = Σ(wᵢ · mᵢ) / Σ(wᵢ)      wᵢ ∈ {1,2,3}, mᵢ ∈ {0,1}     │
-│  JD không có required_skills → D2 = 1.0                      │
+│  JD trống ở CẢ 3 tier → D2 = 1.0                             │
 ├──────────────────────────────────────────────────────────────┤
 │  D3 Experience (W = 0.20)                                    │
 │  D3 = min(cv_total_years / jd_min_years, 1.0)               │
@@ -512,9 +528,13 @@ không thể không đạt).
               └────────────────┬────────────────────────┘
                                │
    ┌───────────────────────────▼────────────────────────────┐
-   │  Với MỖI required_skill của JD (OR-group)              │
-   │  evaluate_group() = max theo (_LAYER_RANK, credit)     │
-   │  trên toàn bộ {skill} ∪ alternatives                   │
+   │  evaluate_tiers(jd, ctx) — duyệt CẢ 3 tier skill        │
+   │  required  → evaluate_group()  (OR-group aware)         │
+   │              = max theo (_LAYER_RANK, credit) trên      │
+   │                toàn bộ {skill} ∪ alternatives           │
+   │  preferred / nice_to_have → evaluate_name() (string phẳng)│
+   │  Trả TierResult(label, weight, tier, match) — nguồn DUY  │
+   │  NHẤT cho cả scorer.score_skills lẫn evaluator          │
    └───────────────────────────┬────────────────────────────┘
                                │
                   evaluate_name(jd_skill, ctx)
@@ -556,8 +576,8 @@ tìm thấy trong `skill_data.json`:
 
 | File | Quy mô | Nguồn | Vai trò |
 | --- | --- | --- | --- |
-| `skill_data.json` | **8.757 entry** (3.341 canonical + 5.416 synonym) | Stack Exchange API: `/tags` + `/tags/{tags}/synonyms` | Layer 1 |
-| `skill_implies.json` | **864 key / 1.358 cạnh** (sau khi đóng bắc cầu) | Viết tay + `close_implies.py` | Layer 2 |
+| `skill_data.json` | **9.524 entry** (3.988 canonical + 5.536 synonym) | Stack Exchange API: `/tags` + `/tags/{tags}/synonyms`, + bổ sung thủ công theo domain | Layer 1 |
+| `skill_implies.json` | **1.504 key / 1.707 cạnh** (sau khi đóng bắc cầu) | Viết tay + `close_implies.py` | Layer 2 |
 
 Trong `skill_data.json`, `value = null` nghĩa là **chính key đó đã là canonical**
 (không phải "bỏ qua") — chi tiết dễ hiểu nhầm khi đọc dữ liệu.
@@ -565,12 +585,19 @@ Trong `skill_data.json`, `value = null` nghĩa là **chính key đó đã là ca
 **Pipeline dựng dữ liệu (offline, chạy tay, commit output):**
 
 ```
-crawl_so_tags.py     → so_raw_data.json    (phân trang toàn bộ tag, loại collective tag)
-build_skill_data.py  → skill_data.json     (batch 20 tag/request → map synonym → canonical)
-add_misc_skills.py   → bổ sung thủ công các skill thiếu
-add_qa_skills.py     → bổ sung nhóm QA/testing
-close_implies.py     → skill_implies.json  (đóng bắc cầu)
+crawl_so_tags.py                → so_raw_data.json   (phân trang toàn bộ tag, loại collective tag)
+build_skill_data.py             → skill_data.json    (batch 20 tag/request → map synonym → canonical)
+add_misc_skills.py              → bổ sung thủ công các skill thiếu
+add_qa_skills.py                → bổ sung nhóm QA/testing
+add_ai_python_skills.py         → bổ sung hệ sinh thái AI/Python (package ⟹ Python)
+add_devops_support_qa_skills.py → bổ sung DevOps / IT support / QA
+close_implies.py                → skill_implies.json (đóng bắc cầu — CHẠY CUỐI CÙNG)
 ```
+
+Các script `add_*.py` đều **idempotent** (chạy lại không nhân đôi dữ liệu) và
+chỉ thêm cạnh entailment **bảo thủ** (package → framework/ngôn ngữ trực tiếp của
+nó). Bắt buộc chạy `close_implies.py` sau cùng, nếu không test bất biến nhóm L
+sẽ fail.
 
 **Bao đóng bắc cầu (`close_implies.py`):**
 
@@ -595,6 +622,10 @@ def transitive_closure(graph):
 `javascript`. Nhờ vậy Layer 2 chỉ cần **một lần tra hash O(1)** lúc chấm điểm,
 không phải duyệt đồ thị.
 
+Số cạnh sau khi đóng (1.707) chỉ nhỉnh hơn số key (1.504) vì phần lớn quy tắc là
+**một bậc** (package ⟹ ngôn ngữ), chuỗi bắc cầu dài ≥ 3 khá hiếm — đồ thị rất
+**nông và thưa**.
+
 **Tầng phụ — trình độ ngôn ngữ:**
 
 | Framework | Regex | Rank |
@@ -618,15 +649,19 @@ tầng khác (đã biết chắc là không đạt).
 ### 3.6 Stage 5 — Qualitative Evaluation (`evaluator.py`)
 
 ```
-_analyze_skills(cv, jd)          [Python, tái dùng SkillMatcher]
-    ├─ với mỗi required_skill (OR-group aware):
-    │     matched / matched_implied           → skill_details
-    │     missing & weight ≥ 3                → missing_must_have
-    │     missing & weight < 3                → missing_preferred
-    ├─ preferred_skills: phân tích để HIỂN THỊ, không tính điểm
-    ├─ bonus_skills: skill CV có mà JD không đòi (so trên dạng canonical,
-    │     tối đa 8) — "React" không bị coi là bonus khi JD đòi "React.js"
+_analyze_skills(cv, jd)          [Python, tái dùng SkillMatcher.evaluate_tiers]
+    ├─ với MỖI skill của cả 3 tier (required OR-group aware):
+    │     matched / matched_implied                  → skill_details
+    │     missing & tier=required & weight ≥ 3       → missing_must_have
+    │     missing & tier=preferred, HOẶC
+    │             tier=required & weight < 3         → missing_preferred
+    │     missing & tier=nice_to_have                → missing_nice_to_have
+    ├─ bonus_skills: skill CV có mà JD không đòi ở BẤT KỲ tier nào (so trên
+    │     dạng canonical, tối đa 8) — "React" không bị coi là bonus khi JD
+    │     đòi "React.js"
     └─ skill_match_rate = matched_weight / total_weight × 100
+          ← CÙNG evaluate_tiers với scorer.score_skills, nên tỷ lệ hiển thị
+            cho HR luôn khớp đúng điểm D2 dùng để xếp hạng
 
 _analyze_experience(cv, jd)      [Python]
     not_required   : JD không yêu cầu
@@ -694,6 +729,26 @@ $$D_2 = \frac{\sum_{i=1}^{|S_{JD}|} w_i \cdot m_i}{\sum_{i=1}^{|S_{JD}|} w_i}, \
 
 **Chấm nhị phân** — mỗi requirement hoặc thỏa (full trọng số) hoặc thiếu (0).
 Không có partial credit.
+
+$S_{JD}$ là **hợp của cả 3 tier** skill mà JD nêu, với $w_i$ quy đổi theo tier:
+
+$$
+w_i =
+\begin{cases}
+\text{req.weight} \in \{1,2,3\} & \text{skill} \in \texttt{required\_skills} \\
+2 & \text{skill} \in \texttt{preferred\_skills} \\
+1 & \text{skill} \in \texttt{nice\_to\_have\_skills}
+\end{cases}
+$$
+
+Ý nghĩa của thiết kế này: **thứ bậc ưu tiên của nhà tuyển dụng được mã hóa thành
+trọng số**, thay vì thành ranh giới cứng "tính điểm / không tính điểm". Thiếu một
+skill `nice_to_have` vẫn kéo D2 xuống, nhưng chỉ bằng $1/3$ so với thiếu một
+must-have. $S_{JD} = \varnothing$ (JD trống ở cả 3 tier) → $D_2 = 1.0$.
+
+`required_skills` là tier duy nhất có OR-group và weight riêng từng skill; hai
+tier còn lại là list string phẳng nên dùng hằng số trọng số cho cả tier
+(`PREFERRED_SKILL_WEIGHT = 2`, `NICE_TO_HAVE_SKILL_WEIGHT = 1`).
 
 $m_i$ được xác định bởi cascade, requirement dừng ở **tầng sớm nhất** thỏa nó:
 
@@ -771,7 +826,7 @@ $$R^+ = R \cup \{(x, z) \mid \exists y: (x,y) \in R^+ \land (y,z) \in R^+\}$$
 
 Cài đặt bằng **lặp tới điểm bất động**: toán tử mở rộng là **đơn điệu** trên
 dàn hữu hạn các tập con → hội tụ sau hữu hạn bước (định lý điểm bất động
-Kleene). Với đồ thị thưa 864 đỉnh / 1.358 cạnh, cách này rẻ hơn Floyd–Warshall
+Kleene). Với đồ thị thưa 1.504 đỉnh / 1.707 cạnh, cách này rẻ hơn Floyd–Warshall
 $O(V^3)$.
 
 **Đánh đổi không gian ↔ thời gian:** closure được **vật chất hóa offline** và
@@ -891,8 +946,13 @@ cùng chiều (càng cao càng tốt), và **độc lập ưu tiên** — chính
 
 $$\text{skill\_match\_rate} = \frac{\sum_i w_i \cdot m_i}{\sum_i w_i} \times 100$$
 
-Cùng công thức với D2 nhưng ở dạng phần trăm, dùng cho **hiển thị và narrative**.
-Không tham gia `final_score` (D2 đã tham gia rồi).
+Cùng công thức **và cùng nguồn dữ liệu** với D2 (`SkillMatcher.evaluate_tiers`),
+chỉ khác ở dạng phần trăm — dùng cho **hiển thị và narrative**. Không tham gia
+`final_score` (D2 đã tham gia rồi).
+
+Vì hai bên gọi chung một hàm nên luôn có $\text{skill\_match\_rate} = 100 \cdot D_2$
+— không thể xảy ra tình trạng UI báo "khớp 85%" trong khi điểm `skills` dùng để
+xếp hạng lại là một con số khác.
 
 ---
 
@@ -957,7 +1017,7 @@ thuật.
 | Điểm yếu | Bản chất | Hướng xử lý |
 | --- | --- | --- |
 | `angular` / `angularjs` khớp nhầm ở Layer 3 (ratio 0.875) | Đánh đổi precision–recall của ngưỡng cứng | Chặn Layer 3 khi cả hai phía đều resolve ra canonical hợp lệ nhưng khác nhau |
-| 864 quy tắc implies viết tay | Knowledge acquisition bottleneck — có soundness, không có completeness | Bootstrap từ co-occurrence tag trên Stack Overflow |
+| 1.504 quy tắc implies viết tay | Knowledge acquisition bottleneck — có soundness, không có completeness | Bootstrap từ co-occurrence tag trên Stack Overflow |
 | Embedding đối xứng cho bài toán bất đối xứng (CV dài ↔ JD ngắn) | Model kiểu STS không tối ưu cho retrieval | Dùng `task_type` `RETRIEVAL_DOCUMENT` / `RETRIEVAL_QUERY` của API Gemini |
 | Thang thứ tự dùng như thang tỉ lệ ($L$, $w$) | Giả định đơn giản hóa về đo lường | Nêu rõ giả định; nếu cần chặt hơn thì rút trọng số bằng AHP |
 | Heuristic 2 cột dùng ngưỡng cứng 45%/55% | Không xử lý được layout 3 cột / bất đối xứng | Model layout detection có huấn luyện (hướng của PubLayNet) |
@@ -970,7 +1030,7 @@ thuật.
 
 ### 6.1 Bộ test hiện có
 
-**189 test, không cần LLM và không cần mạng** — assert trên dữ liệu tĩnh
+**194 test, không cần LLM và không cần mạng** — assert trên dữ liệu tĩnh
 `skill_data.json` + `skill_implies.json`:
 
 | File | Số test | Phạm vi |
@@ -978,9 +1038,9 @@ thuật.
 | `tests/test_d2_skills.py` | 103 | D2 end-to-end, nhóm A–L (xem dưới) |
 | `tests/test_skill_matcher.py` | 45 | Từng tầng của cascade, chuẩn hóa format, proficiency |
 | `tests/test_scorer.py` | 34 | D1–D5 riêng lẻ + `calculate_score` tổng hợp |
-| `tests/test_evaluator.py` | 4 | Phân loại skill, verdict experience/education |
-| `tests/test_parser.py` | 3 | Pydantic validation, tính months |
-| **Tổng** | **189** | Chạy trong ~1s, hoàn toàn offline |
+| `tests/test_evaluator.py` | 6 | Phân loại skill theo 3 tier, verdict experience/education |
+| `tests/test_parser.py` | 6 | Pydantic validation, tính months, coerce 3 tier skill |
+| **Tổng** | **194** | Chạy trong ~1s, hoàn toàn offline |
 
 **Phân nhóm `test_d2_skills.py`:**
 
@@ -994,7 +1054,7 @@ thuật.
 | F | OR-group — thỏa bởi primary hoặc alternative; nhãn hiển thị |
 | G | Ưu tiên tầng — layer0 > layer1 > layer2; `matched_via` trỏ đúng skill CV |
 | H | Scoring — full match, weighted partial, nhị phân (chỉ 0 hoặc 1), ảnh hưởng của weight |
-| I | Evaluator — phân loại status, preferred không tính điểm |
+| I | Evaluator — phân loại status theo tier, preferred kéo `skill_match_rate` xuống, bonus loại trừ skill JD đã đòi |
 | J | Nhóm QA/testing — entailment và synonym riêng của domain |
 | K | Biên — CV rỗng, tên skill rỗng, trùng lặp, ký tự đặc biệt, matcher stateless |
 | L | **Bất biến dữ liệu** — implies đã đóng bắc cầu, key/value đều canonical; + hồ sơ composite thực tế |
@@ -1004,7 +1064,7 @@ test trên chính dữ liệu tri thức**, không phải test logic. Nó bảo 
 ai đó sửa `skill_implies.json` bằng tay mà quên chạy `close_implies.py` thì CI
 sẽ **fail ngay**, thay vì để hệ thống âm thầm bỏ sót suy luận bắc cầu.
 
-> **⚠️ Trạng thái hiện tại: 187 pass / 2 fail.** Cả 2 test fail đều là **test
+> **⚠️ Trạng thái hiện tại: 192 pass / 2 fail.** Cả 2 test fail đều là **test
 > cũ chưa cập nhật**, không phải lỗi code — chúng được viết ở giai đoạn thiết
 > kế 3 tầng (chưa có Layer 3 fuzzy) và mâu thuẫn với hành vi hiện tại:
 >
@@ -1062,10 +1122,11 @@ Trong `/ai/score`, phần chấm điểm và phần evaluator chạy **song song
 ✅ LLM parsing đa provider + retry theo tính đầy đủ + JSON repair
 ✅ Embedding 3072 chiều, text embed có chọn lọc (loại skills)
 ✅ Scoring 5 chiều + trọng số HR chỉnh được per-job
-✅ D2 cascade 4 tầng + tầng proficiency + dữ liệu tri thức 8.757/864
+✅ D2 cascade 4 tầng + tầng proficiency + dữ liệu tri thức 9.524/1.504
+✅ D2 tính trên **cả 3 tier** skill (required / preferred / nice_to_have)
 ✅ D5 geocode parse-time + routing score-time
 ✅ Evaluation định tính + narrative tiếng Việt
-✅ 189 test không phụ thuộc mạng (187 pass / 2 test cũ cần cập nhật — xem 6.1)
+✅ 194 test không phụ thuộc mạng (192 pass / 2 test cũ cần cập nhật — xem 6.1)
 
 ### 7.2 Chưa cài đặt (từng có trong thiết kế)
 
@@ -1087,6 +1148,7 @@ Trong `/ai/score`, phần chấm điểm và phần evaluator chạy **song song
 | D5 Keywords (string match trên raw text) | D5 Location + Work Mode | Keyword trùng tín hiệu với D1/D2 |
 | Haversine fallback cho D5 | Điểm trung lập 0.5 | Đường chim bay không phản ánh giao thông đô thị |
 | Upload multipart cho `/parse-cv` | Nhận URL S3/R2 | Tách lưu trữ file khỏi AI service; hỗ trợ batch |
+| `preferred_skills` chỉ để hiển thị (không tính điểm) | Tính vào D2 với trọng số 2 (và `nice_to_have` = 1) | Ranh giới cứng "tính / không tính" làm mất thông tin thứ bậc mà nhà tuyển dụng đã nêu rõ; trọng số biểu diễn đúng hơn |
 
 ---
 
@@ -1157,4 +1219,4 @@ CHƯƠNG 6 — Kết luận & Hướng phát triển
 
 ---
 
-*Tài liệu đối chiếu trực tiếp với source code `app/` — cập nhật 2026-07-27*
+*Tài liệu đối chiếu trực tiếp với source code `app/` — cập nhật 2026-07-31*
