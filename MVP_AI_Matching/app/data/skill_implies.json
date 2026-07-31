@@ -3544,7 +3544,8 @@
     "python"
   ],
   "crewai": [
-    "python"
+    "python",
+    "artificial-intelligence"
   ],
   "dask": [
     "python"
@@ -3568,7 +3569,8 @@
   ],
   "fastmcp": [
     "python",
-    "mcp"
+    "mcp",
+    "artificial-intelligence"
   ],
   "flash-attn": [
     "python",
@@ -3619,7 +3621,8 @@
     "python"
   ],
   "llama-index": [
-    "python"
+    "python",
+    "artificial-intelligence"
   ],
   "mlflow": [
     "python"
@@ -3997,5 +4000,300 @@
     "robot-framework",
     "automation-testing",
     "python"
+  ],
+  "pinecone": [
+    "vector-database",
+    "database"
+  ],
+  "qdrant": [
+    "vector-database",
+    "database"
+  ],
+  "milvus": [
+    "vector-database",
+    "database"
+  ],
+  "weaviate": [
+    "vector-database",
+    "database"
+  ],
+  "vector-database": [
+    "database"
+  ],
+  "autogen": [
+    "python",
+    "artificial-intelligence"
+  ],
+  "semantic-kernel": [
+    "artificial-intelligence"
+  ],
+  "rag": [
+    "artificial-intelligence"
+  ],
+  "agentic-ai": [
+    "artificial-intelligence"
+  ],
+  "prompt-engineering": [
+    "artificial-intelligence"
+  ],
+  "fine-tuning": [
+    "machine-learning"
+  ],
+  "deepseek": [
+    "artificial-intelligence"
+  ],
+  "claude-api": [
+    "artificial-intelligence"
+  ],
+  "gemini-api": [
+    "artificial-intelligence"
+  ],
+  "triton-inference-server": [
+    "machine-learning",
+    "devops"
+  ],
+  "tensorrt-llm": [
+    "machine-learning"
+  ],
+  "open-webui": [
+    "artificial-intelligence"
+  ],
+  "ollama": [
+    "artificial-intelligence"
+  ],
+  "mcp": [
+    "artificial-intelligence"
+  ],
+  "langchain": [
+    "python",
+    "artificial-intelligence"
+  ],
+  "astro": [
+    "javascript",
+    "html",
+    "css"
+  ],
+  "remix": [
+    "reactjs",
+    "javascript"
+  ],
+  "shadcn-ui": [
+    "reactjs",
+    "css",
+    "javascript"
+  ],
+  "zustand": [
+    "reactjs",
+    "javascript"
+  ],
+  "tanstack-query": [
+    "javascript"
+  ],
+  "pinia": [
+    "vue.js",
+    "javascript"
+  ],
+  "htmx": [
+    "javascript",
+    "html"
+  ],
+  "daisyui": [
+    "css"
+  ],
+  "mantine": [
+    "reactjs",
+    "javascript"
+  ],
+  "hono": [
+    "javascript"
+  ],
+  "t3-stack": [
+    "typescript",
+    "reactjs",
+    "javascript"
+  ],
+  "gin": [
+    "go"
+  ],
+  "fiber": [
+    "go"
+  ],
+  "actix-web": [
+    "rust"
+  ],
+  "axum": [
+    "rust"
+  ],
+  "surrealdb": [
+    "database"
+  ],
+  "trpc": [
+    "typescript",
+    "javascript"
+  ],
+  "pulumi": [
+    "devops",
+    "cloud"
+  ],
+  "k3s": [
+    "kubernetes",
+    "docker"
+  ],
+  "crossplane": [
+    "kubernetes",
+    "cloud",
+    "docker"
+  ],
+  "envoy": [
+    "devops"
+  ],
+  "vector-log": [
+    "devops"
+  ],
+  "jaeger": [
+    "devops"
+  ],
+  "checkov": [
+    "security",
+    "devops"
+  ],
+  "terragrunt": [
+    "terraform",
+    "devops",
+    "infrastructure-as-code"
+  ],
+  "site-reliability-engineering": [
+    "devops"
+  ],
+  "cloud-architecture": [
+    "cloud"
+  ],
+  "metasploit": [
+    "security"
+  ],
+  "nmap": [
+    "security"
+  ],
+  "siem": [
+    "security"
+  ],
+  "wazuh": [
+    "siem",
+    "security"
+  ],
+  "kali-linux": [
+    "linux",
+    "security"
+  ],
+  "ghidra": [
+    "security"
+  ],
+  "suricata": [
+    "security"
+  ],
+  "snort": [
+    "security"
+  ],
+  "mitre-attack": [
+    "security"
+  ],
+  "zero-trust": [
+    "security"
+  ],
+  "cissp": [
+    "security"
+  ],
+  "ceh": [
+    "security"
+  ],
+  "oscp": [
+    "security"
+  ],
+  "owasp-top-10": [
+    "security"
+  ],
+  "soc-analysis": [
+    "security"
+  ],
+  "dagster": [
+    "python"
+  ],
+  "prefect": [
+    "python"
+  ],
+  "trino": [
+    "sql"
+  ],
+  "starrocks": [
+    "database",
+    "sql"
+  ],
+  "iceberg": [
+    "database"
+  ],
+  "apache-hudi": [
+    "database"
+  ],
+  "vitest": [
+    "testing",
+    "javascript"
+  ],
+  "wiremock": [
+    "testing"
+  ],
+  "allure-report": [
+    "testing"
+  ],
+  "tauri": [
+    "rust",
+    "javascript"
+  ],
+  "zig": [
+    "c"
+  ],
+  "zephyr": [
+    "c"
+  ],
+  "systemverilog": [
+    "c++"
+  ],
+  "ebpf": [
+    "linux"
+  ],
+  "embedded-c": [
+    "c"
+  ],
+  "unreal-engine": [
+    "c++"
+  ],
+  "wgpu": [
+    "c++"
+  ],
+  "metal-api": [
+    "c++"
+  ],
+  "ethers.js": [
+    "javascript",
+    "blockchain"
+  ],
+  "web3.js": [
+    "javascript",
+    "blockchain"
+  ],
+  "hardhat": [
+    "blockchain"
+  ],
+  "foundry": [
+    "blockchain"
+  ],
+  "move-lang": [
+    "blockchain"
+  ],
+  "anchor-framework": [
+    "rust",
+    "blockchain"
+  ],
+  "smart-contracts": [
+    "blockchain"
   ]
 }
