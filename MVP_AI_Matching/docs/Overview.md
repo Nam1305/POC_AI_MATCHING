@@ -2,7 +2,7 @@
 
 > Tài liệu này mô tả **đúng những gì đang có trong code** (`app/`). Mọi công
 > thức, tên model, tên endpoint đều đối chiếu trực tiếp với source.
-> Cập nhật: 2026-07-31
+> Cập nhật: 2026-08-02
 
 ---
 
@@ -207,6 +207,8 @@ D1, không phải lỗi.
     │                   │                        → clean_text()
     │                   │                        Stage 2: LLM Extraction
     │                   │                        gemini-2.5-flash → parsed_cv JSON
+    │                   │                        (kèm is_resume: true/false)
+    │                   │                        → is_resume=false? bỏ qua retry, trả sớm
     │                   │                        → completeness check → retry nếu thiếu
     │                   │                        Geocode: Nominatim(raw_address)
     │                   │                        → candidate_location.{lat,lng}
@@ -361,6 +363,9 @@ với `weights` mới.
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
 │  [STAGE 5 — Qualitative Evaluation]  evaluator.py                │
+│  ├─ _is_valid_cv()         Python — is_resume + emptiness check  │
+│  │    false nếu is_resume=false, HOẶC name/skills/work_experience/│
+│  │    education/projects đều rỗng (tài liệu không phải CV thật)  │
 │  ├─ _analyze_skills()      Python — tái dùng SkillMatcher        │
 │  │    → skill_details[], missing_must_have[], missing_preferred[],│
 │  │      missing_nice_to_have[], bonus_skills[], skill_match_rate  │
@@ -370,8 +375,12 @@ với `weights` mới.
 │  ├─ _analyze_education()   Python — verdict 4 mức                │
 │  │    not_required | exceeds | meets | below                     │
 │  └─ _llm_narrative()       LLM 1 call — đoạn văn tiếng Việt      │
-│       Mọi CON SỐ do Python tính trước; LLM chỉ "viết văn"        │
-│       KHÔNG có recommendation (interview/reject) — HR tự quyết   │
+│       CHỈ gọi khi is_valid_cv=true. Mọi CON SỐ do Python tính     │
+│       trước; LLM chỉ "viết văn". KHÔNG có recommendation          │
+│       (interview/reject) — HR tự quyết.                          │
+│       is_valid_cv=false → bỏ qua LLM, trả thông báo cố định       │
+│       ("tài liệu không phải CV") — tránh bịa đánh giá từ dữ liệu  │
+│       rỗng/placeholder                                            │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -617,6 +626,7 @@ Response: {
       "url": "https://s3.amazonaws.com/bucket/cv.pdf",
       "cv_raw_text": "string",
       "parsed_cv": {
+        "is_resume": true,
         "name": "Nguyen Van A",
         "summary": "Backend developer with 3 years ...",
         "skills": ["Python", "FastAPI", "Docker"],
@@ -656,6 +666,14 @@ Response: {
   ±1–2 tháng).
 - `willing_to_relocate` = `true` **chỉ khi** CV nói rõ; không bao giờ suy diễn.
 - Lỗi ở 1 URL chỉ set `error` cho phần tử đó; các URL còn lại vẫn trả kết quả.
+- `is_resume` do LLM tự đánh giá **ngay trong cùng lần gọi trích xuất**
+  (không tốn thêm LLM call): `false` khi tài liệu không phải CV/hồ sơ ứng
+  viên (research paper, hóa đơn, hợp đồng...). Khi `false`: bỏ qua các bước
+  retry work_experience/skills, bỏ qua luôn bước embed, và trả về
+  `error: "Tài liệu tải lên không phải là CV/hồ sơ ứng viên hợp lệ"` (kèm
+  `parsed_cv`/`cv_raw_text` vẫn có để debug, `cv_embedding = null`). Field
+  mặc định `true` để tương thích ngược với `ParsedCV` đã lưu trước khi field
+  này tồn tại.
 
 ### POST /ai/score
 
@@ -692,6 +710,7 @@ Response: {
     "experience_verdict": "sufficient",
     "experience_detail": "CV có 3.2 năm, JD yêu cầu 2 năm ✓",
     "education_verdict": "meets",
+    "is_valid_cv": true,
     "narrative": ""
   }
 }
@@ -720,6 +739,7 @@ Response: {          ← cùng shape với khối "evaluation" ở trên
   "experience_verdict": "sufficient",
   "experience_detail": "CV có 3.2 năm, JD yêu cầu 2 năm ✓",
   "education_verdict": "meets",
+  "is_valid_cv": true,
   "narrative": "Ứng viên có nền tảng backend vững với 3.2 năm kinh nghiệm ..."
 }
 ```
@@ -737,6 +757,14 @@ Response: {          ← cùng shape với khối "evaluation" ở trên
 - **Không có trường `recommendation`** (interview/reject). Narrative chỉ mô tả;
   quyết định do HR đưa ra dựa trên `final_score`, tránh mâu thuẫn giữa nhãn của
   LLM và điểm số của hệ thống.
+- `is_valid_cv`: `false` khi `parsed_cv.is_resume=false`, hoặc khi `ParsedCV`
+  hoàn toàn rỗng (không name/skills/work_experience/education/projects — ví
+  dụ `ParsedCV` cũ được parse trước khi có field `is_resume`). Khi `false`,
+  **LLM narrative KHÔNG được gọi** — `narrative` là 1 thông báo cố định
+  ("Không thể tạo đánh giá: tài liệu tải lên dường như không phải là CV/hồ
+  sơ ứng viên...") thay vì để LLM bịa một đoạn đánh giá "chuyên nghiệp" xung
+  quanh dữ liệu placeholder rỗng. FE/HR nên hiển thị cảnh báo riêng cho case
+  này thay vì render `narrative` như một nhận xét HR bình thường.
 - Mọi con số trong narrative (tỷ lệ khớp, số năm) đều do **Python tính trước**
   rồi đưa vào prompt — LLM không tự suy luận số liệu.
 
@@ -755,6 +783,7 @@ Response: {          ← cùng shape với khối "evaluation" ở trên
 | LLM trả JSON hỏng | strip trailing comma → `json_repair` → raise nếu vẫn hỏng |
 | CV parse thiếu skills/work_exp | retry prompt tập trung (song song) |
 | 1 URL trong batch lỗi | chỉ phần tử đó có `error`, batch vẫn thành công |
+| Tài liệu không phải CV (`is_resume=false`) | `/parse-cv`: bỏ qua retry + embed, trả `error` rõ ràng. `/score`, `/evaluate`: `is_valid_cv=false`, bỏ qua LLM narrative, trả thông báo cố định |
 
 Nguyên tắc xuyên suốt: **thiếu dữ liệu → điểm trung lập 0.5, không phạt** —
 ứng viên không bị trừ điểm vì hệ thống không trích xuất được thông tin.
@@ -814,12 +843,12 @@ MVP_AI_Matching/
 │       ├── add_ai_python_skills.py          # (offline) bổ sung AI/Python ecosystem
 │       └── add_devops_support_qa_skills.py  # (offline) bổ sung DevOps/IT support/QA
 │
-├── tests/                       # 194 test, không cần LLM/network (~1s)
+├── tests/                       # 200 test, không cần LLM/network (~1s)
 │   ├── test_d2_skills.py        # 103 test — D2 end-to-end (nhóm A–L)
 │   ├── test_skill_matcher.py    # 45 test — từng tầng của cascade
 │   ├── test_scorer.py           # 34 test — D1–D5 + aggregate
-│   ├── test_evaluator.py        # 6 test
-│   └── test_parser.py           # 6 test
+│   ├── test_evaluator.py        # 10 test — skill tier + is_valid_cv/narrative guard
+│   └── test_parser.py           # 8 test — bao gồm is_resume default + retry-skip
 │
 ├── docs/
 ├── quick_test.py                # smoke test CLI với server đang chạy
@@ -830,11 +859,11 @@ MVP_AI_Matching/
 └── run.sh                       # helper start/stop uvicorn local
 ```
 
-> **Trạng thái test hiện tại: 192 pass / 2 fail.** Cả 2 test fail đều là **test
+> **Trạng thái test hiện tại: 198 pass / 2 fail.** Cả 2 test fail đều là **test
 > cũ chưa cập nhật** theo việc Layer 3 fuzzy được thêm lại
 > (`test_scorer.py::test_score_skills_typo_no_longer_fuzzy_matched` và
 > `test_d2_skills.py::test_J9_ui_ux_compound_term` — XPASS strict), không phải
-> lỗi code.
+> lỗi code — không liên quan tới `is_resume`/`is_valid_cv`.
 
 ## Dependencies
 

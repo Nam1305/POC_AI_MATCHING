@@ -214,10 +214,26 @@ async def _process_one(url: str, client: httpx.AsyncClient) -> ParseCVResult:
 
     try:
         parsed = await parse_cv_text(raw_text)
+    except Exception as e:
+        logging.exception(f"Parse failed for {url}")
+        return ParseCVResult(url=url, error=f"Parse/embed failed: {e}")
+
+    if not parsed.is_resume:
+        # Not a CV at all (e.g. a research paper) — no point embedding it,
+        # and downstream /score, /evaluate should not treat this as a
+        # real candidate profile.
+        return ParseCVResult(
+            url=url,
+            cv_raw_text=raw_text,
+            parsed_cv=parsed,
+            error="Tài liệu tải lên không phải là CV/hồ sơ ứng viên hợp lệ",
+        )
+
+    try:
         cv_embedding = await embed(parsed.build_embed_text())
     except Exception as e:
-        logging.exception(f"Parse/embed failed for {url}")
-        return ParseCVResult(url=url, error=f"Parse/embed failed: {e}")
+        logging.exception(f"Embed failed for {url}")
+        return ParseCVResult(url=url, cv_raw_text=raw_text, parsed_cv=parsed, error=f"Parse/embed failed: {e}")
 
     return ParseCVResult(
         url=url,

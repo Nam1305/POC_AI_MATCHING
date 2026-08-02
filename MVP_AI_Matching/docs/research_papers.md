@@ -2,7 +2,7 @@
 
 > Tổng hợp cơ sở lý thuyết cho từng thành phần **đang có trong code**
 > (`app/services/`). Mọi mục "Validate component" đều trỏ tới file/hàm cụ thể.
-> Cập nhật: 2026-07-31
+> Cập nhật: 2026-08-02
 
 **Ký hiệu nguồn:**
 `✅` link đã xác minh · `📖` sách/bài báo kinh điển (tra thư viện, không có
@@ -210,13 +210,20 @@ arXiv) · `🌐` tài nguyên/tiêu chuẩn trực tuyến
 - **Link:** https://arxiv.org/html/2511.02537v1
 - **Phương pháp:** PDF → LLM parse → structured JSON → matching, **explainable**.
 - **Validate component:** Toàn bộ pipeline `parse-cv` → `score` → `evaluate`.
+  Bao gồm cả guard `is_resume` (`parser.py`) / `_is_valid_cv` (`evaluator.py`):
+  khi tài liệu tải lên không phải CV (vd. research paper), hệ thống từ chối
+  sinh narrative bằng LLM thay vì "diễn giải" một đánh giá không có cơ sở
+  quanh dữ liệu rỗng — hệ quả trực tiếp của yêu cầu explainability/tránh
+  hallucination trong pipeline tuyển dụng.
 
 ### [20] Augmented Fine-Tuned LLMs for Enhanced Recruitment Automation
 - **Nguồn:** ✅ arXiv, 2024
 - **Link:** https://arxiv.org/html/2509.06196v1
 - **Phương pháp:** Standardized JSON schema cho consistency & scalability.
 - **Validate component:** `schemas.py` — thiết kế `ParsedCV`/`ParsedJD` + validator
-  chuẩn hóa (`_normalize_degree`, `_coerce_exp`, `_filter_empty_entries`).
+  chuẩn hóa (`_normalize_degree`, `_coerce_exp`, `_filter_empty_entries`), kèm
+  field `is_resume` (LLM tự gán ngay trong JSON output) cho phép downstream
+  phân biệt "CV thật nhưng rỗng" với "tài liệu không phải CV".
 
 ---
 

@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 
 from app.schemas import ParsedCV, ParsedJD, RequiredSkill
-from app.services.evaluator import _analyze_skills
+from app.services import evaluator
+from app.services.evaluator import _analyze_skills, _is_valid_cv, evaluate_cv_for_job
 
 
 def test_analyze_skills_implied_match_status():
@@ -99,3 +100,57 @@ def test_analyze_skills_bonus_excludes_nice_to_have():
     )
     result = _analyze_skills(cv, jd)
     assert "Agile" not in result["bonus_skills"]
+
+
+# ---------------------------------------------------------------------------
+# _is_valid_cv / narrative short-circuit for non-CV documents
+#
+# Regression coverage for: uploading a non-CV PDF (e.g. a research paper)
+# must not produce a fabricated HR narrative built around empty placeholder
+# data ("Ứng viên", "Chưa xác định", 0.0 years).
+# ---------------------------------------------------------------------------
+
+def test_is_valid_cv_false_when_llm_flags_not_a_resume():
+    # LLM explicitly determined the document isn't a CV — even if it
+    # happens to contain a stray recognizable skill word.
+    cv = ParsedCV(is_resume=False, skills=["python"])
+    assert _is_valid_cv(cv) is False
+
+
+def test_is_valid_cv_false_when_completely_empty():
+    # Legacy ParsedCV records predate `is_resume` (defaults to True) — the
+    # emptiness heuristic is the fallback signal for those.
+    cv = ParsedCV(is_resume=True)
+    assert _is_valid_cv(cv) is False
+
+
+def test_is_valid_cv_true_for_real_fresher_with_zero_experience():
+    # A genuine fresher CV has no work_experience, but does have a name
+    # and/or education — must not be misclassified as "not a CV".
+    from app.schemas import Education
+
+    cv = ParsedCV(name="Nguyen Van A", education=[Education(institution="HUST", degree_raw="Bachelor")])
+    assert _is_valid_cv(cv) is True
+
+
+@pytest.mark.asyncio
+async def test_evaluate_cv_for_job_skips_llm_narrative_for_non_cv(monkeypatch):
+    # When the document isn't a CV, evaluate_cv_for_job must not call the
+    # LLM narrative prompt at all — it should return a plain notice instead
+    # of fabricating a professional assessment around placeholder data.
+    async def _fail_if_called(*args, **kwargs):
+        raise AssertionError("LLM narrative must not be called for a non-CV document")
+
+    monkeypatch.setattr(evaluator, "call_llm_text", _fail_if_called)
+
+    cv = ParsedCV(is_resume=False)
+    jd = ParsedJD(
+        title=".NET Developer",
+        required_skills=[RequiredSkill(skill=".NET", weight=3)],
+        min_experience_years=2,
+    )
+
+    result = await evaluate_cv_for_job(cv, jd, include_narrative=True)
+
+    assert result.is_valid_cv is False
+    assert result.narrative == evaluator._NOT_A_CV_NOTICE

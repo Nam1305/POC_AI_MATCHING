@@ -25,6 +25,37 @@ _matcher = _skill_matcher
 
 
 # ---------------------------------------------------------------------------
+# Step 0 — Validity check (is this even a CV?)
+# ---------------------------------------------------------------------------
+
+_NOT_A_CV_NOTICE = (
+    "Không thể tạo đánh giá: tài liệu tải lên dường như không phải là CV/hồ sơ "
+    "ứng viên, hoặc không chứa đủ thông tin (kỹ năng, kinh nghiệm, học vấn) để "
+    "phân tích. Vui lòng kiểm tra lại tệp đã tải lên."
+)
+
+
+def _is_valid_cv(cv: ParsedCV) -> bool:
+    """
+    True if `cv` carries enough real signal to write an HR narrative about.
+
+    Primary signal is `cv.is_resume`, set by the LLM at parse time (see
+    parser.CV_EXTRACT_PROMPT). Falls back to an emptiness heuristic — no
+    name AND no skills AND no work_experience AND no education AND no
+    projects — for ParsedCV records parsed before that field existed
+    (defaults to True) and as a second line of defense if the LLM flag is
+    wrong. A genuine fresher CV still has a name and/or education, so this
+    heuristic doesn't misfire on real 0-experience candidates.
+    """
+    if not cv.is_resume:
+        return False
+    has_any_signal = (
+        cv.name or cv.skills or cv.work_experience or cv.education or cv.projects
+    )
+    return bool(has_any_signal)
+
+
+# ---------------------------------------------------------------------------
 # Step 1 — Skill analysis
 # ---------------------------------------------------------------------------
 
@@ -178,12 +209,19 @@ def _analyze_education(cv: ParsedCV, jd: ParsedJD) -> str:
 # (tỷ lệ khớp skill, số năm kinh nghiệm...) đều do Python tính trước, LLM
 # không tự suy luận số liệu và không tự đưa ra kết luận phù hợp/không phù hợp
 # (không có recommendation) — HR tự đánh giá dựa trên final_score/scores.
+#
+# Bản trước ép LLM phải lần lượt "điểm danh" đủ 8 mục theo đúng thứ tự trong
+# đúng 10 câu — kết quả là văn bị công thức hoá, mọi CV đọc theo cùng một
+# khuôn "Về kỹ năng... Về kinh nghiệm... Về học vấn... Nhìn chung...". Bản
+# này thay yêu cầu liệt kê cứng bằng 1 ví dụ mẫu (few-shot) để LLM bắt đúng
+# giọng văn tổng hợp/nhận định của recruiter thật, và cho phép bỏ qua các
+# mục dữ liệu không có gì đáng nói thay vì nhồi cho đủ số câu.
 _NARRATIVE_PROMPT = """\
-Bạn là chuyên viên tuyển dụng cấp cao. Hãy viết một đoạn đánh giá ứng viên \
-bằng tiếng Việt, theo phong cách nhận xét chuyên nghiệp như người thật viết cho người thật — \
-KHÔNG dùng bullet points, KHÔNG dùng tiêu đề, chỉ viết thành đoạn văn liền mạch.
+Bạn là một chuyên viên tuyển dụng giàu kinh nghiệm, đang viết ghi chú đánh giá \
+nhanh về một ứng viên để gửi cho đồng nghiệp HR đọc. Viết bằng tiếng Việt, \
+đúng giọng một người thật viết cho người thật đọc — không phải một bài báo cáo.
 
-=== THÔNG TIN ĐẦU VÀO ===
+=== DỮ LIỆU (hệ thống đã tính sẵn — không tự suy luận số liệu khác) ===
 Vị trí tuyển dụng : {jd_title}
 Ứng viên          : {cv_name}
 Role hiện tại     : {cv_role}
@@ -197,19 +235,34 @@ Kỹ năng thêm (bonus)       : {bonus}
 Kinh nghiệm       : {exp_detail}
 Học vấn           : {edu_verdict}
 
+=== VÍ DỤ GIỌNG VĂN MONG MUỐN (chỉ tham khảo văn phong, KHÔNG copy nội dung/cấu trúc câu) ===
+"Hồng Nhung đã làm QA thủ công hơn 2 năm, chủ yếu test web app cho các dự án \
+e-commerce — khá sát mảng functional testing mà JD cần. Phần automation thì \
+gần như chưa có: hồ sơ chỉ nhắc Selenium ở mức đã dùng qua, không thấy dự án \
+cụ thể nào áp dụng, trong khi JD ưu tiên rõ automation testing. Bù lại bạn \
+này có SQL khá vững và từng viết test case cho hệ thống thanh toán, kinh \
+nghiệm domain khá quý cho vị trí này. Bằng cấp đúng chuyên ngành CNTT nên \
+không có gì phải lăn tăn ở phần đó. Nhìn chung nền tảng manual testing ổn, \
+nhưng sẽ cần đào tạo thêm đáng kể về automation nếu nhận vào."
+
 === YÊU CẦU OUTPUT ===
-Viết 1 đoạn văn khoảng 10 câu. Đoạn văn phải:
-- Mở đầu bằng tổng quan về ứng viên (background, định hướng nghề nghiệp)
-- Đánh giá chi tiết mức độ phù hợp về kỹ năng kỹ thuật (nêu cụ thể từng nhóm skill matched/missing)
-- Nhận xét về kinh nghiệm thực tế (project, work experience) so với yêu cầu JD
-- Đánh giá học vấn
-- Nêu rõ điểm mạnh nổi bật của ứng viên so với JD
-- Nêu rõ những điểm còn thiếu hoặc cần cải thiện
-- Đánh giá tiềm năng phát triển và khả năng onboard nhanh
-- Kết thúc bằng 1-2 câu tổng kết ngắn gọn mức độ phù hợp tổng thể, KHÔNG đưa ra
-  khuyến nghị hành động (phỏng vấn / loại...) — quyết định đó do HR tự đánh giá
-  dựa trên điểm số hệ thống đã tính, không phải bạn.
-- Giọng văn tự nhiên, chuyên nghiệp, khách quan như nhận xét thực của chuyên viên tuyển dụng cấp cao
+- Dài khoảng 5-8 câu — KHÔNG cố kéo dài nếu dữ liệu không có nhiều để nói, và
+  KHÔNG nhồi nhét đủ mọi mục (missing_must/pref/nice/bonus...) nếu chúng
+  không thực sự đáng chú ý; được phép bỏ qua mục nào không có gì để bàn.
+- Viết theo kiểu **tổng hợp và nhận định**, không phải liệt kê tuần tự từng
+  mục dữ liệu đúng theo thứ tự đưa vào phía trên (tránh cấu trúc máy móc
+  kiểu "Về kỹ năng... Về kinh nghiệm... Về học vấn..." — đó là giọng báo
+  cáo, không phải giọng người thật nhận xét).
+- TRÁNH các cụm mở đầu/chuyển ý sáo rỗng, công thức: "Dựa trên hồ sơ...",
+  "Nhìn chung, ứng viên thể hiện...", "Về mặt kỹ năng kỹ thuật, hồ sơ cho
+  thấy...". Đi thẳng vào nhận định cụ thể, như ví dụ mẫu ở trên.
+- Câu văn nên có độ dài khác nhau — tránh một chuỗi câu đều đều cùng một
+  khuôn cú pháp lặp lại.
+- KHÔNG dùng bullet points, KHÔNG dùng tiêu đề — chỉ 1 đoạn văn liền mạch.
+- KHÔNG đưa ra khuyến nghị hành động (phỏng vấn / loại...) — quyết định đó
+  do HR tự đánh giá dựa trên điểm số hệ thống đã tính, không phải bạn.
+- Giọng văn khách quan, chuyên nghiệp, nhưng tự nhiên như một recruiter thật
+  đang viết ghi chú nhanh — không phải AI đang tổng hợp báo cáo.
 """
 
 
@@ -244,7 +297,7 @@ async def _llm_narrative(cv: ParsedCV, jd: ParsedJD, analysis: dict) -> str:
         edu_verdict      = edu_map.get(analysis["edu_verdict"], analysis["edu_verdict"]),
     )
 
-    raw_text = await call_llm_text(prompt, temperature=0.4, max_tokens=1200)
+    raw_text = await call_llm_text(prompt, temperature=0.55, max_tokens=800)
     return raw_text.strip()
 
 
@@ -263,16 +316,24 @@ async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD, *, include_narrative: 
     skill_data   = _analyze_skills(cv, jd)
     exp_data     = _analyze_experience(cv, jd)
     edu_verdict  = _analyze_education(cv, jd)
+    is_valid_cv  = _is_valid_cv(cv)
 
     narrative = ""
     if include_narrative:
-        # Bundle all for LLM context
-        combined = {
-            **skill_data,
-            "exp_detail":      exp_data["detail"],
-            "edu_verdict":     edu_verdict,
-        }
-        narrative = await _llm_narrative(cv, jd, combined)
+        if is_valid_cv:
+            # Bundle all for LLM context
+            combined = {
+                **skill_data,
+                "exp_detail":      exp_data["detail"],
+                "edu_verdict":     edu_verdict,
+            }
+            narrative = await _llm_narrative(cv, jd, combined)
+        else:
+            # No real CV content — writing a "professional HR assessment"
+            # around placeholders would just fabricate a plausible-sounding
+            # narrative about a candidate that isn't there. Skip the LLM
+            # call entirely and say so plainly instead.
+            narrative = _NOT_A_CV_NOTICE
 
     return CVJobEvaluation(
         skill_details        = skill_data["skill_details"],
@@ -287,5 +348,6 @@ async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD, *, include_narrative: 
 
         education_verdict  = edu_verdict,
 
+        is_valid_cv        = is_valid_cv,
         narrative          = narrative,
     )

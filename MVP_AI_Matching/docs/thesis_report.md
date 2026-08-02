@@ -2,7 +2,7 @@
 
 > **Project:** AI-powered CV/JD Matching Microservice
 > **Stack:** Python FastAPI · LLM (Gemini/Claude/Groq) · pgvector · .NET Backend
-> **Cập nhật:** 2026-07-31
+> **Cập nhật:** 2026-08-02
 >
 > Tài liệu này được đối chiếu trực tiếp với source code trong `app/`. Mọi công
 > thức, hằng số, tên model đều là **giá trị đang chạy thật**, không phải thiết
@@ -88,7 +88,9 @@ FLOW 1 — UPLOAD CV
     ├─ Stage 1: pdf_extractor.extract_text()  →  cv_raw_text
     │     PyMuPDF smart layout → quality score → OCR nếu < 60
     ├─ Stage 2: parser.parse_cv()  →  ParsedCV
-    │     LLM extract → completeness check → retry nếu thiếu
+    │     LLM extract (kèm is_resume: true/false, cùng 1 call)
+    │     is_resume=false → bỏ qua completeness retry, trả sớm
+    │     Ngược lại → completeness check → retry nếu thiếu
     │     Pydantic: Python tính months, lọc entry LLM bịa
     │     Nominatim geocode(raw_address) → candidate_location.{lat,lng}
     └─ Stage 3: embedder.embed(parsed_cv.build_embed_text())
@@ -142,8 +144,10 @@ FLOW 3 — SCORE (AI Matching)
     │      final = Σ(Dᵢ × Wᵢ) × 100
     │
     └── song song ───────► evaluator.evaluate_cv_for_job()
+           _is_valid_cv  [Python — is_resume + emptiness check, chạy trước tiên]
            _analyze_skills / _analyze_experience / _analyze_education  [Python]
-           _llm_narrative  [chỉ khi include_narrative=true]
+           _llm_narrative  [chỉ khi include_narrative=true VÀ is_valid_cv=true;
+                            ngược lại narrative = thông báo cố định, không gọi LLM]
     │
     return { final_score, scores{5}, weights_used, evaluation }
     │
@@ -157,13 +161,15 @@ FLOW 4 — HR XEM NHẬN XÉT CHI TIẾT
 [HR] click 1 ứng viên
     │
 [Python AI] POST /ai/evaluate { parsed_cv, parsed_jd }
+    ├─ _is_valid_cv(parsed_cv) — is_resume=false hoặc CV rỗng toàn bộ?
     ├─ 3 phân tích Python (skills / experience / education)
-    └─ 1 LLM call → narrative tiếng Việt
+    └─ is_valid_cv=true  → 1 LLM call → narrative tiếng Việt
+       is_valid_cv=false → narrative = thông báo cố định, KHÔNG gọi LLM
     │
     return { skill_details[], missing_must_have[], missing_preferred[],
              missing_nice_to_have[], bonus_skills[], skill_match_rate,
              experience_verdict, experience_detail, education_verdict,
-             narrative }
+             is_valid_cv, narrative }
 ```
 
 ### 1.3 Vì sao tách AI service khỏi .NET
@@ -216,7 +222,8 @@ FLOW 4 — HR XEM NHẬN XÉT CHI TIẾT
 │     missing_nice_to_have[],              │
 │     bonus_skills[], skill_match_rate,    │
 │     experience_verdict, experience_detail│
-│     education_verdict, narrative }       │
+│     education_verdict, is_valid_cv,      │
+│     narrative }                          │
 │ status        VARCHAR(20)                 │
 │ scored_at     TIMESTAMPTZ                 │
 └───────────────────────────────────────────┘
@@ -352,8 +359,12 @@ LLM call — CV_EXTRACT_PROMPT (temperature=0)
     │   provider theo .env: gemini (response_format=json_object)
     │                     | anthropic (bóc code fence thủ công)
     │                     | groq (response_format=json_object)
-    │   extract: name, summary, skills[], work_experience[], education[],
-    │            projects[], certifications[], languages[], candidate_location
+    │   extract: is_resume (bool), name, summary, skills[], work_experience[],
+    │            education[], projects[], certifications[], languages[],
+    │            candidate_location
+    │   is_resume: LLM tự đánh giá "đây có phải CV/hồ sơ ứng viên không"
+    │              (false cho research paper, hóa đơn, hợp đồng...) — cùng
+    │              1 lần gọi, không tốn thêm LLM call
     │   LLM chỉ trả date STRING ("YYYY-MM"), KHÔNG được tính months
     │
     ▼
@@ -374,6 +385,10 @@ Pydantic validation (schemas.py):
     └─ _normalize_certs    : dict {name/title} → string
     │
     ▼
+is_resume == false ?
+    │ YES → bỏ qua completeness check + retry (không có gì thật để "cứu" —
+    │        tài liệu không phải CV), nhảy thẳng xuống return ParsedCV
+    │ NO  ↓
 Completeness check:
     work_experience == []  OR  skills == []  ?
          │ YES
@@ -649,6 +664,11 @@ tầng khác (đã biết chắc là không đạt).
 ### 3.6 Stage 5 — Qualitative Evaluation (`evaluator.py`)
 
 ```
+_is_valid_cv(cv)                 [Python — chạy TRƯỚC mọi phân tích khác]
+    false nếu cv.is_resume=false (LLM tự đánh giá lúc parse — Stage 2),
+    HOẶC name/skills/work_experience/education/projects đều rỗng
+    (fallback cho ParsedCV cũ, parse trước khi field is_resume tồn tại)
+
 _analyze_skills(cv, jd)          [Python, tái dùng SkillMatcher.evaluate_tiers]
     ├─ với MỖI skill của cả 3 tier (required OR-group aware):
     │     matched / matched_implied                  → skill_details
@@ -672,9 +692,9 @@ _analyze_experience(cv, jd)      [Python]
 _analyze_education(cv, jd)       [Python]
     not_required | exceeds | meets | below
 
-_llm_narrative(...)              [LLM 1 call, temperature=0.4]
-    Input: TOÀN BỘ số liệu do Python tính sẵn
-    Output: 1 đoạn ~10 câu tiếng Việt cho HR
+_llm_narrative(...)              [LLM 1 call, temperature=0.55 — CHỈ khi is_valid_cv=true]
+    Input: TOÀN BỘ số liệu do Python tính sẵn + 1 đoạn ví dụ few-shot văn phong
+    Output: 1 đoạn ~5-8 câu tiếng Việt cho HR (độ dài co giãn theo dữ liệu thực tế)
     KHÔNG bullet, KHÔNG tiêu đề, KHÔNG khuyến nghị hành động
 ```
 
@@ -688,6 +708,45 @@ chỉ **mô tả**; quyết định thuộc về HR dựa trên điểm số. Đ
 việc nó giỏi (diễn đạt tự nhiên), không làm việc nó dở (số học). Điều này loại
 bỏ hoàn toàn khả năng narrative nói "khớp 85%" trong khi `skill_match_rate`
 thực tế là 71.4%.
+
+**Vì sao có bước `_is_valid_cv` riêng trước `_llm_narrative`:** phát hiện thực
+tế — upload một PDF **không phải CV** (ví dụ một research paper) khiến
+`parse_cv()` trả về `ParsedCV` gần như rỗng một cách **đúng đắn** (LLM không
+hallucinate dữ liệu), nhưng `_NARRATIVE_PROMPT` (bản đầu tiên) khi đó vẫn yêu
+cầu LLM viết đủ 10 câu nhận xét "chuyên nghiệp như người thật viết cho người
+thật" quanh toàn placeholder (`"Ứng viên"`, `"Chưa xác định"`, 0.0 năm kinh
+nghiệm) — LLM tuân
+thủ hướng dẫn output nên tạo ra một đoạn văn trôi chảy nhưng vô nghĩa, đọc rất
+"không tự nhiên" vì đang mô tả một ứng viên không hề tồn tại. `_is_valid_cv`
+chặn trước khi gọi LLM: `false` khi `cv.is_resume=false` (tín hiệu do chính
+LLM trả về **trong cùng lần gọi trích xuất** ở Stage 2, không tốn thêm LLM
+call — xem `parser.CV_EXTRACT_PROMPT`), hoặc khi mọi trường nội dung
+(`name`/`skills`/`work_experience`/`education`/`projects`) đều rỗng — điều
+kiện "rỗng toàn bộ" cố ý tránh nhầm với một CV fresher thật (fresher thật vẫn
+có tên và/hoặc học vấn, chỉ thiếu `work_experience`). Khi không hợp lệ,
+`narrative` là một thông báo cố định thay vì gọi LLM — vừa tránh đánh giá bịa
+đặt, vừa tiết kiệm 1 LLM call cho case này.
+
+**Vì sao `_NARRATIVE_PROMPT` được viết lại (không chỉ riêng case không phải
+CV):** ngay cả với một CV hợp lệ, bản prompt đầu tiên vẫn cho ra văn phong
+gượng — nguyên nhân là nó ép LLM phải "điểm danh" đủ 8 mục nội dung theo
+đúng thứ tự cố định, trong một khối lượng cố định (10 câu), không kèm ví dụ
+minh hoạ cho "giọng văn tự nhiên" mà chỉ mô tả bằng tính từ trừu tượng. Kết
+quả: câu văn rơi vào khuôn mẫu liệt kê tuần tự ("Về kỹ năng kỹ thuật... Về
+kinh nghiệm... Về học vấn...") và luôn mở đầu bằng cụm sáo rỗng ("Dựa trên
+hồ sơ...", "Nhìn chung, ứng viên..."), đọc như một bài luận được lấp đầy
+theo khuôn, không giống ghi chú của một recruiter thật. Bản sửa (temperature
+0.4 → 0.55, max_tokens 1200 → 800) thay đổi 3 điểm: (1) thêm **1 đoạn ví dụ
+few-shot** minh hoạ đúng giọng văn mong muốn — đòn bẩy hiệu quả nhất để LLM
+bắt đúng phong cách, hiệu quả hơn nhiều so với mô tả bằng tính từ; (2) nới độ
+dài từ "đúng 10 câu" xuống "khoảng 5-8 câu, không cố nhồi cho đủ" và cho phép
+bỏ qua mục dữ liệu không có gì đáng nói, thay vì buộc đề cập đủ mọi mục kể cả
+khi không quan trọng; (3) liệt kê tường minh các cụm mở đầu cần tránh. Đây là
+một ví dụ cho luận điểm rộng hơn của prompt engineering: **few-shot cụ thể
+kiểm soát văn phong tốt hơn instruction trừu tượng**, và **ép cấu trúc cứng
+trên một tác vụ mang tính tổng hợp (synthesis) sẽ tạo ra output máy móc**,
+dù bản thân LLM hoàn toàn có khả năng viết tự nhiên nếu được yêu cầu đúng
+cách.
 
 ---
 
@@ -1030,17 +1089,18 @@ thuật.
 
 ### 6.1 Bộ test hiện có
 
-**194 test, không cần LLM và không cần mạng** — assert trên dữ liệu tĩnh
-`skill_data.json` + `skill_implies.json`:
+**200 test, không cần LLM và không cần mạng** — assert trên dữ liệu tĩnh
+`skill_data.json` + `skill_implies.json` (riêng `test_parser.py` monkeypatch
+`call_llm_json` để test logic xung quanh output LLM mà không gọi LLM thật):
 
 | File | Số test | Phạm vi |
 | --- | --- | --- |
 | `tests/test_d2_skills.py` | 103 | D2 end-to-end, nhóm A–L (xem dưới) |
 | `tests/test_skill_matcher.py` | 45 | Từng tầng của cascade, chuẩn hóa format, proficiency |
 | `tests/test_scorer.py` | 34 | D1–D5 riêng lẻ + `calculate_score` tổng hợp |
-| `tests/test_evaluator.py` | 6 | Phân loại skill theo 3 tier, verdict experience/education |
-| `tests/test_parser.py` | 6 | Pydantic validation, tính months, coerce 3 tier skill |
-| **Tổng** | **194** | Chạy trong ~1s, hoàn toàn offline |
+| `tests/test_evaluator.py` | 10 | Phân loại skill theo 3 tier, verdict experience/education, `_is_valid_cv` + narrative bị bỏ qua khi không phải CV |
+| `tests/test_parser.py` | 8 | Pydantic validation, tính months, coerce 3 tier skill, `is_resume` mặc định + bỏ qua retry khi không phải CV |
+| **Tổng** | **200** | Chạy trong ~1s, hoàn toàn offline |
 
 **Phân nhóm `test_d2_skills.py`:**
 
@@ -1064,9 +1124,10 @@ test trên chính dữ liệu tri thức**, không phải test logic. Nó bảo 
 ai đó sửa `skill_implies.json` bằng tay mà quên chạy `close_implies.py` thì CI
 sẽ **fail ngay**, thay vì để hệ thống âm thầm bỏ sót suy luận bắc cầu.
 
-> **⚠️ Trạng thái hiện tại: 192 pass / 2 fail.** Cả 2 test fail đều là **test
+> **⚠️ Trạng thái hiện tại: 198 pass / 2 fail.** Cả 2 test fail đều là **test
 > cũ chưa cập nhật**, không phải lỗi code — chúng được viết ở giai đoạn thiết
-> kế 3 tầng (chưa có Layer 3 fuzzy) và mâu thuẫn với hành vi hiện tại:
+> kế 3 tầng (chưa có Layer 3 fuzzy) và mâu thuẫn với hành vi hiện tại (không
+> liên quan tới thay đổi `is_resume`/`_is_valid_cv` ở mục 3.6):
 >
 > | Test | Kỳ vọng cũ | Hành vi hiện tại | Nguyên nhân |
 > | --- | --- | --- | --- |
@@ -1126,7 +1187,9 @@ Trong `/ai/score`, phần chấm điểm và phần evaluator chạy **song song
 ✅ D2 tính trên **cả 3 tier** skill (required / preferred / nice_to_have)
 ✅ D5 geocode parse-time + routing score-time
 ✅ Evaluation định tính + narrative tiếng Việt
-✅ 194 test không phụ thuộc mạng (192 pass / 2 test cũ cần cập nhật — xem 6.1)
+✅ Document-type validation (`is_resume` + `_is_valid_cv`) — chặn narrative
+   bịa đặt khi tài liệu tải lên không phải CV (xem 3.6)
+✅ 200 test không phụ thuộc mạng (198 pass / 2 test cũ cần cập nhật — xem 6.1)
 
 ### 7.2 Chưa cài đặt (từng có trong thiết kế)
 

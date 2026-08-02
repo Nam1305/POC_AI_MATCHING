@@ -221,6 +221,11 @@ class CVJobEvaluation(BaseModel):
     experience_detail:  str = ""
     education_verdict:  str = ""   # exceeds | meets | below | not_required
 
+    # False when the uploaded document isn't actually a CV/resume (or has no
+    # extractable CV content at all) — narrative is a plain notice in this
+    # case, not a fabricated HR assessment. See evaluator._is_valid_cv.
+    is_valid_cv:        bool = True
+
     # Narrative — HR đọc như người viết
     narrative:          str = ""
 
@@ -297,6 +302,12 @@ EMBED_TEXT_VERSION = "v2-no-skills"
 # ---------------------------------------------------------------------------
 
 class ParsedCV(BaseModel):
+    # False when the LLM determines the uploaded document is not a CV/resume
+    # (e.g. a research paper, an article, an invoice). Defaults to True so
+    # older cached ParsedCV records (parsed before this field existed) keep
+    # their current behavior. See evaluator._is_valid_cv, which also falls
+    # back to an emptiness heuristic for those legacy records.
+    is_resume:       bool = True
     name:            str = ""
     summary:         str = ""
     skills:          list[str]            = Field(default_factory=list)
