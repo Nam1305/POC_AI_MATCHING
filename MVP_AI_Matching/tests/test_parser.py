@@ -169,3 +169,46 @@ async def test_parse_cv_with_relocate_phrase(monkeypatch):
     cv = await parser.parse_cv("dummy cv text")
 
     assert cv.candidate_location.willing_to_relocate is True
+
+
+# ---------------------------------------------------------------------------
+# is_resume — document-type signal (added so a non-CV upload, e.g. a
+# research paper, doesn't silently flow into scoring/narrative as if it
+# were a real candidate profile).
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_parse_cv_is_resume_true_by_default_when_llm_omits_field(monkeypatch):
+    # Backward compat: older prompt output (or a model that ignores the
+    # instruction) without "is_resume" must not break existing behavior.
+    raw = {
+        "name": "Nguyen Van A",
+        "skills": ["python"],
+        "work_experience": [{"company": "ABC", "role": "Dev", "start": "2020-01"}],
+    }
+    _stub_llm(monkeypatch, raw)
+
+    cv = await parser.parse_cv("dummy cv text")
+
+    assert cv.is_resume is True
+
+
+@pytest.mark.asyncio
+async def test_parse_cv_not_a_resume_skips_completeness_retries(monkeypatch):
+    # A non-CV document (e.g. a research paper) legitimately has empty
+    # skills/work_experience — parse_cv must not burn extra LLM calls
+    # trying to "recover" data that was never there.
+    raw = {"is_resume": False, "name": "", "skills": [], "work_experience": []}
+
+    call_count = {"n": 0}
+
+    async def _fake_call_llm_json(prompt: str, text: str) -> dict:
+        call_count["n"] += 1
+        return raw
+
+    monkeypatch.setattr(parser, "call_llm_json", _fake_call_llm_json)
+
+    cv = await parser.parse_cv("dummy non-cv text")
+
+    assert cv.is_resume is False
+    assert call_count["n"] == 1

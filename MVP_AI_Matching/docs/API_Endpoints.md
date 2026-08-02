@@ -1,10 +1,12 @@
 # API Endpoints
 
 Ground truth extracted from the actual FastAPI code (`app/main.py`, `app/api/*.py`,
-`app/schemas.py`), not from `docs/Overview.md` (which contains stale/aspirational
-examples — see the note at the bottom of this file).
+`app/schemas.py`). This file is the **request/response reference**;
+`docs/Overview.md` covers the same endpoints from the architecture/flow angle and
+explains *why* each field exists.
 
 All routes below except `/health` are mounted under the `/ai` prefix.
+Last verified against the code: 2026-08-02.
 
 ---
 
@@ -91,6 +93,13 @@ required one. There is no de-duplication step across tiers in code; the
 JD extraction prompt is responsible for ensuring a skill is only ever
 placed in one tier.
 
+Generic soft skills / meta-competencies ("teamwork", "problem solving",
+"programming fundamentals", … — 44 entries in `schemas.py::GENERIC_NON_SKILLS`)
+are stripped from **all three** tiers by a Pydantic model validator
+(`ParsedJD._drop_generic_skills`) before the object is returned. They can never
+match a CV skill list, so keeping them would produce a phantom missing
+must-have for every candidate.
+
 **Errors:**
 - `400` — `"Request body is empty"`
 - `400` — `"jd_text is empty"`
@@ -123,6 +132,7 @@ directly; only accepts URLs.
       "url": "https://s3.amazonaws.com/bucket/cv1.pdf",
       "cv_raw_text": "Nguyen Van A\n...",
       "parsed_cv": {
+        "is_resume": true,
         "name": "Nguyen Van A",
         "summary": "",
         "skills": ["python", "fastapi"],
@@ -165,12 +175,34 @@ from `start`/`end` at validation time — never trust an LLM-provided value for
 this field. For an entry with `"end": "present"`, `months` grows with the
 current date, so the number above is illustrative, not fixed.
 
+`parsed_cv.is_resume` is set by the LLM in the same extraction call (no
+extra LLM cost) — `false` when the uploaded document isn't actually a CV/
+resume (e.g. a research paper, an invoice, a contract). Defaults to `true`
+(pydantic field default) for backward compatibility with any stored
+`ParsedCV` that predates this field. When `false`:
+- the work_experience/skills completeness-retry step is skipped (nothing
+  real to recover),
+- embedding is skipped entirely,
+- the result still includes `parsed_cv`/`cv_raw_text` (for debugging) but
+  sets `error`:
+```json
+{
+  "url": "https://s3.amazonaws.com/bucket/paper.pdf",
+  "cv_raw_text": "Abstract: This paper presents...",
+  "parsed_cv": { "is_resume": false, "name": "", "skills": [], "..." : "..." },
+  "cv_embedding": null,
+  "error": "Tài liệu tải lên không phải là CV/hồ sơ ứng viên hợp lệ"
+}
+```
+
 Per-URL failures never fail the whole request — that item's `error` is set
 (e.g. `"HTTP 404 when downloading file"`, `"Network error: ..."`,
 `"Unsupported file type: .xyz (only .pdf / .docx allowed)"`, `"No text
 could be extracted from file"`, `"Parse/embed failed: ..."`) with
 `cv_raw_text`, `parsed_cv`, `cv_embedding` left `null`; other URLs in the same
-request are unaffected.
+request are unaffected. The one exception is the not-a-resume case above:
+`cv_raw_text`/`parsed_cv` are still populated (useful for debugging) even
+though `error` is set — only `cv_embedding` is `null` there.
 
 **Errors (whole-request, `422`):**
 - `"cv_url or cv_urls is required"`
@@ -237,6 +269,7 @@ Compute the 5-dimension weighted match score plus a qualitative evaluation.
     "experience_verdict": "sufficient",
     "experience_detail": "3.5 years vs. 2 years required",
     "education_verdict": "meets",
+    "is_valid_cv": true,
     "narrative": ""
   }
 }
@@ -248,6 +281,15 @@ same 3-tier weighted formula as the `skills` score above (D2) — the two
 numbers always agree.
 
 `narrative` is only populated when `include_narrative: true`.
+
+`is_valid_cv` is `false` when `parsed_cv.is_resume` is `false`, or when the
+CV is entirely empty (no `name`/`skills`/`work_experience`/`education`/
+`projects` — the fallback signal for `ParsedCV` records parsed before
+`is_resume` existed). When `false` and `include_narrative: true`, the LLM
+narrative call is **skipped entirely** and `narrative` is set to a fixed
+Vietnamese notice ("Không thể tạo đánh giá: tài liệu tải lên dường như
+không phải là CV/hồ sơ ứng viên...") instead of a fabricated HR assessment
+built around empty/placeholder data.
 
 **Errors (`422`, pydantic weight validation):**
 - `"weights must have exactly the keys [...], got [...]"`
@@ -284,22 +326,40 @@ field of `/ai/score`, but always with `narrative` populated):
   "experience_verdict": "sufficient",
   "experience_detail": "3.5 years vs. 2 years required",
   "education_verdict": "meets",
+  "is_valid_cv": true,
   "narrative": "Ứng viên phù hợp tốt với vị trí..."
 }
 ```
 
 `skill_match_rate` is a **percentage (0–100)**, not a 0–1 fraction.
 
-`skill_details[].status` is one of `matched`, `matched_implied`,
-`missing_must_have`, `missing_preferred`, `missing_nice_to_have`.
-`experience_verdict` is one of `sufficient`, `insufficient`,
-`over_qualified`, `not_required`.
+`is_valid_cv` — see `/ai/score` above; same semantics here, and since
+`/ai/evaluate` always runs the narrative step (no `include_narrative` flag),
+`is_valid_cv: false` always means `narrative` is the fixed not-a-CV notice
+rather than a real HR assessment, and the LLM was never called for it.
+
+`skill_details[]` has one entry per JD skill requirement across all three
+tiers (an OR-group is a single entry labelled `"A / B / C"`), with the tier's
+weight in `weight`. `status` is one of `matched`, `matched_implied`,
+`missing_must_have`, `missing_preferred`, `missing_nice_to_have`. A missing
+skill is bucketed by tier + weight: `missing_must_have` = `required` tier with
+`weight >= 3`; `missing_preferred` = `preferred` tier **or** `required` tier
+with `weight < 3`; `missing_nice_to_have` = `nice_to_have` tier.
+
+`bonus_skills` lists CV skills the JD does not ask for in any tier (compared on
+canonical form, so `"React"` isn't a bonus when the JD asks for `"React.js"`),
+capped at 8 entries.
+
+`experience_verdict` is one of `sufficient` (CV years ≥ 80% of required),
+`insufficient`, `over_qualified` (CV years ≥ 2× required), `not_required`
+(JD sets no minimum).
 `education_verdict` is one of `exceeds`, `meets`, `below`, `not_required`.
 
 ---
 
 ## Not implemented
 
-`docs/Overview.md` also describes `POST /ai/recalculate` and `POST /ai/search`.
+`POST /ai/recalculate` and `POST /ai/search` appear in the original design (and
+are listed as out-of-scope in `docs/Overview.md` → *Ngoài phạm vi bản hiện tại*).
 Neither has a route or router file in `app/` — do not treat them as live
 endpoints until they're actually built.

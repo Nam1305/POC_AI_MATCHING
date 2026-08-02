@@ -402,92 +402,111 @@
   "asp.net-core": [
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-core-mvc": [
     "asp.net-core",
     "c#",
     ".net",
-    "asp.net"
+    "asp.net",
+    "linq"
   ],
   "asp.net-core-webapi": [
     "asp.net-core",
     "c#",
     ".net",
-    "asp.net"
+    "asp.net",
+    "linq"
   ],
   "asp.net-mvc": [
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-web-api": [
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "entity-framework": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "entity-framework-core": [
     "entity-framework",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "entity-framework-6": [
     "entity-framework",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "wpf": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "winforms": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "wcf": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "blazor": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "blazor-webassembly": [
     "blazor",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "blazor-server-side": [
     "blazor",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "xamarin": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "xamarin.forms": [
     "xamarin",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "xamarin.android": [
     "xamarin",
     ".net",
-    "c#"
+    "c#",
+    "linq"
   ],
   "xamarin.ios": [
     "xamarin",
     ".net",
-    "c#"
+    "c#",
+    "linq"
   ],
   "linq": [
     "c#",
@@ -495,36 +514,47 @@
   ],
   "nunit": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "xunit": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "moq": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "dapper": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "signalr": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "nhibernate": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "c#": [
-    ".net"
+    ".net",
+    "linq"
   ],
   ".net-core": [
-    ".net"
+    ".net",
+    "c#",
+    "linq"
   ],
   "f#": [
-    ".net"
+    ".net",
+    "c#",
+    "linq"
   ],
   "ruby-on-rails": [
     "ruby"
@@ -604,7 +634,8 @@
   ],
   "unity-game-engine": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "qt": [
     "c++"
@@ -720,31 +751,49 @@
     "python"
   ],
   ".net-2.0": [
-    ".net"
+    ".net",
+    "c#",
+    "linq"
   ],
   ".net-3.5": [
-    ".net"
+    ".net",
+    "c#",
+    "linq"
   ],
   ".net-4.0": [
-    ".net"
+    ".net",
+    "c#",
+    "linq"
   ],
   ".net-4.5": [
-    ".net"
+    ".net",
+    "c#",
+    "linq"
   ],
   ".net-4.8": [
-    ".net"
+    ".net",
+    "c#",
+    "linq"
   ],
   ".net-5": [
-    ".net"
+    ".net",
+    "c#",
+    "linq"
   ],
   ".net-6.0": [
-    ".net"
+    ".net",
+    "c#",
+    "linq"
   ],
   ".net-7.0": [
-    ".net"
+    ".net",
+    "c#",
+    "linq"
   ],
   ".net-8.0": [
-    ".net"
+    ".net",
+    "c#",
+    "linq"
   ],
   "actionscript-2": [
     "actionscript"
@@ -982,103 +1031,121 @@
   "asp.net-3.5": [
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-4.0": [
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-ajax": [
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-core-2.0": [
     "asp.net-core",
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-core-2.1": [
     "asp.net-core",
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-core-3.1": [
     "asp.net-core",
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-core-6.0": [
     "asp.net-core",
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-core-identity": [
     "asp.net-core",
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-identity": [
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-identity-2": [
     "asp.net-identity",
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-membership": [
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-mvc-2": [
     "asp.net-mvc",
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-mvc-3": [
     "asp.net-mvc",
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-mvc-4": [
     "asp.net-mvc",
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-mvc-5": [
     "asp.net-mvc",
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-mvc-routing": [
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-web-api-routing": [
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "asp.net-web-api2": [
     "asp.net-web-api",
     "asp.net",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "auth0": [
     "authentication"
@@ -1103,15 +1170,18 @@
   ],
   "c#-2.0": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "c#-3.0": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "c#-4.0": [
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "c++-chrono": [
     "c++"
@@ -1394,7 +1464,8 @@
   "ef-code-first": [
     "entity-framework",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "eigen3": [
     "eigen"
@@ -1417,22 +1488,26 @@
   "entity-framework-4": [
     "entity-framework",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "entity-framework-4.1": [
     "entity-framework",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "entity-framework-5": [
     "entity-framework",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "entity-framework-migrations": [
     "entity-framework",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "excel-2007": [
     "excel"
@@ -2961,7 +3036,8 @@
   "windows-forms-designer": [
     "winforms",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "windows-phone-7": [
     "windows-phone"
@@ -2994,12 +3070,14 @@
   "wpf-controls": [
     "wpf",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "xamarin-studio": [
     "xamarin",
     "c#",
-    ".net"
+    ".net",
+    "linq"
   ],
   "xcode-ui-testing": [
     "xcode"
@@ -4295,5 +4373,9 @@
   ],
   "smart-contracts": [
     "blockchain"
+  ],
+  ".net": [
+    "linq",
+    "c#"
   ]
 }

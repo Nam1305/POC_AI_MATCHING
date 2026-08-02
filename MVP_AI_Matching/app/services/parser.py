@@ -44,6 +44,7 @@ Return ONLY valid JSON. No explanation, no markdown fences.
 
 JSON structure:
 {
+  "is_resume": true or false — true ONLY if this document is an actual CV/resume/personal profile written by or about ONE specific job candidate (contains, or is clearly meant to contain, their identity plus skills/work history/education). false for anything else the text below might be — e.g. a research paper, academic article, book excerpt, invoice, contract, news article, product manual, blog post, or any document that is not a personal candidate profile. When false, still fill every other field below (leave them empty/[] if nothing genuinely CV-like is present — do NOT invent a candidate).
   "name": "candidate full name or empty string",
   "summary": "professional summary / objective or empty string",
   "skills": ["flat list of all technical skill names, normalized and split (e.g. extract 'React' and 'CSS' instead of 'ReactJS/CSS3')"],
@@ -480,6 +481,11 @@ async def parse_cv(cv_text: str) -> ParsedCV:
     """
     raw = await call_llm_json(CV_EXTRACT_PROMPT, cv_text)
     cv  = ParsedCV.model_validate(raw)
+
+    # Document isn't a CV at all (e.g. a research paper) — retrying to
+    # squeeze work_experience/skills out of it would just waste LLM calls.
+    if not cv.is_resume:
+        return cv
 
     needs_exp    = not cv.work_experience
     needs_skills = not cv.skills
