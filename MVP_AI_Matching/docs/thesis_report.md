@@ -2,7 +2,7 @@
 
 > **Project:** AI-powered CV/JD Matching Microservice
 > **Stack:** Python FastAPI · LLM (Gemini/Claude/Groq) · pgvector · .NET Backend
-> **Cập nhật:** 2026-08-02
+> **Cập nhật:** 2026-08-05
 >
 > Tài liệu này được đối chiếu trực tiếp với source code trong `app/`. Mọi công
 > thức, hằng số, tên model đều là **giá trị đang chạy thật**, không phải thiết
@@ -144,8 +144,9 @@ FLOW 3 — SCORE (AI Matching)
     │      final = Σ(Dᵢ × Wᵢ) × 100
     │
     └── song song ───────► evaluator.evaluate_cv_for_job()
-           _is_valid_cv  [Python — is_resume + emptiness check, chạy trước tiên]
            _analyze_skills / _analyze_experience / _analyze_education  [Python]
+           _is_valid_cv  [Python — is_resume + emptiness check, tính SAU 3 phân
+                          tích trên, nhưng luôn chạy TRƯỚC khi gọi LLM narrative]
            _llm_narrative  [chỉ khi include_narrative=true VÀ is_valid_cv=true;
                             ngược lại narrative = thông báo cố định, không gọi LLM]
     │
@@ -161,8 +162,8 @@ FLOW 4 — HR XEM NHẬN XÉT CHI TIẾT
 [HR] click 1 ứng viên
     │
 [Python AI] POST /ai/evaluate { parsed_cv, parsed_jd }
-    ├─ _is_valid_cv(parsed_cv) — is_resume=false hoặc CV rỗng toàn bộ?
     ├─ 3 phân tích Python (skills / experience / education)
+    ├─ _is_valid_cv(parsed_cv) — is_resume=false hoặc CV rỗng toàn bộ?
     └─ is_valid_cv=true  → 1 LLM call → narrative tiếng Việt
        is_valid_cv=false → narrative = thông báo cố định, KHÔNG gọi LLM
     │
@@ -480,7 +481,7 @@ cảnh gần đây thay vì các job cũ.
 │  Nguồn CV: skills[] + work_exp.tech_stack + proj.tech_stack  │
 │            + languages + certifications (tách sub-token)     │
 │  Nguồn JD: CẢ 3 tier (evaluate_tiers), trọng số wᵢ:          │
-│    required_skills[i]  → req.weight ∈ {1,2,3} (tag list = 3) │
+│    required_skills[i]  → req.weight = 3 luôn (LLM luôn gán 3)│
 │    preferred_skills[i] → 2   (PREFERRED_SKILL_WEIGHT)        │
 │    nice_to_have[i]     → 1   (NICE_TO_HAVE_SKILL_WEIGHT)     │
 │  Mỗi required_skill là OR-group {skill} ∪ alternatives:      │
@@ -592,7 +593,7 @@ tìm thấy trong `skill_data.json`:
 | File | Quy mô | Nguồn | Vai trò |
 | --- | --- | --- | --- |
 | `skill_data.json` | **9.524 entry** (3.988 canonical + 5.536 synonym) | Stack Exchange API: `/tags` + `/tags/{tags}/synonyms`, + bổ sung thủ công theo domain | Layer 1 |
-| `skill_implies.json` | **1.504 key / 1.707 cạnh** (sau khi đóng bắc cầu) | Viết tay + `close_implies.py` | Layer 2 |
+| `skill_implies.json` | **1.505 key / 1.787 cạnh** (sau khi đóng bắc cầu) | Viết tay + `close_implies.py` | Layer 2 |
 
 Trong `skill_data.json`, `value = null` nghĩa là **chính key đó đã là canonical**
 (không phải "bỏ qua") — chi tiết dễ hiểu nhầm khi đọc dữ liệu.
@@ -637,7 +638,7 @@ def transitive_closure(graph):
 `javascript`. Nhờ vậy Layer 2 chỉ cần **một lần tra hash O(1)** lúc chấm điểm,
 không phải duyệt đồ thị.
 
-Số cạnh sau khi đóng (1.707) chỉ nhỉnh hơn số key (1.504) vì phần lớn quy tắc là
+Số cạnh sau khi đóng (1.787) chỉ nhỉnh hơn số key (1.505) vì phần lớn quy tắc là
 **một bậc** (package ⟹ ngôn ngữ), chuỗi bắc cầu dài ≥ 3 khá hiếm — đồ thị rất
 **nông và thưa**.
 
@@ -664,11 +665,6 @@ tầng khác (đã biết chắc là không đạt).
 ### 3.6 Stage 5 — Qualitative Evaluation (`evaluator.py`)
 
 ```
-_is_valid_cv(cv)                 [Python — chạy TRƯỚC mọi phân tích khác]
-    false nếu cv.is_resume=false (LLM tự đánh giá lúc parse — Stage 2),
-    HOẶC name/skills/work_experience/education/projects đều rỗng
-    (fallback cho ParsedCV cũ, parse trước khi field is_resume tồn tại)
-
 _analyze_skills(cv, jd)          [Python, tái dùng SkillMatcher.evaluate_tiers]
     ├─ với MỖI skill của cả 3 tier (required OR-group aware):
     │     matched / matched_implied                  → skill_details
@@ -691,6 +687,11 @@ _analyze_experience(cv, jd)      [Python]
 
 _analyze_education(cv, jd)       [Python]
     not_required | exceeds | meets | below
+
+_is_valid_cv(cv)                 [Python — tính SAU 3 phân tích trên, TRƯỚC _llm_narrative]
+    false nếu cv.is_resume=false (LLM tự đánh giá lúc parse — Stage 2),
+    HOẶC name/skills/work_experience/education/projects đều rỗng
+    (fallback cho ParsedCV cũ, parse trước khi field is_resume tồn tại)
 
 _llm_narrative(...)              [LLM 1 call, temperature=0.55 — CHỈ khi is_valid_cv=true]
     Input: TOÀN BỘ số liệu do Python tính sẵn + 1 đoạn ví dụ few-shot văn phong
@@ -794,7 +795,7 @@ $S_{JD}$ là **hợp của cả 3 tier** skill mà JD nêu, với $w_i$ quy đ�
 $$
 w_i =
 \begin{cases}
-\text{req.weight} \in \{1,2,3\} & \text{skill} \in \texttt{required\_skills} \\
+3 & \text{skill} \in \texttt{required\_skills} \\
 2 & \text{skill} \in \texttt{preferred\_skills} \\
 1 & \text{skill} \in \texttt{nice\_to\_have\_skills}
 \end{cases}
@@ -805,9 +806,14 @@ trọng số**, thay vì thành ranh giới cứng "tính điểm / không tính
 skill `nice_to_have` vẫn kéo D2 xuống, nhưng chỉ bằng $1/3$ so với thiếu một
 must-have. $S_{JD} = \varnothing$ (JD trống ở cả 3 tier) → $D_2 = 1.0$.
 
-`required_skills` là tier duy nhất có OR-group và weight riêng từng skill; hai
-tier còn lại là list string phẳng nên dùng hằng số trọng số cho cả tier
-(`PREFERRED_SKILL_WEIGHT = 2`, `NICE_TO_HAVE_SKILL_WEIGHT = 1`).
+`RequiredSkill.weight` là một trường số nguyên (schema cho phép mọi giá trị,
+scorer cộng dồn `wᵢ` tuỳ ý), nhưng **prompt buộc LLM luôn gán `weight = 3`**
+cho mọi entry trong `required_skills` — 3 tier (required/preferred/
+nice_to_have) chính là 3 mức ưu tiên, `weight` không dùng để phân độ mịn hơn
+bên trong `required_skills` nữa (tránh nhập nhằng "required weight=1" với
+"preferred"). `required_skills` vẫn là tier duy nhất có OR-group
+(`alternatives`); 2 tier còn lại là list string phẳng, dùng hằng số trọng số
+cho cả tier (`PREFERRED_SKILL_WEIGHT = 2`, `NICE_TO_HAVE_SKILL_WEIGHT = 1`).
 
 $m_i$ được xác định bởi cascade, requirement dừng ở **tầng sớm nhất** thỏa nó:
 
@@ -885,7 +891,7 @@ $$R^+ = R \cup \{(x, z) \mid \exists y: (x,y) \in R^+ \land (y,z) \in R^+\}$$
 
 Cài đặt bằng **lặp tới điểm bất động**: toán tử mở rộng là **đơn điệu** trên
 dàn hữu hạn các tập con → hội tụ sau hữu hạn bước (định lý điểm bất động
-Kleene). Với đồ thị thưa 1.504 đỉnh / 1.707 cạnh, cách này rẻ hơn Floyd–Warshall
+Kleene). Với đồ thị thưa 1.505 đỉnh / 1.787 cạnh, cách này rẻ hơn Floyd–Warshall
 $O(V^3)$.
 
 **Đánh đổi không gian ↔ thời gian:** closure được **vật chất hóa offline** và
@@ -959,7 +965,9 @@ D_5 =
 \begin{cases}
 1.0 & \text{JD.work\_mode} = \text{remote} \\
 1.0 & \text{CV.willing\_to\_relocate} = \text{true} \\
-0.5 & \text{thiếu lat/lng ở 1 trong 2 phía} \\
+0.5 & \text{CV không có } \texttt{raw\_address} \text{, cùng } \texttt{city} \text{ với JD} \\
+0.0 & \text{CV không có } \texttt{raw\_address} \text{, khác } \texttt{city} \text{ (hoặc CV không có city)} \\
+0.5 & \text{có } \texttt{raw\_address} \text{ nhưng thiếu lat/lng ở 1 trong 2 phía} \\
 0.5 & \text{OSRM thất bại 2 lần (retry 1 lần sau 0.5s)} \\
 \text{round}(S_{\text{loc}},\ 3) & \text{ngược lại}
 \end{cases}
@@ -969,7 +977,12 @@ $$S_{\text{loc}} = \max\!\left(0,\ 1 - \frac{t}{T_{\max}}\right), \qquad T_{\max
 
 với $t$ = driving duration (phút) từ `OSRM route.duration`.
 
-Thứ tự kiểm tra trong code: remote → relocate → thiếu tọa độ → route.
+Thứ tự kiểm tra trong code (`scorer.py::score_location`): remote → relocate →
+**CV thiếu `raw_address`** (so `city` thô, trả sớm 0.5/0.0, KHÔNG gọi OSRM) →
+thiếu lat/lng → route. Nhánh `raw_address` là bổ sung sau này so với thiết kế
+D5 ban đầu — `CandidateLocation` có thêm field `city` (enum "Ha Noi"/"Ho Chi
+Minh"/"Da Nang", chuẩn hóa qua validator) để so nhanh khi không đủ dữ liệu
+geocode chi tiết.
 
 **Vì sao không dùng haversine (đường chim bay) làm fallback:** đường chim bay
 không phản ánh thực tế giao thông đô thị (sông, đường một chiều, tắc đường) —
@@ -1076,7 +1089,7 @@ thuật.
 | Điểm yếu | Bản chất | Hướng xử lý |
 | --- | --- | --- |
 | `angular` / `angularjs` khớp nhầm ở Layer 3 (ratio 0.875) | Đánh đổi precision–recall của ngưỡng cứng | Chặn Layer 3 khi cả hai phía đều resolve ra canonical hợp lệ nhưng khác nhau |
-| 1.504 quy tắc implies viết tay | Knowledge acquisition bottleneck — có soundness, không có completeness | Bootstrap từ co-occurrence tag trên Stack Overflow |
+| 1.505 quy tắc implies viết tay | Knowledge acquisition bottleneck — có soundness, không có completeness | Bootstrap từ co-occurrence tag trên Stack Overflow |
 | Embedding đối xứng cho bài toán bất đối xứng (CV dài ↔ JD ngắn) | Model kiểu STS không tối ưu cho retrieval | Dùng `task_type` `RETRIEVAL_DOCUMENT` / `RETRIEVAL_QUERY` của API Gemini |
 | Thang thứ tự dùng như thang tỉ lệ ($L$, $w$) | Giả định đơn giản hóa về đo lường | Nêu rõ giả định; nếu cần chặt hơn thì rút trọng số bằng AHP |
 | Heuristic 2 cột dùng ngưỡng cứng 45%/55% | Không xử lý được layout 3 cột / bất đối xứng | Model layout detection có huấn luyện (hướng của PubLayNet) |
@@ -1124,20 +1137,26 @@ test trên chính dữ liệu tri thức**, không phải test logic. Nó bảo 
 ai đó sửa `skill_implies.json` bằng tay mà quên chạy `close_implies.py` thì CI
 sẽ **fail ngay**, thay vì để hệ thống âm thầm bỏ sót suy luận bắc cầu.
 
-> **⚠️ Trạng thái hiện tại: 198 pass / 2 fail.** Cả 2 test fail đều là **test
-> cũ chưa cập nhật**, không phải lỗi code — chúng được viết ở giai đoạn thiết
-> kế 3 tầng (chưa có Layer 3 fuzzy) và mâu thuẫn với hành vi hiện tại (không
-> liên quan tới thay đổi `is_resume`/`_is_valid_cv` ở mục 3.6):
+> **⚠️ Trạng thái hiện tại: 196 pass / 4 fail** (`pytest tests/ -q`). Hai nhóm
+> nguyên nhân khác nhau, không liên quan tới thay đổi `is_resume`/`_is_valid_cv`
+> ở mục 3.6:
 >
 > | Test | Kỳ vọng cũ | Hành vi hiện tại | Nguyên nhân |
 > | --- | --- | --- | --- |
 > | `test_scorer.py::test_score_skills_typo_no_longer_fuzzy_matched` | `"pythonn"` **không** khớp `"Python"` → D2 = 0.0 | Khớp ở Layer 3 (ratio 0.923) → D2 = 1.0 | Layer 3 fuzzy được thêm lại sau khi test này được viết |
 > | `test_d2_skills.py::test_J9_ui_ux_compound_term` | `xfail(strict=True)`: `"UI/UX testing"` không khớp | Đã khớp qua Layer 3 → **XPASS** | Hạn chế mà test giả định đã được khắc phục |
+> | `test_scorer.py::test_score_location_close_onsite_full_score` | Kỳ vọng D5 = 1.0 khi CV/JD gần nhau | D5 = **0.0** | `CandidateLocation` dựng trong test không có `raw_address` → rơi vào nhánh mới `if not cv_loc.raw_address: return 0.5/0.0 theo city` ([xem 4.9](#49-location--work-mode-score-d5)), route OSRM không còn được gọi tới |
+> | `test_scorer.py::test_score_location_route_failure_after_retry_returns_neutral` | Kỳ vọng D5 = 0.5 khi OSRM lỗi 2 lần | D5 = **0.0** | Cùng nguyên nhân — thiếu `raw_address` khiến hàm return sớm trước khi chạm nhánh retry OSRM |
 >
-> Cần xử lý trước khi bảo vệ: viết lại 2 test này theo hành vi hiện tại (test
-> thứ nhất đổi thành khẳng định fuzzy **có** bắt được typo; test thứ hai bỏ
-> `xfail`). Đây là ví dụ tốt cho báo cáo về việc **test bám sát thay đổi thiết
-> kế** — nhưng để suite đỏ khi hội đồng chạy `pytest` thì là điểm trừ.
+> Hai test đầu là **test cũ chưa cập nhật theo Layer 3 fuzzy** (như phân tích
+> gốc). Hai test sau là **test chưa cập nhật theo nhánh `raw_address`/`city` mới
+> trong `score_location()`** (mục 3.2/4.9) — bản thân nhánh này đúng ý đồ thiết
+> kế, chỉ có fixture test chưa set `raw_address`. Cần xử lý trước khi bảo vệ:
+> (1) viết lại 2 test fuzzy theo hành vi hiện tại; (2) set `raw_address` trong
+> fixture của 2 test location, hoặc viết thêm test riêng cho nhánh
+> "không có `raw_address`". Đây là ví dụ tốt cho báo cáo về việc **test bám sát
+> thay đổi thiết kế** — nhưng để suite đỏ khi hội đồng chạy `pytest` thì là
+> điểm trừ.
 
 ### 6.2 Chỉ số đánh giá đề xuất (chưa thực hiện)
 
@@ -1183,13 +1202,13 @@ Trong `/ai/score`, phần chấm điểm và phần evaluator chạy **song song
 ✅ LLM parsing đa provider + retry theo tính đầy đủ + JSON repair
 ✅ Embedding 3072 chiều, text embed có chọn lọc (loại skills)
 ✅ Scoring 5 chiều + trọng số HR chỉnh được per-job
-✅ D2 cascade 4 tầng + tầng proficiency + dữ liệu tri thức 9.524/1.504
+✅ D2 cascade 4 tầng + tầng proficiency + dữ liệu tri thức 9.524/1.505
 ✅ D2 tính trên **cả 3 tier** skill (required / preferred / nice_to_have)
 ✅ D5 geocode parse-time + routing score-time
 ✅ Evaluation định tính + narrative tiếng Việt
 ✅ Document-type validation (`is_resume` + `_is_valid_cv`) — chặn narrative
    bịa đặt khi tài liệu tải lên không phải CV (xem 3.6)
-✅ 200 test không phụ thuộc mạng (198 pass / 2 test cũ cần cập nhật — xem 6.1)
+✅ 200 test không phụ thuộc mạng (196 pass / 4 test cũ cần cập nhật — xem 6.1)
 
 ### 7.2 Chưa cài đặt (từng có trong thiết kế)
 
@@ -1282,4 +1301,4 @@ CHƯƠNG 6 — Kết luận & Hướng phát triển
 
 ---
 
-*Tài liệu đối chiếu trực tiếp với source code `app/` — cập nhật 2026-07-31*
+*Tài liệu đối chiếu trực tiếp với source code `app/` — cập nhật 2026-08-05*

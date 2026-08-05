@@ -254,7 +254,7 @@ class CVJobEvaluation(BaseModel):
 
 class RequiredSkill(BaseModel):
     skill:  str
-    weight: int = 1   # 1 nice-to-have → 3 must-have
+    weight: int = 3   # always 3 from the LLM — required/preferred/nice_to_have are the tiers, not this field
     # Interchangeable alternatives — when the JD lists skills as "A, B, or C",
     # the group is satisfied by ANY one of {skill} ∪ alternatives. `skill` is the
     # representative; `alternatives` holds the rest. Empty for a plain requirement.

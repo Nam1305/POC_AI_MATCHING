@@ -210,7 +210,7 @@ JSON structure:
   "title": "job title",
   "responsibilities": "role summary and key responsibilities/business context (2-5 sentences) — scope of the role, what the person will own/do, team or domain context. Do NOT list specific skills, tools, or technologies here (those go in required_skills/preferred_skills/nice_to_have_skills). Empty string if the JD gives nothing beyond a skills list.",
   "required_skills": [
-    {"skill": "skill name", "weight": 1 or 2 or 3, "alternatives": ["interchangeable skill names"]}
+    {"skill": "skill name", "weight": 3, "alternatives": ["interchangeable skill names"]}
   ],
   "preferred_skills": ["skills carrying a strong preference cue (see REQUIRED vs PREFERRED vs NICE-TO-HAVE below)"],
   "nice_to_have_skills": ["skills carrying a weaker, bonus-only cue (see REQUIRED vs PREFERRED vs NICE-TO-HAVE below)"],
@@ -362,8 +362,12 @@ an OR-group into separate entries.
   "Bootstrap or Tailwind CSS"        → {"skill": "Bootstrap", "weight": 3, "alternatives": ["Tailwind CSS"]}
 A skill that stands on its own (not an option) has "alternatives": [].
 
-Weight guide (required_skills only): 3 = must-have / core, 2 = important, 1 = minor.
-Reserve weight 3 for skills the JD truly mandates; do not mark everything as 3.
+Always set "weight": 3 for every required_skills entry — required_skills,
+preferred_skills, and nice_to_have_skills ARE the three importance tiers
+(weights 3/2/1 respectively are applied downstream); do not use "weight" to
+express a finer gradient within required_skills. If a skill is not truly
+mandatory, put it in preferred_skills or nice_to_have_skills instead of
+lowering its weight inside required_skills.
 
 SKILL NORMALIZATION & STRUCTURE RULES:
 - Standardize skill names to their canonical form (e.g. "React", "Node.js",
