@@ -383,6 +383,18 @@ lowering its weight inside required_skills.
 SKILL NORMALIZATION & STRUCTURE RULES:
 - Standardize skill names to their canonical form (e.g. "React", "Node.js",
   "JavaScript", "TypeScript", "Python", "Kubernetes", "Docker", "PostgreSQL", "AWS").
+- Typo correction — ONLY for skill mentions mined from the Responsibilities/
+  Requirements prose. NEVER apply this to a skill already copied from the
+  "Required Skills:"/"Preferred Skills:"/"Nice to Have Skills:" tag lines —
+  those must stay VERBATIM per STRUCTURED FIELDS above, even if a name there
+  looks like a typo to you (it may be correct in the internal taxonomy it
+  came from). For a prose-mined skill, if the name is an obvious character-
+  level misspelling of a real, well-known technology, fix it (e.g.
+  "Kubernetees" -> "Kubernetes", "Pyhton" -> "Python", "Javascrpit" ->
+  "JavaScript"). Only correct a name you can clearly recognize as a typo of
+  a well-known technology — for an unfamiliar or ambiguous skill name,
+  leaving it as-is is much safer than guessing it into the wrong well-known
+  technology, which would fabricate a requirement the JD never actually stated.
 - Strip version constraints from the skill name itself (e.g. "Python 3.x" ->
   skill "Python"; "Java 8+" -> skill "Java"; "Vue 3" -> skill "Vue").
 - Split compound or slash-separated skills. If the options are interchangeable,
