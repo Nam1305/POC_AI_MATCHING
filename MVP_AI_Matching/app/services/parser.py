@@ -122,6 +122,17 @@ SKILL NORMALIZATION & EXTRACTION RULES (applies to "skills" and every "tech_stac
   (e.g. "React" not "ReactJS", "Node.js" not "NodeJS", "JavaScript" not "JS",
   "TypeScript" not "TS", "PostgreSQL" not "Postgres", "Kubernetes" not "K8s",
   "AWS" not "Amazon Web Services").
+- Typo correction — separate concern from the normalization rule above (that
+  rule maps an ALREADY-recognized alias/abbreviation to its canonical
+  spelling/format, e.g. "K8s" -> "Kubernetes"; this rule fixes misspelled
+  characters within the name itself, e.g. "Kubernetees" -> "Kubernetes"):
+  if a skill name is an obvious character-level misspelling of a real,
+  well-known technology, fix it (e.g. "Pyhton" -> "Python", "Javascrpit" ->
+  "JavaScript", "Reactt" -> "React"). Only correct a name you can clearly
+  recognize as a typo of a well-known technology — for an unfamiliar or
+  ambiguous skill name, leaving it as-is is much safer than guessing it into
+  the wrong well-known technology, which would fabricate a skill the
+  candidate never actually claimed.
 - Remove version numbers and minor release suffixes unless they name a
   distinct tool (e.g. "Python 3.10" -> "Python", "Java 17" -> "Java",
   "Vue 3" -> "Vue", "React v18" -> "React").
