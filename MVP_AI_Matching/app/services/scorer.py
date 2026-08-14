@@ -149,23 +149,22 @@ _ROUTE_RETRY_DELAY_SECONDS = 0.5
 def score_location(parsed_jd: ParsedJD, parsed_cv: ParsedCV) -> float:
     """
     D5 thay thế cho cách so khớp bằng từ khóa (keyword) trước đây. Công thức:
-      1. JD là remote                              → 1.0
+      1. JD là remote                          → 1.0
       2. CV nói rõ sẵn sàng chuyển chỗ ở (relocate) → 1.0
-      3. CV.city = JD.city và CV.raw_address = null → 0.5
-         (trung lập, cùng thành phố nhưng không rõ khoảng cách cụ thể)
-      4. Thiếu lat/lng ở 1 trong 2 bên (do không có raw_address, hoặc
-         raw_address có nhưng geocode lúc parse bị lỗi) → 0.5
+      3. CV không có raw_address (chỉ có city hoặc không có gì, nên không
+         geocode được — xem parser.parse_cv):
+           - city JD trùng city CV              → 0.5 (trung lập, cùng thành
+             phố nhưng không biết khoảng cách cụ thể trong thành phố)
+           - city JD khác city CV, hoặc CV không có cả city → 0.0 (không
+             cùng thành phố, coi như không phù hợp về vị trí)
+      4. Thiếu lat/lng dù có raw_address (geocode lúc parse bị lỗi) → 0.5
          (điểm trung lập, không phạt vì thiếu dữ liệu)
       5. t = số phút lái xe qua route OSRM; nếu lỗi thì thử lại 1 lần sau
-         0.5s; nếu vẫn lỗi → 0.5 (cùng quy tắc trung lập như trên — không
-         tính fallback theo khoảng cách đường chim bay)
+         0.5s; nếu vẫn lỗi → 0.5 (cùng quy tắc trung lập như thiếu lat/lng —
+         không tính fallback theo khoảng cách đường chim bay)
       6. T_max = 45 phút (onsite) hoặc 75 phút (hybrid)
       7. S_loc = max(0, 1 - t / T_max)
       trả về round(S_loc, 3)
-
-    Lưu ý: công thức D5 không có nhánh trả 0.0 — mọi trường hợp thiếu dữ
-    liệu (không city trùng khớp, không address, không lat/lng, OSRM lỗi)
-    đều hội tụ về 0.5 qua các check (3)-(5), không có case nào bị "phạt" 0 điểm.
     """
     work_mode = parsed_jd.work_location.work_mode
     if work_mode == "remote":
@@ -176,12 +175,11 @@ def score_location(parsed_jd: ParsedJD, parsed_cv: ParsedCV) -> float:
 
     jd_loc, cv_loc = parsed_jd.work_location, parsed_cv.candidate_location
 
-    # case 3: CV.city = JD.city and CV.address = null
-    if not cv_loc.raw_address and cv_loc.city == jd_loc.city:
-        return 0.5
+    if not cv_loc.raw_address:
+        if cv_loc.city and cv_loc.city == jd_loc.city:
+            return 0.5
+        return 0.0
 
-    # case 4: lat/lng missing on one of the two sides
-    # (bao gồm cả trường hợp CV không có raw_address nên không geocode được)
     if jd_loc.lat is None or jd_loc.lng is None or cv_loc.lat is None or cv_loc.lng is None:
         return 0.5
 
