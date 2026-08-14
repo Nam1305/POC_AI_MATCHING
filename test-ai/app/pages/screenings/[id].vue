@@ -75,10 +75,10 @@
               <th>#</th>
               <th>CV</th>
               <th class="text-right">Final</th>
+              <th class="text-right">Semantic</th>
               <th class="text-right">Skills</th>
               <th class="text-right">Exp</th>
               <th class="text-right">Edu</th>
-              <th class="text-right">Semantic</th>
               <th class="text-right">Location</th>
             </tr>
           </thead>
@@ -87,10 +87,10 @@
               <td>{{ i + 1 }}</td>
               <td>{{ cvFileName(r.cvUrl) }}</td>
               <td class="text-right font-weight-medium">{{ r.aiResult.final_score.toFixed(1) }}</td>
+              <td class="text-right">{{ r.aiResult.scores.semantic?.toFixed(1) }}</td>
               <td class="text-right">{{ r.aiResult.scores.skills?.toFixed(1) }}</td>
               <td class="text-right">{{ r.aiResult.scores.experience?.toFixed(1) }}</td>
               <td class="text-right">{{ r.aiResult.scores.education?.toFixed(1) }}</td>
-              <td class="text-right">{{ r.aiResult.scores.semantic?.toFixed(1) }}</td>
               <td class="text-right">{{ r.aiResult.scores.location?.toFixed(1) }}</td>
             </tr>
           </tbody>
