@@ -146,6 +146,28 @@ SKILL NORMALIZATION & EXTRACTION RULES (applies to "skills" and every "tech_stac
   soft skills or competencies ("programming", "teamwork", "problem solving",
   "communication", "quick learner").
 
+LANGUAGE PROFICIENCY NORMALIZATION (applies to "languages" and any language-
+level mention found elsewhere in the CV, e.g. in certifications or summary):
+- A bare level code written next to a language name always names that
+  language's own standardized framework, even when the CV text itself never
+  spells out the framework name. Rewrite the level so it carries its
+  framework prefix and is matchable on its own:
+    Japanese + "N1".."N5"       -> "JLPT N#" (e.g. "Japanese N4" -> "Japanese - JLPT N4")
+    Chinese + "HSK 1".."HSK 9" or a bare HSK level -> "HSK #"
+    Korean + "TOPIK 1".."TOPIK 6" or a bare level  -> "TOPIK #"
+  Only apply this when the language + level pairing unambiguously points to
+  one framework (e.g. "N4" written next to "Japanese"). Leave an
+  unrecognized bare level as-is rather than guessing its framework.
+- "A1"/"A2"/"B1"/"B2"/"C1"/"C2" next to a language (e.g. "German B2") is
+  already self-describing CEFR notation — keep it as written, no prefix needed.
+- English score bands (IELTS/TOEIC/TOEFL) already name their own framework
+  when a score is given (e.g. "TOEIC 835") — keep as stated; do not invent a
+  score from a qualitative description like "fluent" or "business level".
+- A trailing qualifier such as "+", "trở lên", "or above", "or higher"
+  attached to a level describes a minimum floor, not a distinct higher
+  level — extract just the base level ("N4+" / "N4 trở lên" -> "JLPT N4");
+  never fabricate a level the CV didn't state.
+
 CV text:
 """
 
@@ -402,6 +424,25 @@ SKILL NORMALIZATION & STRUCTURE RULES:
   (e.g. "React/Vue" -> {"skill": "React", "weight": 3, "alternatives": ["Vue"]}).
 - For a sub-service/sub-tool, also ensure the base technology is extractable
   (e.g. "AWS S3" -> extract "AWS").
+
+LANGUAGE PROFICIENCY NORMALIZATION (applies to any language-level
+requirement, whether it comes from a tag list or is mined from prose):
+- A bare level code written next to a language name always names that
+  language's own standardized framework, even when the JD text itself never
+  spells out the framework name. Rewrite the level so it carries its
+  framework prefix and is matchable on its own:
+    Japanese + "N1".."N5"       -> "JLPT N#" (e.g. "Japanese N4" -> "JLPT N4")
+    Chinese + "HSK 1".."HSK 9" or a bare HSK level -> "HSK #"
+    Korean + "TOPIK 1".."TOPIK 6" or a bare level  -> "TOPIK #"
+  Only apply this when the language + level pairing unambiguously points to
+  one framework (e.g. "N4" written next to "Japanese"). Leave an
+  unrecognized bare level as-is rather than guessing its framework.
+- "A1"/"A2"/"B1"/"B2"/"C1"/"C2" next to a language (e.g. "German B2") is
+  already self-describing CEFR notation — keep as written, no prefix needed.
+- A trailing qualifier such as "+", "trở lên", "or above", "or higher"
+  attached to a level describes a minimum floor, not a distinct higher
+  level — extract just the base level ("N4+" / "N4 trở lên" -> "JLPT N4");
+  never fabricate a level the JD didn't state.
 
 Emit ONLY concrete, matchable skills (languages, frameworks, tools, platforms,
 certifications, standardized language levels like "JLPT N3"). Do NOT emit generic
