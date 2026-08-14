@@ -176,9 +176,9 @@ def score_location(parsed_jd: ParsedJD, parsed_cv: ParsedCV) -> float:
     jd_loc, cv_loc = parsed_jd.work_location, parsed_cv.candidate_location
 
     if not cv_loc.raw_address:
-        if cv_loc.city and cv_loc.city == jd_loc.city:
-            return 0.5
-        return 0.0
+        if not cv_loc.city:
+            return 0.5  # thiếu dữ liệu hoàn toàn, trung lập
+        return 0.5 if cv_loc.city == jd_loc.city else 0.0
 
     if jd_loc.lat is None or jd_loc.lng is None or cv_loc.lat is None or cv_loc.lng is None:
         return 0.5
