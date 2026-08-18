@@ -4377,5 +4377,70 @@
   ".net": [
     "linq",
     "c#"
+  ],
+  "android-auto": [
+    "android"
+  ],
+  "app-clips": [
+    "ios"
+  ],
+  "avalonia": [
+    "c#",
+    ".net",
+    "linq"
+  ],
+  "background-fetch": [
+    "ios"
+  ],
+  "carplay": [
+    "ios"
+  ],
+  "cocos-creator": [
+    "javascript"
+  ],
+  "compose-multiplatform": [
+    "kotlin",
+    "java"
+  ],
+  "core-motion": [
+    "ios"
+  ],
+  "firebase-cloud-messaging": [
+    "firebase"
+  ],
+  "homekit": [
+    "ios"
+  ],
+  "metal-performance-shaders": [
+    "metal"
+  ],
+  "push-kit": [
+    "huawei-mobile-services"
+  ],
+  "uno-platform": [
+    "c#",
+    ".net",
+    "linq"
+  ],
+  "universal-links": [
+    "ios"
+  ],
+  "wails": [
+    "go"
+  ],
+  "widgetkit": [
+    "swiftui",
+    "ios",
+    "swift"
+  ],
+  "windows-app-sdk": [
+    "c#",
+    ".net",
+    "linq"
+  ],
+  "winui": [
+    "c#",
+    ".net",
+    "linq"
   ]
 }
