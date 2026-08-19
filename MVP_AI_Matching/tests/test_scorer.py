@@ -257,6 +257,85 @@ def test_score_experience_overlapping_jobs_not_double_counted():
     assert score_experience(cv, jd_strict) == pytest.approx(0.75)  # 36/48, not 48/48=1.0
 
 
+def test_score_experience_per_skill_depth_uses_required_skill_months():
+    """
+    D3 with required_skills must measure per-skill depth, not raw total
+    months. JD requires Java + React, each with >=24mo. CV:
+      job A (12mo): Java, React
+      job B (4mo):  .NET, React   (irrelevant tech mixed in)
+      job C (18mo): Java
+      job D (2mo):  React
+    total java = 12+18 = 30mo -> ratio 1.0 (>=24)
+    total react = 12+4+2 = 18mo -> ratio 18/24 = 0.75
+    D3 = weighted avg (equal weight 3 each) = (1.0+0.75)/2 = 0.875
+    """
+    cv = ParsedCV(work_experience=[
+        WorkExperience(company="A", start=_months_ago(60), end=_months_ago(48),
+                        tech_stack=["Java", "React"]),
+        WorkExperience(company="B", start=_months_ago(48), end=_months_ago(44),
+                        tech_stack=[".NET", "React"]),
+        WorkExperience(company="C", start=_months_ago(44), end=_months_ago(26),
+                        tech_stack=["Java"]),
+        WorkExperience(company="D", start=_months_ago(26), end=_months_ago(24),
+                        tech_stack=["React"]),
+    ])
+    jd = ParsedJD(
+        title="x",
+        min_experience_years=2,
+        required_skills=[
+            RequiredSkill(skill="Java", weight=3),
+            RequiredSkill(skill="React", weight=3),
+        ],
+    )
+    assert score_experience(cv, jd) == pytest.approx(0.875)
+
+
+def test_score_experience_total_years_alone_no_longer_enough():
+    """A candidate with plenty of TOTAL experience but none of it in the
+    required skills must not get full D3 credit anymore (the bug the new
+    per-skill formula fixes)."""
+    cv = ParsedCV(work_experience=[
+        WorkExperience(company="Unrelated", start=_months_ago(60), end=_months_ago(6),
+                        tech_stack=["Marketing"]),
+    ])
+    jd = ParsedJD(
+        title="x",
+        min_experience_years=2,
+        required_skills=[RequiredSkill(skill="Java", weight=3)],
+    )
+    assert score_experience(cv, jd) == 0.0
+
+
+def test_score_experience_skill_only_in_flat_skills_list_scores_zero_depth():
+    """A required skill matched by D2 only via the flat cv.skills list (never
+    tied to a specific job/tech_stack) has no duration evidence -> ratio 0 for
+    that skill, since D3 measures depth and there's nothing to measure."""
+    cv = ParsedCV(
+        skills=["Java"],
+        work_experience=[
+            WorkExperience(company="A", start=_months_ago(36), end=_months_ago(6),
+                            tech_stack=["React"]),
+        ],
+    )
+    jd = ParsedJD(
+        title="x",
+        min_experience_years=2,
+        required_skills=[RequiredSkill(skill="Java", weight=3)],
+    )
+    assert score_experience(cv, jd) == 0.0
+
+
+def test_score_experience_no_required_skills_falls_back_to_raw_years():
+    """JD with min_experience_years but an empty required_skills list has
+    nothing to break down by skill -> D3 sits back on the old total-years
+    ratio."""
+    cv = ParsedCV(work_experience=[
+        WorkExperience(company="A", start=_months_ago(30), end=_months_ago(6)),
+    ])
+    jd = ParsedJD(title="x", min_experience_years=2, required_skills=[])
+    assert score_experience(cv, jd) == 1.0
+
+
 def test_merge_month_intervals_touching_boundaries_no_gap_no_double_count():
     """Back-to-back jobs (one ends exactly where the next starts) must merge
     into one continuous span — the shared boundary month is neither lost nor

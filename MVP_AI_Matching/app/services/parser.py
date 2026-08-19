@@ -122,6 +122,17 @@ SKILL NORMALIZATION & EXTRACTION RULES (applies to "skills" and every "tech_stac
   (e.g. "React" not "ReactJS", "Node.js" not "NodeJS", "JavaScript" not "JS",
   "TypeScript" not "TS", "PostgreSQL" not "Postgres", "Kubernetes" not "K8s",
   "AWS" not "Amazon Web Services").
+- Cross-entry consistency (critical): once you settle on a canonical spelling
+  for a technology, reuse that EXACT SAME string every single time it appears
+  anywhere in this CV — the top-level "skills" list, every single
+  work_experience[].tech_stack, and every projects[].tech_stack. Never
+  alternate between variants of the same technology across different entries
+  (e.g. do not write "ReactJS" in one job's tech_stack and "React" in
+  another, or "Postgres" in skills but "PostgreSQL" in a project's
+  tech_stack) — each job's tech_stack is later matched independently against
+  job requirements to measure how many months the candidate actually used
+  that specific technology, so an inconsistent spelling on even one entry
+  silently drops that job from the count for the requirement it should match.
 - Typo correction — separate concern from the normalization rule above (that
   rule maps an ALREADY-recognized alias/abbreviation to its canonical
   spelling/format, e.g. "K8s" -> "Kubernetes"; this rule fixes misspelled
@@ -193,6 +204,16 @@ Return ONLY valid JSON — no explanation, no markdown.
 }
 
 Include ALL jobs — full-time, part-time, internships, freelance.
+
+TECH_STACK NORMALIZATION:
+- Normalize technology names to their standard canonical spelling/casing
+  (e.g. "React" not "ReactJS", "Node.js" not "NodeJS", "PostgreSQL" not
+  "Postgres", "Kubernetes" not "K8s"); split compound/slash-separated entries
+  ("HTML/CSS" -> "HTML", "CSS"); strip version numbers ("Python 3.10" ->
+  "Python").
+- Reuse the EXACT SAME spelling for a technology every time it appears across
+  DIFFERENT jobs in this list — never alternate variants (e.g. "ReactJS" in
+  one job, "React" in another) for the same technology.
 
 DATE CONVERSION — convert any format to YYYY-MM:
   "Jan 2021" / "01/2021" / "1/2021"   → "2021-01"
@@ -290,6 +311,19 @@ that follow:
     a Requirements/Responsibilities bullet move a skill that already appears
     in one of these three lines to a different tier.
 
+    required_skills IS LOCKED TO THE TAG LIST (critical): once a "Required
+    Skills:" line is present anywhere in the JD, required_skills contains
+    ONLY the skills copied verbatim from that line — nothing else may ever
+    be added to it. A skill mined from the Responsibilities/Requirements
+    prose NEVER lands in required_skills, even when its own bullet has no
+    softening qualifier or explicitly says "must have"/"mandatory" — the
+    employer had a dedicated Required Skills picker and chose not to tag
+    that skill there, so treat it as one tier softer instead: route it into
+    preferred_skills (or nice_to_have_skills if its cue is explicitly
+    bonus-only — see the heuristic below). This rule only relaxes when the
+    JD has NO "Required Skills:" line at all — only then does required_skills
+    fall back to being mined from prose using the heuristic below.
+
     DUPLICATE PREVENTION (critical — this is the ONLY safeguard against
     double-counting a skill across tiers, there is no de-duplication step
     downstream in code, so getting this right here matters): after copying
@@ -304,7 +338,8 @@ that follow:
     tag list already covers it, at its already-assigned tier. Only add a
     prose-found skill as a brand-new entry when it names a genuinely
     different skill that no tag line covers, and classify that new entry
-    using the REQUIRED vs PREFERRED vs NICE-TO-HAVE heuristic below. Every
+    using the REQUIRED vs PREFERRED vs NICE-TO-HAVE heuristic below —
+    subject to the required_skills-is-locked rule directly above. Every
     skill name must end up in exactly ONE of the three output lists, never
     more than one.
   - "Experience Requirement: X" → see EXPERIENCE PARSING below; trust this
@@ -358,20 +393,25 @@ block commonly mixes mandatory items with individually-flagged softer ones
 inside a "Requirements:" list, but the phrase "is an advantage" makes that
 specific skill preferred, not the whole section).
 - required_skills = skill mentions with no softening qualifier, or explicit
-  "Required"/"Must have"/"Mandatory" cues.
+  "Required"/"Must have"/"Mandatory" cues — ONLY when the JD has NO
+  "Required Skills:" tag line at all (see the required_skills-is-locked
+  rule under STRUCTURED FIELDS above). If a "Required Skills:" tag line IS
+  present, a mandatory-sounding prose mention still never becomes a
+  required_skills entry — it falls through to preferred_skills below
+  instead.
 - preferred_skills = skill mentions carrying a genuine-preference cue
   anywhere in their own sentence/bullet: "Preferred", "Desirable",
-  "advantage" / "a plus", "ưu tiên", "ưu tiên nếu có". These read as "we'd
-  rather hire someone who has this."
+  "advantage" / "a plus", "ưu tiên", "ưu tiên nếu có" — AND, whenever a
+  "Required Skills:" tag line is present in the JD, also every prose
+  mention that would otherwise read as mandatory (no softening qualifier).
+  These read as "we'd rather hire someone who has this."
 - nice_to_have_skills = skill mentions carrying a weaker, explicitly-optional
   bonus cue: "Nice to have", "Bonus", "Optional", "cộng điểm nếu có", "có thì
   càng tốt", "if you happen to have X". These read as "this won't affect the
   decision, it's just a perk" — a notch below preferred_skills.
 Put each into exactly ONE of the three lists, NEVER duplicate a skill across
-lists, and NEVER put a softened mention into required_skills even when the
-bullet lives inside a "Requirements:" heading. When a cue is ambiguous
-between preferred and nice-to-have, default to preferred_skills (the safer,
-more established bucket).
+lists. When a cue is ambiguous between preferred and nice-to-have, default
+to preferred_skills (the safer, more established bucket).
 
 WHAT COUNTS AS A SKILL (critical — the #1 source of inconsistent extraction):
 - Testing-activity nouns and other named disciplines/practices ("API testing",

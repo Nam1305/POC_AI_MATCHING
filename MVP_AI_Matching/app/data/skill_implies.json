@@ -194,7 +194,8 @@
     "javascript"
   ],
   "socket.io": [
-    "javascript"
+    "javascript",
+    "node.js"
   ],
   "webpack": [
     "javascript"
@@ -269,7 +270,8 @@
     "javascript"
   ],
   "npm": [
-    "javascript"
+    "javascript",
+    "node.js"
   ],
   "handlebars.js": [
     "javascript"
@@ -688,13 +690,16 @@
     "apache-spark"
   ],
   "kibana": [
-    "elasticsearch"
+    "elasticsearch",
+    "java"
   ],
   "logstash": [
-    "elasticsearch"
+    "elasticsearch",
+    "java"
   ],
   "elk": [
-    "elasticsearch"
+    "elasticsearch",
+    "java"
   ],
   "sass": [
     "css"
@@ -1233,10 +1238,12 @@
     "php"
   ],
   "cassandra-2.0": [
-    "cassandra"
+    "cassandra",
+    "java"
   ],
   "cassandra-3.0": [
-    "cassandra"
+    "cassandra",
+    "java"
   ],
   "centos6": [
     "centos"
@@ -1435,13 +1442,16 @@
     "docker"
   ],
   "drupal-6": [
-    "drupal"
+    "drupal",
+    "php"
   ],
   "drupal-7": [
-    "drupal"
+    "drupal",
+    "php"
   ],
   "drupal-8": [
-    "drupal"
+    "drupal",
+    "php"
   ],
   "dynamics-365": [
     "microsoft-dynamics"
@@ -1477,13 +1487,16 @@
     "ejb"
   ],
   "elastic-stack": [
-    "elasticsearch"
+    "elasticsearch",
+    "java"
   ],
   "elasticsearch-5": [
-    "elasticsearch"
+    "elasticsearch",
+    "java"
   ],
   "elasticsearch-aggregation": [
-    "elasticsearch"
+    "elasticsearch",
+    "java"
   ],
   "entity-framework-4": [
     "entity-framework",
@@ -1856,7 +1869,8 @@
   ],
   "jmeter-5.0": [
     "jmeter",
-    "performance-testing"
+    "performance-testing",
+    "java"
   ],
   "joomla1.5": [
     "joomla"
@@ -2060,13 +2074,16 @@
     "liferay"
   ],
   "magento-1.7": [
-    "magento"
+    "magento",
+    "php"
   ],
   "magento-1.9": [
-    "magento"
+    "magento",
+    "php"
   ],
   "magento2": [
-    "magento"
+    "magento",
+    "php"
   ],
   "matplotlib-basemap": [
     "matplotlib",
@@ -2361,13 +2378,16 @@
     "ruby"
   ],
   "raspberry-pi2": [
-    "raspberry-pi"
+    "raspberry-pi",
+    "linux"
   ],
   "raspberry-pi3": [
-    "raspberry-pi"
+    "raspberry-pi",
+    "linux"
   ],
   "raspberry-pi4": [
-    "raspberry-pi"
+    "raspberry-pi",
+    "linux"
   ],
   "react-admin": [
     "reactjs",
@@ -2481,7 +2501,8 @@
     "reshape"
   ],
   "retrofit2": [
-    "retrofit"
+    "retrofit",
+    "java"
   ],
   "rspec-rails": [
     "rspec",
@@ -3128,7 +3149,8 @@
     "automation-testing"
   ],
   "webdriverio": [
-    "automation-testing"
+    "automation-testing",
+    "javascript"
   ],
   "cucumber": [
     "automation-testing",
@@ -3145,10 +3167,12 @@
     "api-testing"
   ],
   "jmeter": [
-    "performance-testing"
+    "performance-testing",
+    "java"
   ],
   "k6": [
-    "performance-testing"
+    "performance-testing",
+    "javascript"
   ],
   "locust": [
     "performance-testing"
@@ -3321,7 +3345,9 @@
   "figma": [],
   "fintech": [],
   "firebase": [],
-  "firestore": [],
+  "firestore": [
+    "gcp"
+  ],
   "firmware": [],
   "flightphp": [],
   "fmcg": [],
@@ -3548,7 +3574,9 @@
   "solution-architect": [],
   "sqa": [],
   "sql-&-system-integration": [],
-  "sqs": [],
+  "sqs": [
+    "aws"
+  ],
   "squid": [],
   "sre": [],
   "stock-broker": [],
@@ -4067,7 +4095,8 @@
     "testing"
   ],
   "azure-devops": [
-    "devops"
+    "devops",
+    "azure"
   ],
   "open-telemetry": [
     "opentelemetry",
@@ -4165,7 +4194,8 @@
     "javascript"
   ],
   "tanstack-query": [
-    "javascript"
+    "javascript",
+    "reactjs"
   ],
   "pinia": [
     "vue.js",
@@ -4359,7 +4389,8 @@
     "blockchain"
   ],
   "hardhat": [
-    "blockchain"
+    "blockchain",
+    "solidity"
   ],
   "foundry": [
     "blockchain"
@@ -4372,10 +4403,582 @@
     "blockchain"
   ],
   "smart-contracts": [
-    "blockchain"
+    "blockchain",
+    "solidity"
   ],
   ".net": [
     "linq",
     "c#"
+  ],
+  "android-auto": [
+    "android"
+  ],
+  "app-clips": [
+    "ios"
+  ],
+  "avalonia": [
+    "c#",
+    ".net",
+    "linq"
+  ],
+  "background-fetch": [
+    "ios"
+  ],
+  "carplay": [
+    "ios"
+  ],
+  "cocos-creator": [
+    "javascript"
+  ],
+  "compose-multiplatform": [
+    "kotlin",
+    "java"
+  ],
+  "core-motion": [
+    "ios"
+  ],
+  "firebase-cloud-messaging": [
+    "firebase"
+  ],
+  "homekit": [
+    "ios"
+  ],
+  "metal-performance-shaders": [
+    "metal"
+  ],
+  "push-kit": [
+    "huawei-mobile-services"
+  ],
+  "uno-platform": [
+    "c#",
+    ".net",
+    "linq"
+  ],
+  "universal-links": [
+    "ios"
+  ],
+  "wails": [
+    "go"
+  ],
+  "widgetkit": [
+    "swiftui",
+    "ios",
+    "swift"
+  ],
+  "windows-app-sdk": [
+    "c#",
+    ".net",
+    "linq"
+  ],
+  "winui": [
+    "c#",
+    ".net",
+    "linq"
+  ],
+  "cocoa-touch": [
+    "objective-c"
+  ],
+  "android-jetpack-compose": [
+    "android"
+  ],
+  "jdbc": [
+    "java"
+  ],
+  "prisma": [
+    "node.js",
+    "javascript"
+  ],
+  "chakra-ui": [
+    "reactjs",
+    "javascript"
+  ],
+  "eslint": [
+    "javascript"
+  ],
+  "prettier": [
+    "javascript"
+  ],
+  "yarn": [
+    "node.js",
+    "javascript"
+  ],
+  "sequelize.js": [
+    "node.js",
+    "javascript"
+  ],
+  "mongoose": [
+    "node.js",
+    "javascript"
+  ],
+  "passport.js": [
+    "node.js",
+    "javascript"
+  ],
+  "formik": [
+    "reactjs",
+    "javascript"
+  ],
+  "woocommerce": [
+    "wordpress",
+    "php",
+    "php-7"
+  ],
+  "elementor": [
+    "wordpress",
+    "php",
+    "php-7"
+  ],
+  "drupal": [
+    "php"
+  ],
+  "magento": [
+    "php"
+  ],
+  "dbt": [
+    "sql"
+  ],
+  "databricks": [
+    "apache-spark"
+  ],
+  "istio": [
+    "kubernetes",
+    "docker"
+  ],
+  "enzyme": [
+    "reactjs",
+    "javascript"
+  ],
+  "core-data": [
+    "swift"
+  ],
+  "combine": [
+    "swift"
+  ],
+  "storybook": [
+    "javascript"
+  ],
+  "vercel": [
+    "next.js",
+    "javascript",
+    "reactjs"
+  ],
+  "elasticsearch": [
+    "java"
+  ],
+  "cassandra": [
+    "java"
+  ],
+  "ktor": [
+    "kotlin",
+    "java"
+  ],
+  "retrofit": [
+    "java"
+  ],
+  "okhttp": [
+    "java"
+  ],
+  "android-room": [
+    "android"
+  ],
+  "viewmodel": [
+    "android"
+  ],
+  "esp32": [
+    "embedded-c",
+    "c"
+  ],
+  "stm32": [
+    "embedded-c",
+    "c"
+  ],
+  "freertos": [
+    "embedded-c",
+    "c"
+  ],
+  "arduino": [
+    "c++"
+  ],
+  "mqtt": [
+    "iot"
+  ],
+  "raspberry-pi": [
+    "linux"
+  ],
+  "truffle": [
+    "solidity"
+  ],
+  "arkit": [
+    "swift"
+  ],
+  "arcore": [
+    "android"
+  ],
+  "godot": [
+    "gdscript"
+  ],
+  "webxr": [
+    "javascript"
+  ],
+  "pyramid": [
+    "python"
+  ],
+  "bottle": [
+    "python"
+  ],
+  "aiohttp": [
+    "python"
+  ],
+  "spacy": [
+    "python"
+  ],
+  "nltk": [
+    "python"
+  ],
+  "gensim": [
+    "python"
+  ],
+  "dash": [
+    "python"
+  ],
+  "gradio": [
+    "python"
+  ],
+  "mockito": [
+    "java"
+  ],
+  "looker": [
+    "sql"
+  ],
+  "cloudformation": [
+    "aws"
+  ],
+  "aws-lambda": [
+    "aws"
+  ],
+  "azure-functions": [
+    "azure"
+  ],
+  "google-cloud-functions": [
+    "gcp"
+  ],
+  "redshift": [
+    "aws"
+  ],
+  "bigquery": [
+    "gcp"
+  ],
+  "google-data-studio": [
+    "gcp"
+  ],
+  "black": [
+    "python"
+  ],
+  "flake8": [
+    "python"
+  ],
+  "luigi": [
+    "python"
+  ],
+  "httpx": [
+    "python"
+  ],
+  "alembic": [
+    "python"
+  ],
+  "marshmallow": [
+    "python"
+  ],
+  "typer": [
+    "python"
+  ],
+  "zod": [
+    "typescript",
+    "javascript"
+  ],
+  "yup": [
+    "javascript"
+  ],
+  "dayjs": [
+    "javascript"
+  ],
+  "date-fns": [
+    "javascript"
+  ],
+  "swr": [
+    "reactjs",
+    "javascript"
+  ],
+  "recoil": [
+    "reactjs",
+    "javascript"
+  ],
+  "jotai": [
+    "reactjs",
+    "javascript"
+  ],
+  "framer-motion": [
+    "reactjs",
+    "javascript"
+  ],
+  "turborepo": [
+    "javascript"
+  ],
+  "nx-monorepo": [
+    "javascript"
+  ],
+  "lerna": [
+    "javascript"
+  ],
+  "parcel-bundler": [
+    "javascript"
+  ],
+  "esbuild": [
+    "javascript"
+  ],
+  "solidjs": [
+    "javascript"
+  ],
+  "qwik": [
+    "javascript"
+  ],
+  "preact": [
+    "reactjs",
+    "javascript"
+  ],
+  "chai.js": [
+    "javascript"
+  ],
+  "sinon.js": [
+    "javascript"
+  ],
+  "supertest": [
+    "node.js",
+    "javascript"
+  ],
+  "chatgpt": [
+    "openai"
+  ],
+  "amazon-ec2": [
+    "aws"
+  ],
+  "amazon-s3": [
+    "aws"
+  ],
+  "amazon-rds": [
+    "aws"
+  ],
+  "amazon-sns": [
+    "aws"
+  ],
+  "amazon-cloudfront": [
+    "aws"
+  ],
+  "amazon-route-53": [
+    "aws"
+  ],
+  "aws-iam": [
+    "aws"
+  ],
+  "amazon-ecs": [
+    "aws"
+  ],
+  "amazon-eks": [
+    "aws",
+    "kubernetes",
+    "docker"
+  ],
+  "aws-fargate": [
+    "aws"
+  ],
+  "amazon-cloudwatch": [
+    "aws"
+  ],
+  "aws-codepipeline": [
+    "aws"
+  ],
+  "aws-codebuild": [
+    "aws"
+  ],
+  "aws-codedeploy": [
+    "aws"
+  ],
+  "amazon-kinesis": [
+    "aws"
+  ],
+  "aws-glue": [
+    "aws"
+  ],
+  "amazon-athena": [
+    "aws"
+  ],
+  "amazon-sagemaker": [
+    "aws"
+  ],
+  "aws-elastic-beanstalk": [
+    "aws"
+  ],
+  "amazon-api-gateway": [
+    "aws"
+  ],
+  "aws-step-functions": [
+    "aws"
+  ],
+  "aws-secrets-manager": [
+    "aws"
+  ],
+  "aws-kms": [
+    "aws"
+  ],
+  "amazon-vpc": [
+    "aws"
+  ],
+  "amazon-aurora": [
+    "aws"
+  ],
+  "amazon-elasticache": [
+    "aws"
+  ],
+  "amazon-cognito": [
+    "aws"
+  ],
+  "amazon-emr": [
+    "aws"
+  ],
+  "azure-sql-database": [
+    "azure"
+  ],
+  "azure-cosmos-db": [
+    "azure"
+  ],
+  "azure-kubernetes-service": [
+    "azure",
+    "kubernetes",
+    "docker"
+  ],
+  "azure-blob-storage": [
+    "azure"
+  ],
+  "azure-active-directory": [
+    "azure"
+  ],
+  "azure-app-service": [
+    "azure"
+  ],
+  "azure-data-factory": [
+    "azure"
+  ],
+  "azure-synapse-analytics": [
+    "azure"
+  ],
+  "azure-monitor": [
+    "azure"
+  ],
+  "azure-logic-apps": [
+    "azure"
+  ],
+  "azure-service-bus": [
+    "azure"
+  ],
+  "azure-key-vault": [
+    "azure"
+  ],
+  "azure-data-lake": [
+    "azure"
+  ],
+  "azure-databricks": [
+    "azure",
+    "apache-spark"
+  ],
+  "azure-virtual-machines": [
+    "azure"
+  ],
+  "azure-api-management": [
+    "azure"
+  ],
+  "azure-cognitive-services": [
+    "azure"
+  ],
+  "azure-machine-learning": [
+    "azure"
+  ],
+  "azure-dns": [
+    "azure"
+  ],
+  "azure-cdn": [
+    "azure"
+  ],
+  "azure-application-insights": [
+    "azure"
+  ],
+  "azure-service-fabric": [
+    "azure"
+  ],
+  "azure-notification-hubs": [
+    "azure"
+  ],
+  "cloud-run": [
+    "gcp"
+  ],
+  "cloud-storage": [
+    "gcp"
+  ],
+  "compute-engine": [
+    "gcp"
+  ],
+  "cloud-sql": [
+    "gcp"
+  ],
+  "pub-sub": [
+    "gcp"
+  ],
+  "cloud-dataflow": [
+    "gcp"
+  ],
+  "cloud-dataproc": [
+    "gcp",
+    "apache-spark"
+  ],
+  "vertex-ai": [
+    "gcp"
+  ],
+  "gke": [
+    "gcp",
+    "kubernetes",
+    "docker"
+  ],
+  "cloud-build": [
+    "gcp"
+  ],
+  "cloud-spanner": [
+    "gcp"
+  ],
+  "cloud-bigtable": [
+    "gcp"
+  ],
+  "cloud-iam": [
+    "gcp"
+  ],
+  "cloud-monitoring": [
+    "gcp"
+  ],
+  "app-engine": [
+    "gcp"
+  ],
+  "cloud-composer": [
+    "gcp",
+    "airflow"
+  ],
+  "sap-abap": [
+    "sap"
+  ],
+  "sap-hana": [
+    "sap"
+  ],
+  "sap-fico": [
+    "sap"
+  ],
+  "sap-mm": [
+    "sap"
   ]
 }

@@ -10,9 +10,10 @@ D1 Semantic   : cosine_sim(cv_embedding, jd_embedding), normalize về 0–1
 D2 Skills     : so khớp trọng số kỹ năng (weighted skill overlap), có hỗ
                 trợ alias/suy luận (implied)/gần đúng (fuzzy)/cùng nhóm
                 (category)
-D3 Experience : tỷ lệ số năm kinh nghiệm (cv_years / jd_min_years), chặn
-                trần ở 1.0 — không đánh giá độ liên quan lĩnh vực (D1/D2
-                đã đảm nhiệm phần đó)
+D3 Experience : độ sâu kinh nghiệm THEO TỪNG required_skill của JD (số tháng
+                CV thực làm skill đó / jd_min_years), chặn trần ở 1.0; JD
+                không có required_skills thì sập về tỷ lệ số năm thô (cv_years
+                / jd_min_years) như cũ
 D4 Education  : cv_degree_level / jd_required_degree_level, chặn trần ở 1.0
 D5 Location   : ước tính thời gian di chuyển (route OSRM dựa trên lat/lng
                 đã geocode lúc parse) × mức độ phù hợp hình thức làm việc
@@ -22,13 +23,14 @@ final_score = Σ(Di × Wi) × 100   (Wi là trọng số từng chiều, cấu h
 
 from __future__ import annotations
 
+import datetime
 import time
 from typing import Optional
 
 import numpy as np
 
 from app.config import settings
-from app.schemas import ParsedCV, ParsedJD
+from app.schemas import ParsedCV, ParsedJD, merge_month_intervals, parse_month
 from app.services import location_service
 from app.services.skill_matcher import SkillMatcher, _skill_matcher
 
@@ -98,20 +100,92 @@ def score_skills(
 
 
 # ---------------------------------------------------------------------------
-# D3: Experience — years ratio
-# Điểm kinh nghiệm — tỷ lệ số năm kinh nghiệm so với yêu cầu JD
+# D3: Experience — per-required-skill depth (months), falls back to raw years
+# Điểm kinh nghiệm — độ sâu kinh nghiệm THEO TỪNG required_skill của JD, sập
+# về tỷ lệ số năm thô khi JD không liệt kê required_skills
 # ---------------------------------------------------------------------------
 
-def score_experience(cv: ParsedCV, jd: ParsedJD) -> float:
-    """
-    D3 = min(cv_years / jd_min_years, 1.0). Không JD yêu cầu → 1.0 (neutral).
+def _job_matches_group(job, group_names: list[str], matcher: SkillMatcher) -> bool:
+    """1 job tính là 'có kinh nghiệm' 1 OR-group nếu tech_stack của job đó
+    khớp (layer0/1/2/3, dùng lại đúng evaluate_name của D2) BẤT KỲ tên nào
+    trong group — không xét cv.skills/projects/languages, chỉ tech_stack của
+    chính job (đây là nguồn duy nhất gắn liền với start/end để tính tháng)."""
+    ctx = matcher.build_cv_context(ParsedCV(skills=job.tech_stack))
+    return any(matcher.evaluate_name(name, ctx).credit > 0 for name in group_names)
 
-    Chỉ đo SỐ LƯỢNG năm kinh nghiệm; việc năm kinh nghiệm đó có đúng lĩnh
-    vực/kỹ năng hay không đã do D1 (semantic) và D2 (skills) đảm nhiệm —
-    tránh D3 đếm trùng cùng một tín hiệu "liên quan" theo cách khác.
+
+def _skill_group_months(jobs, group_names: list[str], matcher: SkillMatcher) -> int:
+    """Tổng số tháng (gộp khoảng chồng lấn, như ParsedCV.total_exp_months) của
+    các job khớp 1 OR-group required_skill."""
+    today = datetime.date.today().replace(day=1)
+    intervals: list[tuple[datetime.date, datetime.date]] = []
+    for job in jobs:
+        if not _job_matches_group(job, group_names, matcher):
+            continue
+        start = parse_month(job.start)
+        if not start:
+            continue
+        end = parse_month(job.end) or today
+        intervals.append((start, max(start, end)))
+    return merge_month_intervals(intervals)
+
+
+def _skill_experience_ratio(cv: ParsedCV, jd: ParsedJD, matcher: SkillMatcher) -> Optional[float]:
+    """
+    D3 theo chiều sâu: với mỗi required_skill (OR-group), cộng dồn số tháng
+    CV thực sự làm việc với skill đó (job nào có skill đó trong tech_stack),
+    so với ngưỡng jd.min_experience_years áp DÙNG CHUNG cho từng skill (JD
+    hiện chỉ có 1 số năm kinh nghiệm tổng, không có field riêng theo skill).
+    Trung bình có trọng số (weight của từng required_skill, như D2) ra 1 điểm
+    duy nhất. required_skill nào không job nào chứng minh được (0 tháng, kể
+    cả khi chỉ nằm rời rạc trong cv.skills chứ không gắn job cụ thể) → ratio 0
+    cho skill đó — không có fallback trung lập, vì D3 đo ĐỘ SÂU nên phải có
+    bằng chứng thời lượng cụ thể mới tính.
+
+    Trả None khi JD không có required_skills (không có gì để bóc tách theo
+    skill) — caller sập về công thức tổng số năm thô.
+    """
+    if not jd.required_skills:
+        return None
+    required_months = jd.min_experience_years * 12
+    jobs = cv.work_experience
+
+    total_w = 0
+    weighted_sum = 0.0
+    for req in jd.required_skills:
+        names = matcher.group_names(req)
+        months = _skill_group_months(jobs, names, matcher)
+        ratio = min(months / required_months, 1.0)
+        weighted_sum += ratio * req.weight
+        total_w += req.weight
+
+    if total_w <= 0:
+        return None
+    return weighted_sum / total_w
+
+
+def score_experience(cv: ParsedCV, jd: ParsedJD, matcher: Optional[SkillMatcher] = None) -> float:
+    """
+    JD không yêu cầu số năm kinh nghiệm → 1.0 (neutral).
+
+    JD CÓ required_skills → D3 = trung bình có trọng số độ sâu (số tháng)
+    của CV trong TỪNG required_skill, so với jd.min_experience_years (xem
+    _skill_experience_ratio) — phản ánh đúng việc "3 năm kinh nghiệm nhưng
+    rải rác 4 công ty, mỗi công ty 1 skill khác nhau" không nên được tính là
+    "3 năm kinh nghiệm Java+React".
+
+    JD không có required_skills (hiếm, JD chỉ nêu số năm chung chung) → sập
+    về D3 cũ: min(cv_years / jd_min_years, 1.0), không phân biệt lĩnh vực
+    (D1/D2 đảm nhiệm phần liên quan đó).
     """
     if not jd.min_experience_years:
         return 1.0
+    matcher = matcher or _skill_matcher
+
+    skill_ratio = _skill_experience_ratio(cv, jd, matcher)
+    if skill_ratio is not None:
+        return skill_ratio
+
     cv_years = cv.total_exp_months / 12.0
     return min(cv_years / jd.min_experience_years, 1.0)
 
