@@ -10,8 +10,46 @@
           <v-text-field v-model="name" label="Screening name" placeholder="e.g. Backend Engineer batch #1"
             prepend-inner-icon="mdi-tag-outline" :disabled="loading" required />
 
-          <v-textarea v-model="jdText" label="Job description text" placeholder="Paste the full JD text here..."
-            prepend-inner-icon="mdi-text-box-outline" rows="8" auto-grow :disabled="loading" required />
+          <div class="text-subtitle-2 mb-2 mt-2">Job description</div>
+
+          <v-text-field v-model="jd.title" label="Job title" placeholder="e.g. Backend Engineer"
+            prepend-inner-icon="mdi-briefcase-outline" :disabled="loading" required />
+
+          <div class="d-flex flex-wrap ga-4">
+            <v-select v-model="jd.workType" :items="workTypeOptions" label="Work type" clearable
+              prepend-inner-icon="mdi-domain" style="min-width: 220px" class="flex-1-0" :disabled="loading" />
+            <v-text-field v-model="jd.location" label="Location" placeholder="e.g. District 1, Ho Chi Minh City"
+              prepend-inner-icon="mdi-map-marker-outline" style="min-width: 220px" class="flex-1-1" :disabled="loading" />
+          </div>
+
+          <v-select v-model="jd.education" :items="educationOptions" label="Education" multiple chips closable-chips
+            prepend-inner-icon="mdi-school-outline" :disabled="loading" />
+
+          <v-text-field v-model="jd.experienceRequirement" label="Experience requirement"
+            placeholder="e.g. 3+ years" prepend-inner-icon="mdi-clock-outline" :disabled="loading" />
+
+          <v-autocomplete v-model="jd.requiredSkills" :items="requiredSkillItems" label="Required skills" multiple
+            chips closable-chips prepend-inner-icon="mdi-star-outline"
+            placeholder="Type to search and pick skills" :disabled="loading" />
+
+          <v-autocomplete v-model="jd.preferredSkills" :items="preferredSkillItems" label="Preferred skills"
+            multiple chips closable-chips prepend-inner-icon="mdi-star-half-full"
+            placeholder="Type to search and pick skills" :disabled="loading" />
+
+          <v-autocomplete v-model="jd.niceToHave" :items="niceToHaveSkillItems" label="Nice to have skills"
+            multiple chips closable-chips prepend-inner-icon="mdi-star-off-outline"
+            placeholder="Type to search and pick skills" :disabled="loading" />
+
+          <v-textarea v-model="jd.responsibilities" label="Responsibilities"
+            placeholder="Describe the day-to-day responsibilities..." prepend-inner-icon="mdi-format-list-bulleted"
+            rows="5" auto-grow :disabled="loading" />
+
+          <v-textarea v-model="jd.requirements" label="Requirements"
+            placeholder="Describe the requirements for this role..." prepend-inner-icon="mdi-clipboard-check-outline"
+            rows="5" auto-grow :disabled="loading" />
+
+          <v-textarea v-model="jd.benefits" label="Benefits" placeholder="Describe the benefits offered..."
+            prepend-inner-icon="mdi-gift-outline" rows="5" auto-grow :disabled="loading" />
 
           <div class="text-subtitle-2 mb-2">CV URLs</div>
 
@@ -135,12 +173,70 @@
 </template>
 
 <script setup lang="ts">
+import taxonomiesRaw from '../taxonomies.json'
+
 interface ScreeningSummary {
   _id: string
   name: string
   jdTitle: string | null
   candidateCount: number
   createdAt: string
+}
+
+interface JobDescriptionForm {
+  title: string
+  workType: string | null
+  location: string
+  education: string[]
+  experienceRequirement: string
+  requiredSkills: string[]
+  preferredSkills: string[]
+  niceToHave: string[]
+  responsibilities: string
+  requirements: string
+  benefits: string
+}
+
+const workTypeOptions = ['Onsite', 'Remote', 'Hybrid', 'Oversea']
+
+const educationOptions = ['THPT', 'Đại học', 'Cao đẳng', 'Tiến sĩ', 'Thạc sĩ']
+
+// The taxonomy file contains raw, case-inconsistent duplicates. Dedupe by a
+// lowercase key (keeping the first casing) and sort so the picker is clean.
+const skillOptions = Array.from(
+  new Map(
+    (taxonomiesRaw as string[])
+      .map(skill => skill.trim())
+      .filter(Boolean)
+      .map(skill => [skill.toLowerCase(), skill] as const),
+  ).values(),
+).sort((a, b) => a.localeCompare(b))
+
+function buildJdText(f: JobDescriptionForm): string {
+  const parts: string[] = []
+  if (f.title.trim())
+    parts.push(`Job Title: ${f.title.trim()}`)
+  if (f.workType)
+    parts.push(`Work Type: ${f.workType}`)
+  if (f.location.trim())
+    parts.push(`Location: ${f.location.trim()}`)
+  if (f.education.length > 0)
+    parts.push(`Education: ${f.education.join(', ')}`)
+  if (f.requiredSkills.length > 0)
+    parts.push(`Required Skills: ${f.requiredSkills.join(', ')}`)
+  if (f.preferredSkills.length > 0)
+    parts.push(`Preferred Skills: ${f.preferredSkills.join(', ')}`)
+  if (f.niceToHave.length > 0)
+    parts.push(`Nice to Have Skills: ${f.niceToHave.join(', ')}`)
+  if (f.experienceRequirement.trim())
+    parts.push(`Experience Requirement: ${f.experienceRequirement.trim()}`)
+  if (f.responsibilities.trim())
+    parts.push(`Responsibilities:\n${f.responsibilities.trim()}`)
+  if (f.requirements.trim())
+    parts.push(`Requirements:\n${f.requirements.trim()}`)
+  if (f.benefits.trim())
+    parts.push(`Benefits:\n${f.benefits.trim()}`)
+  return parts.join('\n\n')
 }
 
 const DEFAULT_WEIGHTS: Record<string, number> = {
@@ -160,7 +256,31 @@ const weightDims = [
 ] as const
 
 const name = ref('')
-const jdText = ref('')
+const jd = reactive<JobDescriptionForm>({
+  title: '',
+  workType: null,
+  location: '',
+  education: [],
+  experienceRequirement: '',
+  requiredSkills: [],
+  preferredSkills: [],
+  niceToHave: [],
+  responsibilities: '',
+  requirements: '',
+  benefits: '',
+})
+
+const requiredSkillItems = computed(() =>
+  skillOptions.filter(s => !jd.preferredSkills.includes(s) && !jd.niceToHave.includes(s)),
+)
+const preferredSkillItems = computed(() =>
+  skillOptions.filter(s => !jd.requiredSkills.includes(s) && !jd.niceToHave.includes(s)),
+)
+const niceToHaveSkillItems = computed(() =>
+  skillOptions.filter(s => !jd.requiredSkills.includes(s) && !jd.preferredSkills.includes(s)),
+)
+
+const jdText = computed(() => buildJdText(jd))
 const cvUrls = ref<string[]>([''])
 const bulkPasteMode = ref(false)
 const bulkPasteText = ref('')
@@ -190,7 +310,7 @@ const weightSumValid = computed(() => Math.abs(weightSum.value - 1.0) < 1e-6)
 
 const canSubmit = computed(() =>
   name.value.trim().length > 0
-  && jdText.value.trim().length > 0
+  && jd.title.trim().length > 0
   && cvUrls.value.some(u => u.trim().length > 0)
   && weightSumValid.value,
 )
