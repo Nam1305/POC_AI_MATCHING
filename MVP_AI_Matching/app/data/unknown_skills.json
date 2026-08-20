@@ -1,0 +1,1522 @@
+{
+  ".net api": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN TUYEN CANH"
+    ]
+  },
+  "2011": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN ĐÌNH HÙNG"
+    ]
+  },
+  "3-layer architecture": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Son T P"
+    ]
+  },
+  "700": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Ta Hoang Long"
+    ]
+  },
+  "aapanel": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyén Van C"
+    ]
+  },
+  "abac": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Ta Hoang Long"
+    ]
+  },
+  "abp framework": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN THỊ THÙY LINH"
+    ]
+  },
+  "acid": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRAN DANG DUONG",
+      "Nguyén Van Nam K"
+    ]
+  },
+  "adapter pattern": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN MANH DUNG"
+    ]
+  },
+  "ai agent": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Bình Hoàng"
+    ]
+  },
+  "ai agents": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRUONG HA XUAN HUY"
+    ]
+  },
+  "akabot": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "android sdk": {
+    "count": 3,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc",
+      "Phuoc, Vo Duc",
+      "NGUYỄN PHÁT HƯNG"
+    ]
+  },
+  "antigravity": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Bình Hoàng",
+      "NGUYỄN THỊ THÙY LINH"
+    ]
+  },
+  "apache thrift": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Duy Khánh"
+    ]
+  },
+  "api development": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN DUY CÔNG"
+    ]
+  },
+  "api integration": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "api monitoring": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Phúc Lân"
+    ]
+  },
+  "aptis level c": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Hoàng Quốc Trọng"
+    ]
+  },
+  "aptis level c certificate": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Hoàng Quốc Trọng"
+    ]
+  },
+  "arcface": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Tuấn Anh"
+    ]
+  },
+  "asp.net api": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Dang Công Quân K"
+    ]
+  },
+  "asp.net core api": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "HOÀNG VĂN HÙNG"
+    ]
+  },
+  "asp.net zero": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "HOÀNG VĂN HÙNG"
+    ]
+  },
+  "associate": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN PHÁT HƯNG"
+    ]
+  },
+  "associate data analyst": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN PHÁT HƯNG"
+    ]
+  },
+  "asynchronous programming": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vu Duc Nham"
+    ]
+  },
+  "audit trail log": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "aws dynamodb": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Hoàng Quốc Trọng"
+    ]
+  },
+  "aws iot core": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Hoàng Quốc Trọng"
+    ]
+  },
+  "aws s3": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "VU NGOC MINH"
+    ]
+  },
+  "axon ivy designer": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRUONG HA XUAN HUY"
+    ]
+  },
+  "azure sql": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Ta Dong"
+    ]
+  },
+  "backbase": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Hoàng Quốc Trọng"
+    ]
+  },
+  "backbase stream service": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Hoàng Quốc Trọng"
+    ]
+  },
+  "background services": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "VU NGOC MINH"
+    ]
+  },
+  "bank apis": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "VU NGOC MINH"
+    ]
+  },
+  "basic": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Bình Hoàng"
+    ]
+  },
+  "basic communicate": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Son T P"
+    ]
+  },
+  "basic proficiency": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRẦN PHƯƠNG HUY"
+    ]
+  },
+  "basics of web development & coding": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Son T P",
+      "Dang Công Quân K"
+    ]
+  },
+  "bepos checklist": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Dương Thị Xinh"
+    ]
+  },
+  "blazor wasm": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Dang Đức Anh H"
+    ]
+  },
+  "bno055": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc",
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "bullmq": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN MANH DUNG"
+    ]
+  },
+  "bunnycdn": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "VU NGOC MINH"
+    ]
+  },
+  "cellular": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "centralized logging": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Văn Thử"
+    ]
+  },
+  "certificate of effective communication skills": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "certnexus certified ethical emerging technologist": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Dang Công Quân K"
+    ]
+  },
+  "cfml": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Quốc Thắng"
+    ]
+  },
+  "claude": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Bình Hoàng",
+      "HOÀNG VĂN HÙNG"
+    ]
+  },
+  "cloudfront": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN MANH DUNG"
+    ]
+  },
+  "cocos2d js": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Duy Khánh"
+    ]
+  },
+  "codex": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "HOÀNG VĂN HÙNG"
+    ]
+  },
+  "computer communications": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Son T P",
+      "Dang Công Quân K"
+    ]
+  },
+  "container monitoring": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN MANH DUNG"
+    ]
+  },
+  "controller-service-repository": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRAN DANG DUONG"
+    ]
+  },
+  "counterstrikesharp": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Dang Công Quân K"
+    ]
+  },
+  "crif foundation framework": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Hoàng Quốc Trọng"
+    ]
+  },
+  "crudbooster": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "cursor ai": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN TUYEN CANH"
+    ]
+  },
+  "data structures and algorithms": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Ta Hoang Long"
+    ]
+  },
+  "database management": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyén Van Nam K"
+    ]
+  },
+  "db2 9.7 bootcamp and oracle to db2 migration clinic": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "debezium cdc": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyén Van C"
+    ]
+  },
+  "dijkstra algorithm": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "dijkstra's algorithm": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc"
+    ]
+  },
+  "domain-driven design (ddd)": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "VU NGOC MINH"
+    ]
+  },
+  "drizzle": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Ta Hoang Long"
+    ]
+  },
+  "easyrsa": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRAN DANG DUONG"
+    ]
+  },
+  "ec2": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRAN DANG DUONG",
+      "NGUYEN MANH DUNG"
+    ]
+  },
+  "english - aptis level c": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Hoàng Quốc Trọng"
+    ]
+  },
+  "english - basic communicate": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Son T P"
+    ]
+  },
+  "english - basic proficiency": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRẦN PHƯƠNG HUY"
+    ]
+  },
+  "english - intermediate": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN VIỆT HOÀN"
+    ]
+  },
+  "english - intermediate (reading), basic (speaking)": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Bình Hoàng"
+    ]
+  },
+  "english - intermediate (technical reading/writing)": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Phúc Lân"
+    ]
+  },
+  "english - reading comprehension": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Quang Trường"
+    ]
+  },
+  "event-driven architecture": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Văn Thử"
+    ]
+  },
+  "fcm": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN ĐÌNH HÙNG"
+    ]
+  },
+  "filezilla": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN ĐÌNH HÙNG",
+      "HOÀNG VĂN HÙNG"
+    ]
+  },
+  "firebase fcm": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN MANH DUNG"
+    ]
+  },
+  "fluent api": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN TUYEN CANH"
+    ]
+  },
+  "fresher java passport of cmc": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "PHẠM VĂN THANH"
+    ]
+  },
+  "gaia edu": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Dương Thị Xinh"
+    ]
+  },
+  "gemini": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN THỊ THÙY LINH"
+    ]
+  },
+  "gemini university student": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "VŨ ĐỨC NAM"
+    ]
+  },
+  "github copilot": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Bình Hoàng"
+    ]
+  },
+  "gmail oauth2": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "google cloud": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Ta Dong",
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "google deepmind": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN THỊ THÙY LINH"
+    ]
+  },
+  "google map api": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Cao Van Kha"
+    ]
+  },
+  "google speech-to-text": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc",
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "google text-to-speech": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc",
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "google translate api": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Phúc Lân"
+    ]
+  },
+  "google ux design certificate": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRUONG CONG THANH"
+    ]
+  },
+  "graphdb": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN MANH DUNG"
+    ]
+  },
+  "heidisql": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRUONG CONG THANH"
+    ]
+  },
+  "helmet": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "iam": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN MANH DUNG"
+    ]
+  },
+  "ibm certified database associate db2 9 fundamentals": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "ibm certified solution designer object oriented analysis and design": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "ibm certified solution designer object oriented analysis and design, vuml 2": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "ibm information management db2 technical professional v2": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "ielts academic": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN PHÁT HƯNG"
+    ]
+  },
+  "iis manager": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "HOÀNG VĂN HÙNG"
+    ]
+  },
+  "intermediate": {
+    "count": 3,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN VIỆT HOÀN",
+      "Trần Phúc Lân",
+      "Trần Bình Hoàng"
+    ]
+  },
+  "japanese - n4+": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "HOÀNG VĂN HÙNG"
+    ]
+  },
+  "java enterprise edition": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Dang Công Quân K"
+    ]
+  },
+  "javascript interface": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "javascriptinterface": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc"
+    ]
+  },
+  "jax-rpc": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "job training": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Cao Van Kha"
+    ]
+  },
+  "kỹ năng mềm về giao tiếp": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Dương Thị Xinh"
+    ]
+  },
+  "kỹ năng mềm về lam việc nhóm": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Dương Thị Xinh"
+    ]
+  },
+  "laravel excel": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "laravel form request": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "laravel signed route": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "linuxgsm": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Dang Công Quân K"
+    ]
+  },
+  "log analysis": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN MANH DUNG"
+    ]
+  },
+  "mapstar": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Dương Thị Xinh"
+    ]
+  },
+  "mediater": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyén Van C"
+    ]
+  },
+  "mediatr": {
+    "count": 3,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Ta Dong",
+      "Son T P",
+      "Nguyễn Tuấn Anh"
+    ]
+  },
+  "messagepack": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Văn Thử"
+    ]
+  },
+  "messaging integrations": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Phúc Lân"
+    ]
+  },
+  "microsoft 365 apps": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN PHÁT HƯNG"
+    ]
+  },
+  "microsoft excel": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRẦN THỊ HÀ ANH"
+    ]
+  },
+  "microsoft office specialist": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN PHÁT HƯNG"
+    ]
+  },
+  "microsoft office specialist – associate (microsoft 365 apps)": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN PHÁT HƯNG"
+    ]
+  },
+  "mobilenetv2": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc",
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "mockmvc": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRUONG HA XUAN HUY"
+    ]
+  },
+  "mongodb compass": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Duy Khánh"
+    ]
+  },
+  "morgan": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "multi-llm": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Phúc Lân"
+    ]
+  },
+  "murf ai": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc",
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "n4+": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "HOÀNG VĂN HÙNG"
+    ]
+  },
+  "n5": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Hà Thị Dương Thanh"
+    ]
+  },
+  "nx": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Hoàng Quốc Trọng"
+    ]
+  },
+  "ojt": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Cao Van Kha"
+    ]
+  },
+  "ojt (on-the-job training)": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Cao Van Kha"
+    ]
+  },
+  "on": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Cao Van Kha"
+    ]
+  },
+  "openvpn": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRAN DANG DUONG"
+    ]
+  },
+  "oracle bpm": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "oracle certified associate java standard edition 5 and 6": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "oracle ucm": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "outbox pattern": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyén Van C"
+    ]
+  },
+  "p12": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Hồng Nam"
+    ]
+  },
+  "phobert": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc",
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "php & mysql from zonotek": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN ĐÌNH HÙNG"
+    ]
+  },
+  "php & mysql from zonotek - 2011": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN ĐÌNH HÙNG"
+    ]
+  },
+  "pki": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRAN DANG DUONG"
+    ]
+  },
+  "podman": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Dang Công Quân K"
+    ]
+  },
+  "project management principles and practices": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Son T P"
+    ]
+  },
+  "pwm": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc",
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "python data associate": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN PHÁT HƯNG"
+    ]
+  },
+  "railway": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN PHÁT HƯNG"
+    ]
+  },
+  "reading comprehension": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Quang Trường"
+    ]
+  },
+  "red hat enterprise linux": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "redis queue": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYỄN ĐÌNH HÙNG"
+    ]
+  },
+  "redlock": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN MANH DUNG"
+    ]
+  },
+  "relational database design": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "responsive web design": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRUONG CONG THANH"
+    ]
+  },
+  "role-based access control": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "route53": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN MANH DUNG"
+    ]
+  },
+  "schema registry": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyén Van C"
+    ]
+  },
+  "sfpt": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRẦN PHƯƠNG HUY"
+    ]
+  },
+  "siebel crm": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "sim a7680c": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc",
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "smartfox 2x": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Duy Khánh"
+    ]
+  },
+  "smartfox server": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Văn Thử"
+    ]
+  },
+  "smartfoxserver": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Văn Thử"
+    ]
+  },
+  "software development lifecycle": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Son T P",
+      "Dang Công Quân K"
+    ]
+  },
+  "spatie laravel-permission": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "speaking": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Bình Hoàng"
+    ]
+  },
+  "spring email": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRUONG CONG THANH"
+    ]
+  },
+  "sso integration": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Hà Thị Dương Thanh"
+    ]
+  },
+  "ssr relay": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc",
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "system integration": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "technical reading": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Phúc Lân"
+    ]
+  },
+  "telegram bot api": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Phúc Lân"
+    ]
+  },
+  "template method": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "NGUYEN MANH DUNG"
+    ]
+  },
+  "testsigma": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vu Duc Nham"
+    ]
+  },
+  "the": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Cao Van Kha"
+    ]
+  },
+  "the microservices with spring boot & spring cloud course of cmc": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "PHẠM VĂN THANH"
+    ]
+  },
+  "toeic": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Ta Hoang Long",
+      "NGUYỄN PHÁT HƯNG"
+    ]
+  },
+  "toeic (700)": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Ta Hoang Long"
+    ]
+  },
+  "ton": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Phúc Lân"
+    ]
+  },
+  "ton sdk": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Phúc Lân"
+    ]
+  },
+  "tron": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Phúc Lân"
+    ]
+  },
+  "tronweb": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Phúc Lân"
+    ]
+  },
+  "twilio sms": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Cao Van Kha"
+    ]
+  },
+  "vcb payment gateway": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "HOÀNG VĂN HÙNG"
+    ]
+  },
+  "vietnamese": {
+    "count": 15,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy",
+      "TRAN DANG DUONG",
+      "Nguyễn Hồng Nam",
+      "Dương Thị Xinh",
+      "Nguyễn Quang Trường",
+      "Nguyễn Duy Khánh",
+      "Nguyễn Văn Thử",
+      "PHẠM VĂN THANH",
+      "TRẦN PHƯƠNG HUY",
+      "HOÀNG VĂN HÙNG",
+      "NGUYEN TUYEN CANH",
+      "NGUYỄN THỊ THÙY LINH",
+      "NGUYỄN PHÁT HƯNG",
+      "NGUYỄN ĐÌNH HÙNG",
+      "Nguyén Van Nam K"
+    ]
+  },
+  "vietnamese - native": {
+    "count": 14,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy",
+      "TRAN DANG DUONG",
+      "Nguyễn Hồng Nam",
+      "Dương Thị Xinh",
+      "Nguyễn Quang Trường",
+      "Nguyễn Duy Khánh",
+      "Nguyễn Văn Thử",
+      "PHẠM VĂN THANH",
+      "TRẦN PHƯƠNG HUY",
+      "HOÀNG VĂN HÙNG",
+      "NGUYỄN THỊ THÙY LINH",
+      "NGUYỄN PHÁT HƯNG",
+      "NGUYỄN ĐÌNH HÙNG",
+      "Nguyén Van Nam K"
+    ]
+  },
+  "vietqr": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Cao Van Kha"
+    ]
+  },
+  "visualvm": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Duy Khánh"
+    ]
+  },
+  "vnpay": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRUONG CONG THANH",
+      "Cao Van Kha"
+    ]
+  },
+  "vuml 2": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "DAO CONG ANH"
+    ]
+  },
+  "web design for everybody": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Son T P",
+      "Dang Công Quân K"
+    ]
+  },
+  "web design for everybody: basics of web development & coding": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Son T P",
+      "Dang Công Quân K"
+    ]
+  },
+  "web development": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyén Van Nam K"
+    ]
+  },
+  "wijmo": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Quốc Thắng"
+    ]
+  },
+  "wireguard": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyén Van Nam K"
+    ]
+  },
+  "writing": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Trần Phúc Lân"
+    ]
+  },
+  "yajra datatables": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Dong Duy"
+    ]
+  },
+  "z39.50": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Vo Duc Phuoc",
+      "Phuoc, Vo Duc"
+    ]
+  },
+  "zalo": {
+    "count": 2,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "Nguyễn Tiến Bình",
+      "Trần Bình Hoàng"
+    ]
+  },
+  "zalo api": {
+    "count": 1,
+    "last_seen": "2026-08-20",
+    "seen_in_cvs": [
+      "TRAN DANG DUONG"
+    ]
+  }
+}

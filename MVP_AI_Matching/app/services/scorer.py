@@ -110,7 +110,7 @@ def _job_matches_group(job, group_names: list[str], matcher: SkillMatcher) -> bo
     khớp (layer0/1/2/3, dùng lại đúng evaluate_name của D2) BẤT KỲ tên nào
     trong group — không xét cv.skills/projects/languages, chỉ tech_stack của
     chính job (đây là nguồn duy nhất gắn liền với start/end để tính tháng)."""
-    ctx = matcher.build_cv_context(ParsedCV(skills=job.tech_stack))
+    ctx = matcher.build_cv_context(ParsedCV(skills=job.tech_stack), record_unknown=False)
     return any(matcher.evaluate_name(name, ctx).credit > 0 for name in group_names)
 
 
