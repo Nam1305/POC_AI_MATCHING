@@ -138,7 +138,7 @@ FLOW 3 — SCORE (AI Matching)
     ├── asyncio.to_thread ──► scorer.calculate_score()   [pure Python, ~1ms]
     │      D1 Semantic   : normalize_cosine(cosine_sim(cv_emb, jd_emb))
     │      D2 Skills     : cascade 4 tầng, chấm nhị phân, trên cả 3 tier
-    │      D3 Experience : min(cv_years / jd_min_years, 1.0)
+    │      D3 Experience : (per-skill depth + cv_years/jd_min_years) / 2
     │      D4 Education  : min(cv_level / jd_level, 1.0)
     │      D5 Location   : OSRM driving-time trên lat/lng đã geocode
     │      final = Σ(Dᵢ × Wᵢ) × 100
@@ -495,12 +495,16 @@ cảnh gần đây thay vì các job cũ.
 │  JD trống ở CẢ 3 tier → D2 = 1.0                             │
 ├──────────────────────────────────────────────────────────────┤
 │  D3 Experience (W = 0.20)                                    │
-│  D3 = min(cv_total_years / jd_min_years, 1.0)               │
+│  D3 = (S_skill + S_years) / 2   khi JD có required_skills    │
+│    S_skill = Σ(wᵣ·min(Mᵣ/(12·jd_years),1)) / Σ(wᵣ)  — theo   │
+│      TỪNG required_skill, Mᵣ = số tháng CV làm skill đó      │
+│    S_years = min(cv_total_years / jd_min_years, 1.0)         │
+│  JD không có required_skills → D3 = S_years một mình         │
 │  cv_total_years tính bằng MERGE INTERVAL (job song song      │
 │    không bị đếm 2 lần)                                       │
 │  JD không yêu cầu số năm → D3 = 1.0                          │
-│  KHÔNG có modifier relevance/recency — độ liên quan lĩnh vực │
-│    đã do D1 và D2 đảm nhiệm                                  │
+│  S_years làm SÀN cho S_skill — tránh D3=0 chỉ vì CV lệch     │
+│    đúng 1 tech stack dù vẫn nhiều năm kinh nghiệm cùng ngành │
 ├──────────────────────────────────────────────────────────────┤
 │  D4 Education (W = 0.10)                                     │
 │  D4 = min(cv_degree_level / jd_degree_level, 1.0)           │
@@ -900,19 +904,72 @@ mỗi lần.
 
 ### 4.6 Experience Score (D3)
 
-$$D_3 = \min\!\left(\frac{Y_{CV}}{Y_{JD}},\ 1.0\right), \qquad Y_{JD} = 0 \Rightarrow D_3 = 1.0$$
+**Công thức hiện tại trong code** (`score_experience` —
+[scorer.py:167-191](../app/services/scorer.py#L167-L191)). D3 là **trung bình
+cộng đều** của 2 tỷ lệ độc lập — độ sâu theo từng required_skill và tỷ lệ số
+năm kinh nghiệm thô — để tránh D3 sập về 0 chỉ vì CV lệch đúng 1 tech stack cụ
+thể trong khi vẫn có nhiều năm kinh nghiệm cùng ngành (xem ví dụ cuối mục):
 
-**Cách tính $Y_{CV}$ — hợp nhất khoảng thời gian (merge intervals):**
+$$
+D_3 =
+\begin{cases}
+1.0 & Y_{JD} = 0 \quad \text{(JD không yêu cầu số năm)} \\[4pt]
+\dfrac{S_{skill} + S_{years}}{2} & R \neq \emptyset \text{ và } \sum_{r \in R} w_r > 0 \\[6pt]
+S_{years} & \text{ngược lại (JD không có required\_skills)}
+\end{cases}
+$$
 
-$$Y_{CV} = \frac{1}{12}\left|\bigcup_{j \in \text{jobs}} [\text{start}_j, \text{end}_j]\right|$$
+**$S_{skill}$ — độ sâu theo từng required_skill** (`_skill_experience_ratio` —
+[scorer.py:133-164](../app/services/scorer.py#L133-L164)):
+
+$$\rho_r = \min\!\left(\frac{M_r}{12\,Y_{JD}},\ 1.0\right), \qquad S_{skill} = \frac{\sum_{r \in R} w_r\,\rho_r}{\sum_{r \in R} w_r}$$
+
+trong đó $R$ = tập required_skills của JD (mỗi phần tử 1 OR-group), $w_r$ =
+trọng số requirement $r$ (như D2), $M_r$ = tổng số tháng (đã gộp khoảng chồng
+lấn) của các job trong CV có `tech_stack` khớp OR-group $r$ (dùng lại
+`SkillMatcher.evaluate_name`, layer0-3, xem §4.5). Requirement không job nào
+chứng minh được → $\rho_r = 0$ — kể cả khi skill đó có mặt rời rạc trong
+`cv.skills` (không gắn job/thời lượng cụ thể thì không có gì để đo độ sâu).
+
+**$S_{years}$ — tỉ lệ số năm thô** (công thức D3 gốc trước `a070201`, nay vừa
+là fallback khi JD không có required_skills, vừa là thành phần thứ 2 của
+blend ở trên):
+
+$$S_{years} = \min\!\left(\frac{Y_{CV}}{Y_{JD}},\ 1.0\right), \qquad Y_{CV} = \frac{1}{12}\left|\bigcup_{j \in \text{jobs}} [\text{start}_j, \text{end}_j]\right|$$
 
 Các job **chồng lấn** (ví dụ freelance chạy song song với full-time) chỉ được
 tính **một lần**. Thuật toán: sắp xếp theo `start`, gộp khoảng khi
 $s_{k+1} \leq e_k$ — $O(n \log n)$.
 
-**Không có modifier** relevance/recency/over-qualification. Lý do: độ liên quan
-của kinh nghiệm với vị trí đã được D1 (narrative fit) và D2 (kỹ năng) đo — nếu
-D3 đo lại thì cùng một tín hiệu bị đếm ba lần.
+**Không có modifier** relevance/recency/over-qualification ngoài $S_{skill}$/
+$S_{years}$ ở trên. Lý do ban đầu (khi D3 còn thuần $S_{years}$): độ liên quan
+của kinh nghiệm với vị trí đã được D1 (narrative fit) và D2 (kỹ năng) đo —
+nếu D3 đo lại thì cùng một tín hiệu bị đếm ba lần. `a070201` nới lý do này
+một phần bằng $S_{skill}$ (đo độ liên quan THEO SKILL), nhưng $S_{skill}$
+thuần lại tạo ra hệ quả mới — xem ví dụ dưới — nên D3 quay lại pha trộn với
+$S_{years}$ làm sàn điểm.
+
+**Vì sao cần blend thay vì $D_3 = S_{skill}$ thuần:** JD yêu cầu .NET, tối
+thiểu 3 năm. Ứng viên A có 7 năm kinh nghiệm Java (không có .NET); ứng viên B
+chỉ có 1 năm .NET.
+
+| Ứng viên | $S_{skill}$ | $S_{years}$ | $D_3 = S_{skill}$ (trước) | $D_3 = (S_{skill}+S_{years})/2$ (nay) |
+| --- | --- | --- | --- | --- |
+| A — Java 7 năm, không .NET | 0.000 | 1.000 | 0.000 | **0.500** |
+| B — .NET 1 năm | 0.333 | 0.333 | 0.333 | 0.333 |
+
+Với $D_3 = S_{skill}$ thuần, ứng viên đã 7 năm kinh nghiệm dev (A) bị chấm
+**thấp hơn** ứng viên mới 1 năm (B) — vô lý vì cả hai đều "sai stack yêu cầu",
+chỉ khác mức độ liên quan ngành. Blend 50/50 dùng $S_{years}$ làm sàn, đưa A
+lên 0.500 > 0.333 của B, khớp trực giác "7 năm kinh nghiệm dev vẫn nên được
+đánh giá cao hơn 1 năm kinh nghiệm đúng stack". Đánh đổi: blend không phân
+biệt được "sai đúng 1 stack nhưng cùng ngành" (case A) với "lệch hẳn lĩnh
+vực" (vd 7 năm Marketing) — cả 2 đều có $S_{skill}=0$ nên cùng nhận sàn
+$S_{years}/2$; D2 (skill match) vẫn là tầng chính chịu trách nhiệm phân biệt
+2 case này qua điểm skill overlap.
+
+Xem test minh họa: `test_score_experience_seasoned_wrong_stack_beats_junior_right_stack`
+trong [tests/test_scorer.py](../tests/test_scorer.py).
 
 ### 4.7 Tính Months từ Date Strings
 
