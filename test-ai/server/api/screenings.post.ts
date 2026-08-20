@@ -36,11 +36,12 @@ export default defineEventHandler(async (event) => {
   const cvResults = await parseCvs(body.cvUrls)
 
   const results = []
-  for (const cv of cvResults) {
+  for (const [order, cv] of cvResults.entries()) {
     if (cv.error || !cv.parsed_cv || !cv.cv_embedding) {
       results.push(await ScreeningResult.create({
         batchId: batch._id,
         cvUrl: cv.url,
+        order,
         error: cv.error || 'CV parsing failed',
       }))
       continue
@@ -58,6 +59,7 @@ export default defineEventHandler(async (event) => {
     const saved = await ScreeningResult.create({
       batchId: batch._id,
       cvUrl: cv.url,
+      order,
       parsedCv: cv.parsed_cv,
       cvEmbedding: cv.cv_embedding,
       aiResult,

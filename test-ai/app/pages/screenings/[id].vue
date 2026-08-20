@@ -68,34 +68,45 @@
       </v-card>
 
       <v-card class="mb-6">
-        <v-card-title>Candidate Summary</v-card-title>
-        <v-table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>CV</th>
-              <th class="text-right">Final</th>
-              <th class="text-right">Semantic</th>
-              <th class="text-right">Skills</th>
-              <th class="text-right">Exp</th>
-              <th class="text-right">Edu</th>
-              <th class="text-right">Location</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(r, i) in scored" :key="r._id" class="cursor-pointer" @click="scrollTo(r._id)">
-              <td>{{ i + 1 }}</td>
-              <td>{{ cvFileName(r.cvUrl) }}</td>
-              <td class="text-right font-weight-medium">{{ r.aiResult.final_score.toFixed(1) }}</td>
-              <td class="text-right">{{ r.aiResult.scores.semantic?.toFixed(1) }}</td>
-              <td class="text-right">{{ r.aiResult.scores.skills?.toFixed(1) }}</td>
-              <td class="text-right">{{ r.aiResult.scores.experience?.toFixed(1) }}</td>
-              <td class="text-right">{{ r.aiResult.scores.education?.toFixed(1) }}</td>
-              <td class="text-right">{{ r.aiResult.scores.location?.toFixed(1) }}</td>
-            </tr>
-          </tbody>
-        </v-table>
+        <v-card-title class="d-flex align-center">
+          Candidate Summary
+          <v-spacer />
+          <v-btn icon="mdi-content-copy" variant="text" size="small" title="Copy scores to Excel"
+            @click="copyScores" />
+        </v-card-title>
+        <v-data-table :headers="summaryHeaders" :items="summaryItems" v-model:sort-by="summarySortBy"
+          item-value="_id" items-per-page="-1" hide-default-footer class="candidate-summary-table"
+          @click:row="(_e: unknown, { item }: { item: SummaryRow }) => scrollTo(item._id)">
+          <template #item.index="{ index }">
+            {{ index + 1 }}
+          </template>
+          <template #item.cvUrl="{ item }">
+            {{ cvFileName(item.cvUrl) }}
+          </template>
+          <template #item.final="{ value }">
+            <span class="font-weight-medium">{{ value?.toFixed(1) }}</span>
+          </template>
+          <template #item.semantic="{ value }">
+            {{ value?.toFixed(1) }}
+          </template>
+          <template #item.skills="{ value }">
+            {{ value?.toFixed(1) }}
+          </template>
+          <template #item.experience="{ value }">
+            {{ value?.toFixed(1) }}
+          </template>
+          <template #item.education="{ value }">
+            {{ value?.toFixed(1) }}
+          </template>
+          <template #item.location="{ value }">
+            {{ value?.toFixed(1) }}
+          </template>
+        </v-data-table>
       </v-card>
+
+      <v-snackbar v-model="copied" timeout="2000">
+        Scores copied to clipboard
+      </v-snackbar>
 
       <v-expansion-panels v-model="openPanels" multiple variant="accordion">
         <v-expansion-panel v-for="(r, i) in scored" :id="`candidate-${r._id}`" :key="r._id" :value="r._id">
@@ -339,6 +350,64 @@ const scored = computed(() => (screening.value?.results ?? []).filter(r => r.aiR
 const failed = computed(() => (screening.value?.results ?? []).filter(r => !r.aiResult))
 const openPanels = ref<string[]>([])
 
+interface SummaryRow {
+  _id: string
+  cvUrl: string
+  final: number
+  semantic: number
+  skills: number
+  experience: number
+  education: number
+  location: number
+}
+
+const summaryHeaders = [
+  { title: '#', key: 'index', sortable: false, width: 48 },
+  { title: 'CV', key: 'cvUrl', sortable: false },
+  { title: 'Final', key: 'final', align: 'end' as const },
+  { title: 'Semantic', key: 'semantic', align: 'end' as const, sortable: false },
+  { title: 'Skills', key: 'skills', align: 'end' as const, sortable: false },
+  { title: 'Exp', key: 'experience', align: 'end' as const, sortable: false },
+  { title: 'Edu', key: 'education', align: 'end' as const, sortable: false },
+  { title: 'Location', key: 'location', align: 'end' as const, sortable: false },
+]
+
+// Default order matches the order results were returned in (i.e. user's CV input order).
+const summarySortBy = ref<{ key: string, order: 'asc' | 'desc' }[]>([])
+
+const summaryItems = computed<SummaryRow[]>(() => scored.value.map(r => ({
+  _id: r._id,
+  cvUrl: r.cvUrl,
+  final: r.aiResult.final_score,
+  semantic: r.aiResult.scores.semantic,
+  skills: r.aiResult.scores.skills,
+  experience: r.aiResult.scores.experience,
+  education: r.aiResult.scores.education,
+  location: r.aiResult.scores.location,
+})))
+
+const copied = ref(false)
+
+async function copyScores() {
+  const header = ['#', 'CV', 'Final', 'Semantic', 'Skills', 'Exp', 'Edu', 'Location']
+  const sort = summarySortBy.value[0]
+  const rows = sort
+    ? [...summaryItems.value].sort((a, b) => {
+      const dir = sort.order === 'desc' ? -1 : 1
+      return (((a as any)[sort.key] ?? 0) - ((b as any)[sort.key] ?? 0)) * dir
+    })
+    : summaryItems.value
+
+  const lines = rows.map((r, i) => [
+    String(i + 1),
+    cvFileName(r.cvUrl),
+    ...[r.final, r.semantic, r.skills, r.experience, r.education, r.location].map(v => (v ?? 0).toFixed(1)),
+  ].join('\t'))
+  const text = [header.join('\t'), ...lines].join('\n')
+  await navigator.clipboard.writeText(text)
+  copied.value = true
+}
+
 function metrics(r: ScreeningResultItem) {
   return [
     { label: 'Skills', value: r.aiResult.scores.skills ?? 0 },
@@ -370,3 +439,9 @@ function scrollTo(id: string) {
   })
 }
 </script>
+
+<style scoped>
+.candidate-summary-table :deep(tbody tr) {
+  cursor: pointer;
+}
+</style>
