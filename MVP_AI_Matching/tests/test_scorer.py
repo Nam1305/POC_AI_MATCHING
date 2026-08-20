@@ -259,15 +259,18 @@ def test_score_experience_overlapping_jobs_not_double_counted():
 
 def test_score_experience_per_skill_depth_uses_required_skill_months():
     """
-    D3 with required_skills must measure per-skill depth, not raw total
-    months. JD requires Java + React, each with >=24mo. CV:
+    D3 with required_skills blends per-skill depth with the raw total-years
+    ratio, not raw total months alone. JD requires Java + React, each with
+    >=24mo. CV:
       job A (12mo): Java, React
       job B (4mo):  .NET, React   (irrelevant tech mixed in)
       job C (18mo): Java
       job D (2mo):  React
     total java = 12+18 = 30mo -> ratio 1.0 (>=24)
     total react = 12+4+2 = 18mo -> ratio 18/24 = 0.75
-    D3 = weighted avg (equal weight 3 each) = (1.0+0.75)/2 = 0.875
+    skill_ratio = weighted avg (equal weight 3 each) = (1.0+0.75)/2 = 0.875
+    total cv months = 12+4+18+2 = 36mo -> general_ratio = 36/24 = 1.0 (capped)
+    D3 = (skill_ratio + general_ratio) / 2 = (0.875+1.0)/2 = 0.9375
     """
     cv = ParsedCV(work_experience=[
         WorkExperience(company="A", start=_months_ago(60), end=_months_ago(48),
@@ -287,13 +290,14 @@ def test_score_experience_per_skill_depth_uses_required_skill_months():
             RequiredSkill(skill="React", weight=3),
         ],
     )
-    assert score_experience(cv, jd) == pytest.approx(0.875)
+    assert score_experience(cv, jd) == pytest.approx(0.9375)
 
 
-def test_score_experience_total_years_alone_no_longer_enough():
+def test_score_experience_total_years_alone_gets_half_credit_via_blend():
     """A candidate with plenty of TOTAL experience but none of it in the
-    required skills must not get full D3 credit anymore (the bug the new
-    per-skill formula fixes)."""
+    required skills gets skill_ratio=0, but D3 blends in the raw-years ratio
+    as a floor -> half credit, not zero (avoids treating "wrong stack,
+    same field" the same as "unrelated field entirely")."""
     cv = ParsedCV(work_experience=[
         WorkExperience(company="Unrelated", start=_months_ago(60), end=_months_ago(6),
                         tech_stack=["Marketing"]),
@@ -303,13 +307,15 @@ def test_score_experience_total_years_alone_no_longer_enough():
         min_experience_years=2,
         required_skills=[RequiredSkill(skill="Java", weight=3)],
     )
-    assert score_experience(cv, jd) == 0.0
+    # skill_ratio = 0 (no Java months); general_ratio = 54/24 = 1.0 (capped)
+    # D3 = (0 + 1.0) / 2 = 0.5
+    assert score_experience(cv, jd) == pytest.approx(0.5)
 
 
-def test_score_experience_skill_only_in_flat_skills_list_scores_zero_depth():
+def test_score_experience_skill_only_in_flat_skills_list_still_gets_general_floor():
     """A required skill matched by D2 only via the flat cv.skills list (never
-    tied to a specific job/tech_stack) has no duration evidence -> ratio 0 for
-    that skill, since D3 measures depth and there's nothing to measure."""
+    tied to a specific job/tech_stack) has no duration evidence -> skill_ratio
+    0 for that skill, but D3 still blends in the raw-years ratio as a floor."""
     cv = ParsedCV(
         skills=["Java"],
         work_experience=[
@@ -322,7 +328,35 @@ def test_score_experience_skill_only_in_flat_skills_list_scores_zero_depth():
         min_experience_years=2,
         required_skills=[RequiredSkill(skill="Java", weight=3)],
     )
-    assert score_experience(cv, jd) == 0.0
+    # skill_ratio = 0 (no Java months); general_ratio = 30/24 = 1.0 (capped)
+    # D3 = (0 + 1.0) / 2 = 0.5
+    assert score_experience(cv, jd) == pytest.approx(0.5)
+
+
+def test_score_experience_seasoned_wrong_stack_beats_junior_right_stack():
+    """The motivating case for the blend: JD requires .NET, min 3 years.
+    Candidate A has 7 years of Java (no .NET at all); candidate B has 1 year
+    of .NET. Pure skill-depth would rank A (0.0) below B (0.33), which is
+    unreasonable for a seasoned dev vs. a junior in the exact stack -- the
+    blend's raw-years floor flips that ordering."""
+    jd = ParsedJD(
+        title="x",
+        min_experience_years=3,
+        required_skills=[RequiredSkill(skill=".NET", weight=3)],
+    )
+    candidate_a = ParsedCV(work_experience=[
+        WorkExperience(company="A", start=_months_ago(84), end=_months_ago(0),
+                        tech_stack=["Java"]),
+    ])
+    candidate_b = ParsedCV(work_experience=[
+        WorkExperience(company="B", start=_months_ago(12), end=_months_ago(0),
+                        tech_stack=[".NET"]),
+    ])
+    score_a = score_experience(candidate_a, jd)
+    score_b = score_experience(candidate_b, jd)
+    assert score_a == pytest.approx(0.5)               # (0 + min(84/36, 1)) / 2
+    assert score_b == pytest.approx(1 / 3)              # (12/36 + 12/36) / 2
+    assert score_a > score_b
 
 
 def test_score_experience_no_required_skills_falls_back_to_raw_years():
