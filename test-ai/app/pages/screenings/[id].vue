@@ -68,7 +68,14 @@
       </v-card>
 
       <v-card class="mb-6">
-        <v-card-title>Candidate Summary</v-card-title>
+        <v-card-title class="d-flex align-center">
+          Candidate Summary
+          <v-spacer />
+          <v-btn size="small" variant="tonal" prepend-icon="mdi-content-copy" @click="copyTable">
+            Copy table
+          </v-btn>
+        </v-card-title>
+        <v-snackbar v-model="copySnackbar" timeout="2000">Table copied to clipboard</v-snackbar>
         <v-table>
           <thead>
             <tr>
@@ -338,6 +345,24 @@ const jd = computed(() => screening.value?.jobDescription?.parsedJd ?? {})
 const scored = computed(() => (screening.value?.results ?? []).filter(r => r.aiResult))
 const failed = computed(() => (screening.value?.results ?? []).filter(r => !r.aiResult))
 const openPanels = ref<string[]>([])
+const copySnackbar = ref(false)
+
+async function copyTable() {
+  const header = ['#', 'CV', 'Final', 'Semantic', 'Skills', 'Exp', 'Edu', 'Location']
+  const rows = scored.value.map((r, i) => [
+    i + 1,
+    cvFileName(r.cvUrl),
+    r.aiResult.final_score.toFixed(1),
+    r.aiResult.scores.semantic?.toFixed(1) ?? '',
+    r.aiResult.scores.skills?.toFixed(1) ?? '',
+    r.aiResult.scores.experience?.toFixed(1) ?? '',
+    r.aiResult.scores.education?.toFixed(1) ?? '',
+    r.aiResult.scores.location?.toFixed(1) ?? '',
+  ])
+  const tsv = [header, ...rows].map(row => row.join('\t')).join('\n')
+  await navigator.clipboard.writeText(tsv)
+  copySnackbar.value = true
+}
 
 function metrics(r: ScreeningResultItem) {
   return [

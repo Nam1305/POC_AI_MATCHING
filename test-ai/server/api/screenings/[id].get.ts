@@ -6,10 +6,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Screening batch not found' })
   }
 
-  const results = await ScreeningResult.find({ batchId: id }).lean()
-  results.sort((a, b) =>
-    ((b.aiResult as { final_score?: number } | undefined)?.final_score ?? -1)
-    - ((a.aiResult as { final_score?: number } | undefined)?.final_score ?? -1))
+  const results = await ScreeningResult.find({ batchId: id }).sort({ createdAt: 1 }).lean()
 
   return {
     _id: batch._id,

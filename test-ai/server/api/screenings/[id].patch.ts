@@ -54,8 +54,7 @@ export default defineEventHandler(async (event) => {
     await ScreeningResult.findByIdAndUpdate(result._id, { parsedCv, cvEmbedding, aiResult })
   }
 
-  const updatedResults = await ScreeningResult.find({ batchId: id }).lean() as any[]
-  updatedResults.sort((a, b) => (b.aiResult?.final_score ?? -1) - (a.aiResult?.final_score ?? -1))
+  const updatedResults = await ScreeningResult.find({ batchId: id }).sort({ createdAt: 1 }).lean() as any[]
 
   return {
     _id: batch._id,
