@@ -10,10 +10,11 @@ D1 Semantic   : cosine_sim(cv_embedding, jd_embedding), normalize về 0–1
 D2 Skills     : so khớp trọng số kỹ năng (weighted skill overlap), có hỗ
                 trợ alias/suy luận (implied)/gần đúng (fuzzy)/cùng nhóm
                 (category)
-D3 Experience : độ sâu kinh nghiệm THEO TỪNG required_skill của JD (số tháng
-                CV thực làm skill đó / jd_min_years), chặn trần ở 1.0; JD
-                không có required_skills thì sập về tỷ lệ số năm thô (cv_years
-                / jd_min_years) như cũ
+D3 Experience : trung bình cộng của (a) độ sâu kinh nghiệm THEO TỪNG
+                required_skill của JD (số tháng CV thực làm skill đó /
+                jd_min_years, chặn trần 1.0) và (b) tỷ lệ số năm kinh nghiệm
+                thô (cv_years / jd_min_years); JD không có required_skills
+                thì chỉ dùng (b)
 D4 Education  : cv_degree_level / jd_required_degree_level, chặn trần ở 1.0
 D5 Location   : ước tính thời gian di chuyển (route OSRM dựa trên lat/lng
                 đã geocode lúc parse) × mức độ phù hợp hình thức làm việc
@@ -100,9 +101,11 @@ def score_skills(
 
 
 # ---------------------------------------------------------------------------
-# D3: Experience — per-required-skill depth (months), falls back to raw years
-# Điểm kinh nghiệm — độ sâu kinh nghiệm THEO TỪNG required_skill của JD, sập
-# về tỷ lệ số năm thô khi JD không liệt kê required_skills
+# D3: Experience — trung bình (per-required-skill depth, tỷ lệ số năm thô)
+# Điểm kinh nghiệm — blend đều giữa độ sâu THEO TỪNG required_skill của JD và
+# tỷ lệ số năm kinh nghiệm thô (không phân biệt lĩnh vực), để tránh D3 sập về
+# 0 chỉ vì CV lệch đúng 1 tech stack cụ thể dù vẫn nhiều năm kinh nghiệm cùng
+# ngành (vd JD cần .NET, CV 7 năm Java) — xem docs/thesis_report.md §4.6.
 # ---------------------------------------------------------------------------
 
 def _job_matches_group(job, group_names: list[str], matcher: SkillMatcher) -> bool:
@@ -168,26 +171,32 @@ def score_experience(cv: ParsedCV, jd: ParsedJD, matcher: Optional[SkillMatcher]
     """
     JD không yêu cầu số năm kinh nghiệm → 1.0 (neutral).
 
-    JD CÓ required_skills → D3 = trung bình có trọng số độ sâu (số tháng)
-    của CV trong TỪNG required_skill, so với jd.min_experience_years (xem
-    _skill_experience_ratio) — phản ánh đúng việc "3 năm kinh nghiệm nhưng
-    rải rác 4 công ty, mỗi công ty 1 skill khác nhau" không nên được tính là
-    "3 năm kinh nghiệm Java+React".
+    JD CÓ required_skills → D3 = trung bình cộng của 2 tỷ lệ:
+      - skill_ratio : độ sâu (số tháng) của CV trong TỪNG required_skill, so
+        với jd.min_experience_years (_skill_experience_ratio) — có thể về 0
+        nếu CV không job nào chứng minh được required_skill.
+      - general_ratio : tỷ lệ số năm kinh nghiệm THÔ, không phân biệt lĩnh
+        vực (cv_years / jd_min_years).
+    Blend đều 2 tỷ lệ này để tránh trường hợp CV nhiều năm kinh nghiệm đúng
+    ngành nhưng lệch đúng 1 tech stack cụ thể (vd JD cần .NET, CV 7 năm Java)
+    bị D3 sập về 0 y hệt CV lệch hẳn lĩnh vực (vd CV 7 năm Marketing) — trước
+    khi có blend, cả 2 case đều = 0.0 vì chỉ nhìn skill_ratio.
 
-    JD không có required_skills (hiếm, JD chỉ nêu số năm chung chung) → sập
-    về D3 cũ: min(cv_years / jd_min_years, 1.0), không phân biệt lĩnh vực
-    (D1/D2 đảm nhiệm phần liên quan đó).
+    JD không có required_skills (hiếm, JD chỉ nêu số năm chung chung) →
+    general_ratio một mình, không có skill_ratio để blend.
     """
     if not jd.min_experience_years:
         return 1.0
     matcher = matcher or _skill_matcher
 
+    cv_years = cv.total_exp_months / 12.0
+    general_ratio = min(cv_years / jd.min_experience_years, 1.0)
+
     skill_ratio = _skill_experience_ratio(cv, jd, matcher)
     if skill_ratio is not None:
-        return skill_ratio
+        return (skill_ratio + general_ratio) / 2
 
-    cv_years = cv.total_exp_months / 12.0
-    return min(cv_years / jd.min_experience_years, 1.0)
+    return general_ratio
 
 
 # ---------------------------------------------------------------------------

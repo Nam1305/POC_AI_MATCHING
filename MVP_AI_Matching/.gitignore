@@ -38,6 +38,9 @@ dist/
 build/
 *.egg-info/
 
+# ─── Experiment caches (paid API responses, not meant to be committed) ────
+scripts/.d1_embed_cache.json
+
 # ─── Logs ──────────────────────────────────────────────────────────────────
 *.log
 logs/

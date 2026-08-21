@@ -386,7 +386,7 @@ _LAYER_RANK = {"layer0": 5, "layer1": 4, "layer2": 3, "layer3": 2, "proficiency"
 class SkillMatcher:
     """
     Toàn bộ logic so khớp kỹ năng dùng cho D2 (scorer.py) lẫn tường thuật chi
-    tiết (evaluator.py). Không còn fuzzy/category; scoring nhị phân theo pipeline
+    tiết (evaluator.py). Không thuần túy fuzzy match; scoring nhị phân theo pipeline
     3 tầng + tầng phụ proficiency.
     """
 
