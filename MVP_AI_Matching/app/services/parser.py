@@ -428,12 +428,21 @@ WHAT COUNTS AS A SKILL (critical — the #1 source of inconsistent extraction):
 
 ALTERNATIVES / OR-GROUPS (critical):
 When a requirement lists skills as interchangeable options — "A, B, or C",
-"A / B", "experience with A or B", "one of A, B" — emit ONE required_skills entry
-whose "skill" is the first option and "alternatives" holds the rest. Do NOT split
-an OR-group into separate entries.
-  "React.js, TypeScript, or Vue.js"  → {"skill": "React.js", "weight": 3, "alternatives": ["TypeScript", "Vue.js"]}
-  "Bootstrap or Tailwind CSS"        → {"skill": "Bootstrap", "weight": 3, "alternatives": ["Tailwind CSS"]}
-A skill that stands on its own (not an option) has "alternatives": [].
+"A / B", "experience with A or B", "one of A, B" — how you emit it depends on
+which tier the group belongs to:
+- required_skills: emit ONE entry whose "skill" is the first option and
+  "alternatives" holds the rest. Do NOT split an OR-group into separate
+  entries here.
+    "React.js, TypeScript, or Vue.js"  → {"skill": "React.js", "weight": 3, "alternatives": ["TypeScript", "Vue.js"]}
+    "Bootstrap or Tailwind CSS"        → {"skill": "Bootstrap", "weight": 3, "alternatives": ["Tailwind CSS"]}
+  A skill that stands on its own (not an option) has "alternatives": [].
+- preferred_skills / nice_to_have_skills: these are FLAT string lists — there
+  is no "alternatives" field on this tier, so an OR-group is instead FLATTENED
+  into separate individual entries, one per option. Never emit an object or
+  an "alternatives" key here, and never join the options into one compound
+  string.
+    "Java or Kotlin" (preferred)              → preferred_skills: ["Java", "Kotlin"]
+    "AWS, GCP, or Azure" (nice to have)        → nice_to_have_skills: ["AWS", "GCP", "Azure"]
 
 Always set "weight": 3 for every required_skills entry — required_skills,
 preferred_skills, and nice_to_have_skills ARE the three importance tiers
