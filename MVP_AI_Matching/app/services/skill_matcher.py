@@ -32,8 +32,10 @@ chi tiết (matched_layer + matched_via) mà evaluate_all_skills() trả về.
 
 from __future__ import annotations
 
+import datetime
 import json
 import re
+import threading
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import NamedTuple, Optional
@@ -137,6 +139,19 @@ def _fuzzy_best_match(name: str, candidates: set[str],
     return best
 
 
+def _resolve_canonical_with_status(skill: str, skill_data: dict = SKILL_DATA) -> tuple[str, bool]:
+    """
+    Như resolve_canonical(), nhưng kèm cờ `found` cho biết skill có thực sự
+    tồn tại trong skill_data.json hay không (để phân biệt với trường hợp
+    value=null, vốn cũng "found" nhưng canonical trùng chính key).
+    """
+    for variant in to_stackoverflow_format(skill):
+        if variant in skill_data:
+            value = skill_data[variant]
+            return (value if value is not None else variant), True
+    return skill.strip().lower(), False
+
+
 def resolve_canonical(skill: str, skill_data: dict = SKILL_DATA) -> str:
     """
     Chuẩn hóa 1 kỹ năng về tên chuẩn (canonical) qua skill_data.json:
@@ -146,11 +161,73 @@ def resolve_canonical(skill: str, skill_data: dict = SKILL_DATA) -> str:
       - Không tìm thấy ở bất kỳ biến thể nào -> fallback về input đã lowercase/
         strip (coi như skill lạ, không có trong danh mục).
     """
-    for variant in to_stackoverflow_format(skill):
-        if variant in skill_data:
-            value = skill_data[variant]
-            return value if value is not None else variant
-    return skill.strip().lower()
+    canonical, _found = _resolve_canonical_with_status(skill, skill_data)
+    return canonical
+
+
+# ---------------------------------------------------------------------------
+# Unknown-skill capture — ghi lại các skill CV không canonicalize được (không
+# có trong skill_data.json) để bổ sung dần vào skill_data/skill_implies. JD
+# skill KHÔNG được ghi vì JD skill luôn lấy từ danh mục đã biết trước (client
+# side), chỉ CV mới có khả năng chứa skill lạ.
+#
+# Bỏ qua các skill fuzzy-khớp (>=0.85, cùng ngưỡng Layer 3) với 1 entry đã có
+# trong skill_data.json — coi như biến thể chính tả/format của skill đã biết,
+# không phải skill thực sự mới.
+# ---------------------------------------------------------------------------
+
+UNKNOWN_SKILLS_PATH = Path(__file__).resolve().parents[1] / "data" / "unknown_skills.json"
+
+_KNOWN_SKILL_CANDIDATES: set[str] = set(SKILL_DATA.keys()) | {v for v in SKILL_DATA.values() if v}
+
+_unknown_skills_lock = threading.Lock()
+
+
+def _looks_like_known(token: str) -> bool:
+    """
+    True nếu token KHÔNG cần ghi vào unknown_skills.json vì đã được xử lý bởi
+    1 cơ chế khác ngoài skill_data.json:
+      - Token trình độ ngôn ngữ (JLPT/TOEIC/IELTS/...) -> tầng phụ proficiency
+        xử lý riêng theo thứ bậc, không thuộc phạm vi skill_data/skill_implies.
+      - Fuzzy-khớp (>=0.85) 1 key/value đã có trong skill_data.json -> coi như
+        biến thể chính tả/format của skill đã biết, không phải skill mới.
+    """
+    if _parse_proficiency(token) is not None:
+        return True
+    return _fuzzy_best_match(token, _KNOWN_SKILL_CANDIDATES) is not None
+
+
+def _load_unknown_skills() -> dict:
+    if UNKNOWN_SKILLS_PATH.is_file():
+        with UNKNOWN_SKILLS_PATH.open(encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
+def _record_unknown_skill(skill: str, cv_id: str) -> None:
+    """
+    Ghi nhận 1 skill CV không canonicalize được vào unknown_skills.json, dedup
+    theo skill, kèm count + seen_in_cvs (unique) + last_seen.
+
+    count đếm theo SỐ CV RIÊNG BIỆT (len(seen_in_cvs)), không đếm theo số lần
+    hàm này được gọi — vì build_cv_context(cv) bị gọi nhiều lần cho CÙNG 1 CV
+    trong 1 lượt matching (score_skills ở scorer.py + evaluate_all_skills ở
+    evaluator.py đều tự build lại context), nên đếm theo lần gọi sẽ nhân đôi
+    con số một cách giả tạo dù chỉ có 1 CV thực sự chứa skill lạ đó.
+    """
+    skill = skill.strip().lower()
+    if not skill:
+        return
+    with _unknown_skills_lock:
+        data = _load_unknown_skills()
+        entry = data.setdefault(skill, {"count": 0, "seen_in_cvs": [], "last_seen": ""})
+        if cv_id and cv_id not in entry["seen_in_cvs"]:
+            entry["seen_in_cvs"].append(cv_id)
+        entry["count"] = len(entry["seen_in_cvs"])
+        entry["last_seen"] = datetime.date.today().isoformat()
+        UNKNOWN_SKILLS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with UNKNOWN_SKILLS_PATH.open("w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
 
 
 # ---------------------------------------------------------------------------
@@ -315,15 +392,26 @@ class SkillMatcher:
 
     # -- Tiền xử lý CV 1 lần ---------------------------------------------------
 
-    def build_cv_context(self, cv: ParsedCV) -> CVContext:
-        """Gom + canonical hóa + mở rộng implied cho CV, trả CVContext dùng lại."""
+    def build_cv_context(self, cv: ParsedCV, record_unknown: bool = True) -> CVContext:
+        """
+        Gom + canonical hóa + mở rộng implied cho CV, trả CVContext dùng lại.
+
+        record_unknown=False dùng cho các lần build context "phụ" trên 1
+        subset của CV (ví dụ scorer._job_matches_group build lại context chỉ
+        từ tech_stack của 1 job để tính D3) — tránh ghi trùng/lạm phát
+        unknown_skills.json vì cùng 1 skill CV có thể bị build_cv_context gọi
+        lại nhiều lần trong 1 lượt scoring.
+        """
         raw = _collect_cv_skills(cv)
         canonical: set[str] = set()
         canonical_src: dict[str, str] = {}
         implied: set[str] = set()
         implied_src: dict[str, str] = {}
+        cv_id = cv.name.strip() or "unknown_cv"
         for tok in raw:
-            c = resolve_canonical(tok)
+            c, found = _resolve_canonical_with_status(tok)
+            if record_unknown and not found and not _looks_like_known(tok):
+                _record_unknown_skill(tok, cv_id)
             canonical.add(c)
             canonical_src.setdefault(c, tok)
             # Dữ liệu đã flatten bắc cầu -> tra list trực tiếp, không duyệt graph.

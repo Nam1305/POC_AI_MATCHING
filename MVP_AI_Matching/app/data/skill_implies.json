@@ -4980,5 +4980,40 @@
   ],
   "sap-mm": [
     "sap"
+  ],
+  "gemini": [
+    "generative-ai"
+  ],
+  "claude": [
+    "generative-ai"
+  ],
+  "claude-code": [
+    "claude",
+    "generative-ai"
+  ],
+  "github-copilot": [
+    "generative-ai"
+  ],
+  "yolo": [
+    "deep-learning",
+    "machine-learning"
+  ],
+  "phobert": [
+    "deep-learning",
+    "machine-learning",
+    "python"
+  ],
+  "onnx": [
+    "machine-learning"
+  ],
+  "unity-certified-programmer": [
+    "unity-game-engine",
+    "c#",
+    "linq",
+    ".net"
+  ],
+  "dio": [
+    "flutter",
+    "dart"
   ]
 }

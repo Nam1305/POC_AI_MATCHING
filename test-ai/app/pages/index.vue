@@ -19,26 +19,27 @@
             <v-select v-model="jd.workType" :items="workTypeOptions" label="Work type" clearable
               prepend-inner-icon="mdi-domain" style="min-width: 220px" class="flex-1-0" :disabled="loading" />
             <v-text-field v-model="jd.location" label="Location" placeholder="e.g. District 1, Ho Chi Minh City"
-              prepend-inner-icon="mdi-map-marker-outline" style="min-width: 220px" class="flex-1-1" :disabled="loading" />
+              prepend-inner-icon="mdi-map-marker-outline" style="min-width: 220px" class="flex-1-1"
+              :disabled="loading" />
           </div>
 
           <v-select v-model="jd.education" :items="educationOptions" label="Education" multiple chips closable-chips
             prepend-inner-icon="mdi-school-outline" :disabled="loading" />
 
-          <v-text-field v-model="jd.experienceRequirement" label="Experience requirement"
-            placeholder="e.g. 3+ years" prepend-inner-icon="mdi-clock-outline" :disabled="loading" />
+          <v-text-field v-model="jd.experienceRequirement" label="Experience requirement" placeholder="e.g. 3+ years"
+            prepend-inner-icon="mdi-clock-outline" :disabled="loading" />
 
-          <v-autocomplete v-model="jd.requiredSkills" :items="requiredSkillItems" label="Required skills" multiple
-            chips closable-chips prepend-inner-icon="mdi-star-outline"
-            placeholder="Type to search and pick skills" :disabled="loading" />
+          <v-autocomplete v-model="jd.requiredSkills" :items="requiredSkillItems" label="Required skills" multiple chips
+            closable-chips prepend-inner-icon="mdi-star-outline" placeholder="Type to search and pick skills"
+            :disabled="loading" />
 
-          <v-autocomplete v-model="jd.preferredSkills" :items="preferredSkillItems" label="Preferred skills"
-            multiple chips closable-chips prepend-inner-icon="mdi-star-half-full"
-            placeholder="Type to search and pick skills" :disabled="loading" />
+          <v-autocomplete v-model="jd.preferredSkills" :items="preferredSkillItems" label="Preferred skills" multiple
+            chips closable-chips prepend-inner-icon="mdi-star-half-full" placeholder="Type to search and pick skills"
+            :disabled="loading" />
 
-          <v-autocomplete v-model="jd.niceToHave" :items="niceToHaveSkillItems" label="Nice to have skills"
-            multiple chips closable-chips prepend-inner-icon="mdi-star-off-outline"
-            placeholder="Type to search and pick skills" :disabled="loading" />
+          <v-autocomplete v-model="jd.niceToHave" :items="niceToHaveSkillItems" label="Nice to have skills" multiple
+            chips closable-chips prepend-inner-icon="mdi-star-off-outline" placeholder="Type to search and pick skills"
+            :disabled="loading" />
 
           <v-textarea v-model="jd.responsibilities" label="Responsibilities"
             placeholder="Describe the day-to-day responsibilities..." prepend-inner-icon="mdi-format-list-bulleted"
@@ -51,12 +52,18 @@
           <v-textarea v-model="jd.benefits" label="Benefits" placeholder="Describe the benefits offered..."
             prepend-inner-icon="mdi-gift-outline" rows="5" auto-grow :disabled="loading" />
 
+          <div class="d-flex justify-end mb-4">
+            <v-btn variant="tonal" prepend-icon="mdi-eye-outline" :disabled="loading" @click="previewDialog = true">
+              Preview JD text
+            </v-btn>
+          </div>
+
           <div class="text-subtitle-2 mb-2">CV URLs</div>
 
           <template v-if="bulkPasteMode">
             <v-textarea v-model="bulkPasteText" label="Paste CV URLs, one per line"
-              placeholder="https://example.com/cv1.pdf&#10;https://example.com/cv2.pdf" prepend-inner-icon="mdi-file-pdf-box"
-              rows="6" auto-grow :disabled="loading" />
+              placeholder="https://example.com/cv1.pdf&#10;https://example.com/cv2.pdf"
+              prepend-inner-icon="mdi-file-pdf-box" rows="6" auto-grow :disabled="loading" />
             <div class="d-flex ga-2 mb-4">
               <v-btn variant="flat" color="primary" prepend-icon="mdi-check" :disabled="loading"
                 @click="applyBulkPaste">
@@ -93,8 +100,8 @@
           </div>
 
           <div v-for="dim in weightDims" :key="dim.key" class="mb-2">
-            <v-slider v-model="weightPercents[dim.key]" :label="dim.label" min="0" max="100" step="1"
-              thumb-label density="compact" :disabled="loading" hide-details>
+            <v-slider v-model="weightPercents[dim.key]" :label="dim.label" min="0" max="100" step="1" thumb-label
+              density="compact" :disabled="loading" hide-details>
               <template #append>
                 <v-text-field v-model.number="weightPercents[dim.key]" type="number" step="1" min="0" max="100"
                   density="compact" style="width: 90px" hide-details suffix="%" :disabled="loading" />
@@ -154,6 +161,27 @@
         No screenings yet. Run your first one above.
       </v-card-text>
     </v-card>
+
+    <v-dialog v-model="previewDialog" max-width="720">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          Demo JD Text
+          <v-spacer />
+          <v-btn icon="mdi-content-copy" variant="text" size="small" @click="copyJdText" />
+        </v-card-title>
+        <v-card-text>
+          <pre class="text-body-2" style="white-space: pre-wrap; font-family: inherit">{{ jdText }}</pre>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="previewDialog = false">Close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-snackbar v-model="jdTextCopied" timeout="2000">
+      JD text copied to clipboard
+    </v-snackbar>
 
     <v-dialog v-model="deleteDialog" max-width="480">
       <v-card>
@@ -281,6 +309,14 @@ const niceToHaveSkillItems = computed(() =>
 )
 
 const jdText = computed(() => buildJdText(jd))
+const previewDialog = ref(false)
+const jdTextCopied = ref(false)
+
+async function copyJdText() {
+  await navigator.clipboard.writeText(jdText.value)
+  jdTextCopied.value = true
+}
+
 const cvUrls = ref<string[]>([''])
 const bulkPasteMode = ref(false)
 const bulkPasteText = ref('')
