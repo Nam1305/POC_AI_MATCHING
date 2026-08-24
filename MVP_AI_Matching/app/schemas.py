@@ -235,7 +235,6 @@ class CVJobEvaluation(BaseModel):
     bonus_skills:         list[str]              = Field(default_factory=list)
     skill_match_rate:     float = 0.0
 
-    experience_verdict: str = ""   # sufficient | insufficient | over_qualified | not_required
     experience_detail:  str = ""
     education_verdict:  str = ""   # exceeds | meets | below | not_required
 

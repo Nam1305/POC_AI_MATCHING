@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     cosine_max: float = 1.0    # no stretch — raw cosine used as-is (override via COSINE_MAX)
 
     default_weight_semantic:   float = 0.30
-    default_weight_skills:     float = 0.35
-    default_weight_experience: float = 0.20
+    default_weight_skills:     float = 0.30
+    default_weight_experience: float = 0.25
     default_weight_education:  float = 0.10
     default_weight_location:   float = 0.05   # D5 — was "keywords", replaced by location+work-mode score
 

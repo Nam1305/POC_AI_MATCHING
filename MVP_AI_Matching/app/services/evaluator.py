@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from app.schemas import CVJobEvaluation, ParsedCV, ParsedJD, SkillMatchDetail
 from app.services.llm_client import call_llm_text
+from app.services.scorer import _skill_group_months
 from app.services.skill_matcher import _skill_matcher, resolve_canonical
 
 _matcher = _skill_matcher
@@ -135,42 +136,33 @@ def _analyze_skills(cv: ParsedCV, jd: ParsedJD) -> dict:
 
 def _analyze_experience(cv: ParsedCV, jd: ParsedJD) -> dict:
     """
-    So sánh tổng số năm kinh nghiệm của candidate (cv.total_exp_years) với
-    số năm JD yêu cầu tối thiểu (jd.min_experience_years), trả về verdict
-    định tính cho HR đọc (không chỉ là con số):
+    Mô tả kinh nghiệm cho HR đọc, khớp đúng cách D3 (scorer.score_experience)
+    tính điểm: số tháng CV thực làm việc với TỪNG required_skill của JD
+    (_skill_group_months, cùng nguồn với scorer) + thâm niên tổng
+    (cv.total_exp_years), so với số năm JD yêu cầu.
 
-      - "not_required"   : JD không yêu cầu số năm kinh nghiệm cụ thể
-      - "over_qualified"  : CV có số năm >= gấp đôi yêu cầu
-      - "sufficient"      : CV có số năm >= 80% yêu cầu (coi là đủ)
-      - "insufficient"    : CV có số năm ít hơn 80% yêu cầu (thiếu kinh nghiệm)
+    Không còn verdict định tính (sufficient/insufficient/...) — con số D3
+    thật đã có same-formula ở "scores", nhãn rời rạc ở đây từng bị lệch với
+    điểm D3 thực tế nên bỏ hẳn, chỉ còn 1 câu mô tả dữ liệu.
 
-    Trả về dict {"verdict": ..., "detail": chuỗi mô tả tiếng Việt để hiển
-    thị trực tiếp cho HR}.
+    Trả về dict {"detail": chuỗi mô tả tiếng Việt để hiển thị trực tiếp cho HR}.
     """
     if not jd.min_experience_years:
-        return {
-            "verdict": "not_required",
-            "detail":  "JD không yêu cầu số năm kinh nghiệm cụ thể",
-        }
+        return {"detail": "JD không yêu cầu số năm kinh nghiệm cụ thể"}
 
-    cv_years  = cv.total_exp_years
-    required  = jd.min_experience_years
+    parts: list[str] = []
+    for req in jd.required_skills:
+        names  = _matcher.group_names(req)
+        months = _skill_group_months(cv.work_experience, names, _matcher)
+        if months <= 0:
+            continue
+        years = round(months / 12, 1)
+        parts.append(f"{years} năm kinh nghiệm {_matcher.group_label(req)}")
 
-    if cv_years >= required * 2:
-        return {
-            "verdict": "over_qualified",
-            "detail":  f"CV có {cv_years} năm, JD yêu cầu {required} năm (vượt gấp đôi — có thể over-qualified)",
-        }
-    if cv_years >= required * 0.8:
-        return {
-            "verdict": "sufficient",
-            "detail":  f"CV có {cv_years} năm, JD yêu cầu {required} năm ✓",
-        }
-    gap = round(required - cv_years, 1)
-    return {
-        "verdict": "insufficient",
-        "detail":  f"CV có {cv_years} năm, JD yêu cầu {required} năm (thiếu {gap} năm)",
-    }
+    parts.append(f"thâm niên {cv.total_exp_years} năm")
+
+    detail = f"CV có {', '.join(parts)}, JD yêu cầu {jd.min_experience_years} năm"
+    return {"detail": detail}
 
 
 # ---------------------------------------------------------------------------
@@ -343,7 +335,6 @@ async def evaluate_cv_for_job(cv: ParsedCV, jd: ParsedJD, *, include_narrative: 
         bonus_skills         = skill_data["bonus_skills"],
         skill_match_rate     = skill_data["skill_match_rate"],
 
-        experience_verdict = exp_data["verdict"],
         experience_detail  = exp_data["detail"],
 
         education_verdict  = edu_verdict,
